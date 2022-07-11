@@ -6,6 +6,8 @@ An automatic practical Chess opening repertoire builder.
 
 If you want to understand why this exists and how it works, check here:
 
+https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck
+
 
 ## Bugs, requests, contact
 If you need something, contact alex@alexcrompton.com.
