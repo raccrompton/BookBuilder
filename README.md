@@ -4,7 +4,7 @@
 An automatic practical Chess opening repertoire builder.
 
 
-If you want to understand why this exists, how it works, or get example repertoires check here:
+If you want to understand why this exists, how it works, or get example repertoires, check here:
 
 https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck
 
