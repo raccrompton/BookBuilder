@@ -29,7 +29,7 @@ Then:
    ```sh
    pip install -r requirements.txt
    ```
-4. Download the latest version of whatever engine you want to use, and update the engine filepath in the Config.py file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
+4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.py file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
 
 
 <!-- QUICKSTART -->
