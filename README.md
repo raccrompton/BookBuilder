@@ -16,7 +16,7 @@ Then:
 
 <!-- INSTALLATION -->
 ### Installation
-
+This can seem difficult if you're not a programmer, but don't worry. It should only take about 5-10 minutes to get going.
 
 1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/ 
 
@@ -29,6 +29,10 @@ If you get other error messages during this process (because you don't have Git 
    ```
 3. Pip install requirements (inside a virtual environment/IDE like VSCode)
    ```sh
+   pip3 install -r requirements.txt
+   ```
+   or
+      ```sh
    pip3 install -r requirements.txt
    ```
 4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.py file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
