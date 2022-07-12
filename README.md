@@ -38,6 +38,8 @@ Run the BookBuilder application. You might have to wait a few seconds. You'll be
 5. Take your PGN files and upload them to your favourite place like Chessable, Chess Tempo, Chess Madra etc.
 
 
+
+
 <!-- INSTALLATION -->
 ### Using BookBuilder if you dont mind installing python.
 
@@ -45,7 +47,7 @@ This can seem difficult if you're not a programmer, but don't worry. It should o
 
 1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/ 
 
-### From here, I recored a Loom video so you can watch me set it up and create a repertoire in under 2 minutes: https://www.loom.com/share/57e269a1a7bc43d389f1a79eeb161f09
+#### From here, I recored a Loom video so you can watch me set it up and create a repertoire in under 2 minutes: https://www.loom.com/share/57e269a1a7bc43d389f1a79eeb161f09
 
 If you get other error messages during this process (because you don't have Git or Pip etc), follow the instructions on the error messages or copy and paste the error into Google. Ususally you just have to install something by typing in a command in Terminal. It'll be fine.
 
