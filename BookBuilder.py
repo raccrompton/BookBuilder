@@ -19,7 +19,8 @@ from workerEngineReduce import WorkerPlay
 from workerEngineReduce import quitEngine
 import chess.engine
 
-print(f'Your current dir is {os.getcwd()}')
+working_dir = os.getcwd()
+print(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 # yaml_location = input('What is the full path to your config.yaml file? ')
 yaml_location = '/Users/vincenttan/Code/work/BookBuilder/config.yaml'
 with open(yaml_location, "r") as f:
@@ -244,26 +245,26 @@ class Leafer():
 class Printer():
     def __init__(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber):
         
-        file = open("Chapter " + str(chapter) + " " + openingName + ".pgn","a")
-        pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
-        # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
-        
-        file.write('\n' + '\n' + '\n' + pgnEvent + '\n' ) #write name of pgn
-        file.write ('\n' + pgn) #write pgn
-        
-        file.write('\n' + "{Move playrates:") #start annotations
-        
-        for move, chance in likelyPath:
-            moveAnnotation = str("{:+.2%}".format(chance)) + '\t' + move
-            file.write ('\n' + moveAnnotation)
-        
-        
-        #we write them in as annotations
-        lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate: " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
-        
-        file.write('\n' + lineAnnotations)
-        
-        file.write("}") #end annotations                 
+        with open(f"{working_dir}/Chapter_{chapter}_{openingName}.pgn", 'a') as file:
+            pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
+            # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
+            
+            file.write('\n' + '\n' + '\n' + pgnEvent + '\n' ) #write name of pgn
+            file.write ('\n' + pgn) #write pgn
+            
+            file.write('\n' + "{Move playrates:") #start annotations
+            
+            for move, chance in likelyPath:
+                moveAnnotation = str("{:+.2%}".format(chance)) + '\t' + move
+                file.write ('\n' + moveAnnotation)
+            
+            
+            #we write them in as annotations
+            lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate: " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
+            
+            file.write('\n' + lineAnnotations)
+            
+            file.write("}") #end annotations                 
 
 
 class Grower():
@@ -337,7 +338,6 @@ class Grower():
         #we print the final list of lines
         print('number of final lines', len(printerFinalLine))
         print('final line sorted',printerFinalLine)
-        file = open("Chapter " + str(chapter) + " " + openingName + ".pgn","w")
         lineNumber = 1        
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
             Printer (pgn, cumulative, likelyPath, winRate, Games, lineNumber)
