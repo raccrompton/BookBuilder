@@ -4,10 +4,12 @@ from typing import final
 from venv import create
 from numpy import append
 from pyparsing import line
-
-import config
             
+from config import config 
+
 import io
+import os
+import logging
 import argparse
 import chess
 import chess.pgn
@@ -15,6 +17,15 @@ import chess.pgn
 from workerEngineReduce import WorkerPlay
 from workerEngineReduce import quitEngine
 import chess.engine
+
+
+log_level = logging.INFO
+if config.PRINT_INFO_TO_CONSOLE:
+    log_level = logging.DEBUG
+logging.basicConfig(level=log_level)
+
+working_dir = os.getcwd()
+logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 
 if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
@@ -35,7 +46,7 @@ class Rooter():
 
         board = game.board()
         moves = list(game.mainline_moves()) #we create a list of pgn moves in UCI
-        print(moves)
+        logging.debug(moves)
         
 
         if len(moves) % 2 == 0: #if even moves in pgn, we are black. if odd, white.
@@ -58,8 +69,8 @@ class Rooter():
                 move_stats, chance = workerPlay.find_opponent_move(move) #we look for the PGN move in the API response, and return the odds of it being played
                 self.likelihood *= chance #we are creating a cumulative likelihood from each played move in the PGN
                 self.likelihood_path.append((move_stats['san'], chance)) #we are creating a list of PGN moves with the chance of each of them being played 0-1
-                print ("likelihoods to get here: ",self.likelihood_path)
-                print ("cumulative likelihood", "{:+.2%}".format(self.likelihood))
+                logging.debug(f"likelihoods to get here: {self.likelihood_path}")
+                logging.debug(f"cumulative likelihood {'{:+.2%}'.format(self.likelihood)}", )
             board.push(move) #play each move in the PGN
         
         #now we have the likelihood path and cumulative likelihood of each opponent move in the PGN, so pgn can go to leafer
@@ -68,7 +79,7 @@ class Rooter():
         
 
         pgnsreturned.append(pgnPlus)
-        print("sent from rooter", pgnsreturned)
+        logging.debug(f"sent from rooter: {pgnsreturned}")
          
 
 class Leafer():
@@ -87,7 +98,7 @@ class Leafer():
 
         board = game.board()
         moves = list(game.mainline_moves()) #we create a list of pgn moves in UCI
-        print(moves)
+        logging.debug(moves)
         
         if len(moves) % 2 == 0: #if even moves in pgn, we are black. if odd, white.
             perspective = chess.BLACK
@@ -108,7 +119,7 @@ class Leafer():
         #we find all continuations
         self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the position
         continuations = self.workerPlay.find_move_tree() #list all continuations
-        #print(continuations)       
+        #logging.debug(continuations)       
         
         
         for move in continuations:
@@ -117,8 +128,8 @@ class Leafer():
                 move ['cumulativeLikelihood'] = (continuationLikelihood)
                 validContinuations.append(move)
                 #print (float(move['playrate']),float(self.likelihood),float(config.DEPTHLIKELIHOOD))
-                #print(continuationLikelihood)
-        print ('valid continuations:', validContinuations)
+                #logging.debug(continuationLikelihood)
+        logging.debug ('valid continuations: {validContinuations}')
         
         
         
@@ -132,7 +143,11 @@ class Leafer():
             #we look for the best move for us to play
             self.workerPlay = WorkerPlay(board.fen(), lastmove = move)
             _, self.best_move, self.potency, self.potency_range, self.total_games = self.workerPlay.pick_candidate() #list best candidate move, win rate,
-            print('against ', move['san'], '   played', "{:+.2%}".format(move['playrate']), '   cumulative playrate', "{:+.2%}".format(move['cumulativeLikelihood']), '   our best move', self.best_move, '   win rate is', "{:+.2%}".format(self.potency), '   with a range of ', ["{:.2%}".format(x) for x in self.potency_range], '   over games', self.total_games)
+            print_playrate = '{:+.2%}'.format(move['playrate'])
+            print_cumulativelikelihood = '{:+.2%}'.format(move['cumulativeLikelihood'])
+            print_winrate = "{:+.2%}".format(self.potency)
+            print_potency_range = ["{:.2%}".format(x) for x in self.potency_range]
+            logging.debug(f"against {move['san']} played {print_playrate} cumulative playrate {print_cumulativelikelihood} our best move {self.best_move} win rate is {print_winrate} with a range of {print_potency_range} over {self.total_games} games")
             
             #we check our response playrate and minimum played games meet threshold. if so we pass the pgn. if not we add pgn to final list
             
@@ -150,11 +165,11 @@ class Leafer():
                     newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                     newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(self.best_move) #then our best response
                     pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
-                print("full new pgn after our move is ", newpgn)        
+                logging.debug(f"full new pgn after our move is {newpgn}")        
                 
                 #we make a list of pgns that we want to feed back into the algorithm, along with cumulative winrates
                 pgnList.append(pgnPlus)
-                #print(pgnList)
+                #logging.debug(pgnList)
                 del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                 board.pop() #we go back a move to undo the continuation
             else:
@@ -163,7 +178,7 @@ class Leafer():
                     #we ask the engine the best move
                     PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to finish the line
                     board.push(PlayResult.move)
-                    print("engine finished", PlayResult.move)
+                    logging.debug(f"engine finished {PlayResult.move}")
                     board.pop() #we go back a move to undo the engine
                     
                     engineMove = board.san(PlayResult.move)
@@ -180,24 +195,24 @@ class Leafer():
                         newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                         newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(engineMove) #then our best response
                         pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
-                    print("full new pgn after our move is ", newpgn)        
+                    logging.debug("full new pgn after our move is {newpgn}")        
                     
                     #we make a list of pgns that we want to feed back into the algorithm, along with cumulative winrates
                     pgnList.append(pgnPlus)
-                    #print(pgnList)
+                    #logging.debug(pgnList)
                     del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                     board.pop() #we go back a move to undo the continuation
                         
                                    
                 
                 else:
-                    print("we find no good reply to", self.pgn, move['san'])
+                    logging.debug(f"we find no good reply to {self.pgn} {move['san']}")
                     board.pop() #we go back a move to undo the continuation
                     del self.likelihood_path [-1] #we remove the continuation from the likelihood path    
                     #we find potency and other stats
                     self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the final position
                     lineWinRate, totalLineGames, throwawayDraws = self.workerPlay.find_potency() #we get the win rate and games played in the final position            
-                    print ('saving no reply line', self.pgn, self.likelihood, self.likelihood_path,lineWinRate, totalLineGames)
+                    logging.debug (f'saving no reply line {self.pgn} {self.likelihood} {self.likelihood_path} {lineWinRate} {totalLineGames}')
                     line = (self.pgn, self.likelihood, self.likelihood_path,lineWinRate, totalLineGames)
                     finalLine.append(line) #we add line to final line list                                 
                 
@@ -233,45 +248,46 @@ class Leafer():
             
             
 class Printer():
-    def __init__(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber):
-        
-        file = open("Chapter " + str(chapter) + " " + openingName + ".pgn","a")
-        pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
-        # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
-        
-        file.write('\n' + '\n' + '\n' + pgnEvent + '\n' ) #write name of pgn
-        file.write ('\n' + pgn) #write pgn
-        
-        file.write('\n' + "{Move playrates:") #start annotations
-        
-        for move, chance in likelyPath:
-            moveAnnotation = str("{:+.2%}".format(chance)) + '\t' + move
-            file.write ('\n' + moveAnnotation)
-        
-        
-        #we write them in as annotations
-        lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate: " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
-        
-        file.write('\n' + lineAnnotations)
-        
-        file.write("}") #end annotations                 
+    def __init__(self, filepath):
+        self.filepath = filepath
+        with open(self.filepath, 'w') as f:
+            f.write('')
+        logging.info(f"Created new file at: {self.filepath}")
+
+
+
+    def print(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber, openingName):
+        with open(self.filepath, 'a') as file:
+            pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
+            # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
+            
+            file.write('\n' + '\n' + '\n' + pgnEvent + '\n' ) #write name of pgn
+            file.write ('\n' + pgn) #write pgn
+            
+            file.write('\n' + "{Move playrates:") #start annotations
+            
+            for move, chance in likelyPath:
+                moveAnnotation = str("{:+.2%}".format(chance)) + '\t' + move
+                file.write ('\n' + moveAnnotation)
+            
+            
+            #we write them in as annotations
+            lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate: " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
+            
+            file.write('\n' + lineAnnotations)
+            
+            file.write("}") #end annotations                
+        logging.info(f"Wrote data to {self.filepath}")
 
 
 class Grower():
     
-    def __init__(self):
-        i = 1
-        for opening in config.OPENINGBOOK:
-            global openingName
-            openingName = opening['Name']
-            global chapter
-            chapter = i
-            pgn = opening['pgn']
-            self.pgn = pgn
-            self.iterator()
-            i += 1
+    def run(self):
+        for chapter, opening in enumerate(config.OPENINGBOOK, 1):
+            self.pgn = opening['pgn']
+            self.iterator(chapter, opening['Name'])
         
-    def iterator(self):
+    def iterator(self, chapter, openingName):
         global finalLine
         finalLine = []
         global pgnsreturned #we make a globally accessible variable for the new pgns returned by Rooter
@@ -294,7 +310,7 @@ class Grower():
                 Leafer(self.pgn, self.cumulative, self.likelyPath)
                 secondList.extend(pgnsreturned)
                 i += 1
-                # print("iterative",secondList)
+                # logging.debug("iterative",secondList)
            
         #print ("final line list: ", finalLine)
         
@@ -304,7 +320,7 @@ class Grower():
         for line in finalLine:
             if line not in uniqueFinalLine:
                 uniqueFinalLine.append(line)
-        print("unique lines with subsets ", uniqueFinalLine)     
+        logging.debug("unique lines with subsets {uniqueFinalLine}")     
         
         printerFinalLine = [] #we prepare a list ready for printing
         
@@ -316,8 +332,8 @@ class Grower():
             if lineCount == 0:
                 printerFinalLine.append(line) #we add line to go to print
             else:
-                print("duplicate line ", line)
-            print("final line count ", lineCount+1, "for line ", lineString)
+                logging.debug("duplicate line ", line)
+            logging.debug(f"final line count { lineCount+1 } for line {lineString}")
         
         
         if config.LONGTOSHORT == 1:
@@ -326,22 +342,26 @@ class Grower():
 
         
         #we print the final list of lines
-        print('number of final lines', len(printerFinalLine))
-        print('final line sorted',printerFinalLine)
-        file = open("Chapter " + str(chapter) + " " + openingName + ".pgn","w")
+        logging.debug(f'number of final lines {len(printerFinalLine)}')
+        logging.debug(f'final line sorted {printerFinalLine}')
+        printer = Printer( f"{working_dir}/Chapter_{chapter}_{openingName}.pgn")
+
         lineNumber = 1        
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
-            Printer (pgn, cumulative, likelyPath, winRate, Games, lineNumber)
+            printer.print(pgn, cumulative, likelyPath, winRate, Games, lineNumber, openingName)
             lineNumber += 1
 
 
 def main():
 
-    Grower()
+    grower = Grower()
+    grower.run()
 
-main()
 
-if (config.CAREABOUTENGINE == 1):    
-    quitEngine() # quit worker engine
+if __name__=='__main__':
+    main()
 
-    engine.quit() # quit bb engine
+    if (config.CAREABOUTENGINE == 1):    
+        quitEngine() # quit worker engine
+
+        engine.quit() # quit bb engine
