@@ -22,8 +22,8 @@ Then:
 
 2. Clone the repo
    ```sh
-   git clone 
-   cd chess-trap-scorer
+   git clone https://github.com/raccrompton/BookBuilder.git
+   cd BookBuilder
    ```
 3. Pip install requirements (inside a virtual environment/IDE)
    ```sh
