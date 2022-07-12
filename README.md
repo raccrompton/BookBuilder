@@ -15,9 +15,33 @@ If you need something, contact alex@alexcrompton.com.
 Then:
 
 <!-- INSTALLATION -->
-### Installation
-This can seem difficult if you're not a programmer, but don't worry. It should only take about 5-10 minutes to get going.
+### Using BookBuilder if you dont want to touch any code.
+I've made a desktop application which means you won't have to install anything. It's a lot clunkier than the Code version, but it will work without you having to touch any code. For programmers FYI, it's just a pyinstaller --onefile of BookBuilder.py.
 
+1. Getting the app.
+You can download the application here: https://drive.google.com/drive/folders/1YUJO0usd5vdGP4HapiL_R_j18bdDDUEu?usp=sharing
+In it you'll find:
+- the BookBuilder application
+- Stockfish 15 for Mac and Windows
+- config.yaml
+
+2. Editing the settings.
+Download the files above, and then open config.yaml. Edit the settings to whatever you want. This Config.yaml file is also where you put the PGN for whatever openings you want to generate a repertoire for. The repertoire will always be generated from the perspective of the last player to move (eg "1.e4" creates a White repertoire, "1.e4 e5" creates a Black repertoire).
+
+Importantly, if you want to use the engine, is to update the filepath for the engine to match that on your computer. You can do this by opening the BookBuilder folder on your computer and finding the engine file. For Windows you can find the file like this: https://www.wikihow.com/Find-a-File%27s-Path-on-Windows or https://setapp.com/how-to/how-to-find-the-path-of-a-file-in-mac.
+
+3. Creating a repertoire.
+Run the BookBuilder application. You might have to wait a few seconds. You'll be asked for the file path of your config.yaml file. Paste it in and press enter. Sometimes it can take a while for things to happen on screen.
+
+4. The application will create PGN files for each of the openings you put in your config file. BookBuilder tells you where it's storing the files at the beginning, when it's running.
+
+5. Take your PGN files and upload them to your favourite place like Chessable, Chess Tempo, Chess Madra etc.
+
+
+<!-- INSTALLATION -->
+### Using BookBuilder if you dont mind installing python.
+
+This can seem difficult if you're not a programmer, but don't worry. It should only take about 5-10 minutes to get going.
 
 1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/ 
 
@@ -47,10 +71,9 @@ If you get other error messages during this process (because you don't have Git 
 4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.yaml file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
 
 
-<!-- QUICKSTART -->
-### Creating a repertoire
+5. Creating a repertoire
 
-Edit and save the Config.yaml file with whatever settings you want. The settings are explained in the Config.yaml file.
+Edit and save the Config.yaml file with whatever settings you want. The settings are explained in the Config.yaml file. You can also update config.py so you dont have to do that in future.
 
 The Config.yaml file is also where you put the PGN for whatever openings you want to generate a repertoire for. The repertoire will always be generated from the perspective of the last player to move (eg "1.e4" creates a White repertoire, "1.e4 e5" creates a Black repertoire).
 
