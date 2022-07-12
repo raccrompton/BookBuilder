@@ -139,7 +139,11 @@ class Leafer():
             #we look for the best move for us to play
             self.workerPlay = WorkerPlay(board.fen(), lastmove = move)
             _, self.best_move, self.potency, self.potency_range, self.total_games = self.workerPlay.pick_candidate() #list best candidate move, win rate,
-            print('against ', move['san'], '   played', "{:+.2%}".format(move['playrate']), '   cumulative playrate', "{:+.2%}".format(move['cumulativeLikelihood']), '   our best move', self.best_move, '   win rate is', "{:+.2%}".format(self.potency), '   with a range of ', ["{:.2%}".format(x) for x in self.potency_range], '   over games', self.total_games)
+            print_playrate = '{:+.2%}'.format(move['playrate'])
+            print_cumulativelikelihood = '{:+.2%}'.format(move['cumulativeLikelihood'])
+            print_winrate = "{:+.2%}".format(self.potency)
+            print_potency_range = ["{:.2%}".format(x) for x in self.potency_range]
+            logging.debug(f"against {move['san']} played {print_playrate} cumulative playrate {print_cumulativelikelihood} our best move {self.best_move} win rate is {print_winrate} with a range of {print_potency_range} over {self.total_games} games")
             
             #we check our response playrate and minimum played games meet threshold. if so we pass the pgn. if not we add pgn to final list
             
