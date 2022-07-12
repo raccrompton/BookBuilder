@@ -187,7 +187,7 @@ class WorkerPlay():
                     board.push_san(san) # push our candidate move
                     # print("after push")
                     # print(board)
-                    
+                    print("engine evaluating...")
                     score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from their perspective
                     # print("Their Score:", score["score"])
                     scoreString = str(score["score"])
@@ -236,6 +236,7 @@ class WorkerPlay():
                             #if the move is not junk, we check further with the engine
                             
                             if not baseEval: #if we already have a base eval, we just use that one
+                                print("engine evaluating...")
                                 score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval before our move from their perspective
                                 # print("Their Score:", score["score"])
                                 scoreString = str(score["score"])
@@ -293,7 +294,7 @@ class WorkerPlay():
                                         board.push(PlayResult.move) #we get engine to reply to our move, then check eval
                                         # print(board)
                                         
-                                        
+                                        print("engine evaluating...")
                                         score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval
                                         # print("After their move pur Score:", score["score"])
                                         scoreString = str(score["score"])
