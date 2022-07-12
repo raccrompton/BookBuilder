@@ -36,7 +36,7 @@ ENGINEPATH = r"/Users/AM/Downloads/BookBuilder/Stockfish"
 CAREABOUTENGINE = 0
 #care about engine eval of position or engine finishing = 1, dont care = 0
 ENGINEDEPTH = 10
-#what depth the engine should evaluate best moves
+#what depth the engine should evaluate best moves. the higher the depth the longer the evaluation will take.
 ENGINEFINISH = 1
 #if we want the engine to complete lines to cumulative likelihood where data is insufficient, 1. Otherwise 0, and lines will end where there's no good human data
 SOUNDNESSLIMIT = -99
@@ -45,8 +45,8 @@ MOVELOSSLIMIT = -99
 #maximum centipawns we are willing to lose vs engine analysis pre move to play a higher winrate move. We never give up a forced mate, however.
 IGNORELOSSLIMIT = 300
 #centipawns advantage above which we won't care if we play a move that hits our loss limit, if it has a higher win rate (is easier to win)
-ENGINETHREADS = 1 #max 20
+ENGINETHREADS = 1 #my max 20
 #how many threads you want the engine to use (check your comp and set 1 if unsure)
-ENGINEHASH = 320 #4096 #max 10240
+ENGINEHASH = 320 #my max 10240
 #how much hash you want the engine to use (check your comp and set to 16 if unsure)
 
