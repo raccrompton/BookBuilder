@@ -248,10 +248,16 @@ class Leafer():
             
             
 class Printer():
-    def __init__(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber):
+    def __init__(self, filepath):
+        self.filepath = filepath
+        with open(self.filepath, 'w') as f:
+            f.write('')
+        logging.info(f"Created new file at: {self.filepath}")
 
-        path = f"{working_dir}/Chapter_{chapter}_{openingName}.pgn"
-        with open(path, 'a') as file:
+
+
+    def print(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber, openingName):
+        with open(self.filepath, 'a') as file:
             pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
             # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
             
@@ -271,24 +277,17 @@ class Printer():
             file.write('\n' + lineAnnotations)
             
             file.write("}") #end annotations                
-        logging.info(f"Wrote data to {path}")
+        logging.info(f"Wrote data to {self.filepath}")
 
 
 class Grower():
     
-    def __init__(self):
-        i = 1
-        for opening in config.OPENINGBOOK:
-            global openingName
-            openingName = opening['Name']
-            global chapter
-            chapter = i
-            pgn = opening['pgn']
-            self.pgn = pgn
-            self.iterator()
-            i += 1
+    def run(self):
+        for chapter, opening in enumerate(config.OPENINGBOOK, 1):
+            self.pgn = opening['pgn']
+            self.iterator(chapter, opening['Name'])
         
-    def iterator(self):
+    def iterator(self, chapter, openingName):
         global finalLine
         finalLine = []
         global pgnsreturned #we make a globally accessible variable for the new pgns returned by Rooter
@@ -345,19 +344,24 @@ class Grower():
         #we print the final list of lines
         logging.debug(f'number of final lines {len(printerFinalLine)}')
         logging.debug(f'final line sorted {printerFinalLine}')
+        printer = Printer( f"{working_dir}/Chapter_{chapter}_{openingName}.pgn")
+
         lineNumber = 1        
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
-            Printer (pgn, cumulative, likelyPath, winRate, Games, lineNumber)
+            printer.print(pgn, cumulative, likelyPath, winRate, Games, lineNumber, openingName)
             lineNumber += 1
 
 
 def main():
 
-    Grower()
+    grower = Grower()
+    grower.run()
 
-main()
 
-if (config.CAREABOUTENGINE == 1):    
-    quitEngine() # quit worker engine
+if __name__=='__main__':
+    main()
 
-    engine.quit() # quit bb engine
+    if (config.CAREABOUTENGINE == 1):    
+        quitEngine() # quit worker engine
+
+        engine.quit() # quit bb engine
