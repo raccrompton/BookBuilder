@@ -4,13 +4,12 @@ from typing import final
 from venv import create
 from numpy import append
 from pyparsing import line
-
-# import config
             
+from config import config 
+
 import io
-import yaml
-import addict
 import os
+import logging
 import argparse
 import chess
 import chess.pgn
@@ -19,12 +18,10 @@ from workerEngineReduce import WorkerPlay
 from workerEngineReduce import quitEngine
 import chess.engine
 
+logging.basicConfig(level=logging.INFO)
+
 working_dir = os.getcwd()
-print(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
-# yaml_location = input('What is the full path to your config.yaml file? ')
-yaml_location = '/Users/vincenttan/Code/work/BookBuilder/config.yaml'
-with open(yaml_location, "r") as f:
-    config = addict.Dict(yaml.safe_load(f))
+logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 
 if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
@@ -45,7 +42,7 @@ class Rooter():
 
         board = game.board()
         moves = list(game.mainline_moves()) #we create a list of pgn moves in UCI
-        print(moves)
+        logging.debug(moves)
         
 
         if len(moves) % 2 == 0: #if even moves in pgn, we are black. if odd, white.
@@ -78,7 +75,7 @@ class Rooter():
         
 
         pgnsreturned.append(pgnPlus)
-        print("sent from rooter", pgnsreturned)
+        logging.debug(f"sent from rooter: {pgnsreturned}")
          
 
 class Leafer():
@@ -97,7 +94,7 @@ class Leafer():
 
         board = game.board()
         moves = list(game.mainline_moves()) #we create a list of pgn moves in UCI
-        print(moves)
+        logging.debug(moves)
         
         if len(moves) % 2 == 0: #if even moves in pgn, we are black. if odd, white.
             perspective = chess.BLACK
@@ -118,7 +115,7 @@ class Leafer():
         #we find all continuations
         self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the position
         continuations = self.workerPlay.find_move_tree() #list all continuations
-        #print(continuations)       
+        #logging.debug(continuations)       
         
         
         for move in continuations:
@@ -127,7 +124,7 @@ class Leafer():
                 move ['cumulativeLikelihood'] = (continuationLikelihood)
                 validContinuations.append(move)
                 #print (float(move['playrate']),float(self.likelihood),float(config.DEPTHLIKELIHOOD))
-                #print(continuationLikelihood)
+                #logging.debug(continuationLikelihood)
         print ('valid continuations:', validContinuations)
         
         
@@ -160,11 +157,11 @@ class Leafer():
                     newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                     newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(self.best_move) #then our best response
                     pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
-                print("full new pgn after our move is ", newpgn)        
+                logging.debug(f"full new pgn after our move is {newpgn}")        
                 
                 #we make a list of pgns that we want to feed back into the algorithm, along with cumulative winrates
                 pgnList.append(pgnPlus)
-                #print(pgnList)
+                #logging.debug(pgnList)
                 del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                 board.pop() #we go back a move to undo the continuation
             else:
@@ -173,7 +170,7 @@ class Leafer():
                     #we ask the engine the best move
                     PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to finish the line
                     board.push(PlayResult.move)
-                    print("engine finished", PlayResult.move)
+                    logging.debug(f"engine finished {PlayResult.move}")
                     board.pop() #we go back a move to undo the engine
                     
                     engineMove = board.san(PlayResult.move)
@@ -190,18 +187,18 @@ class Leafer():
                         newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                         newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(engineMove) #then our best response
                         pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
-                    print("full new pgn after our move is ", newpgn)        
+                    logging.debug("full new pgn after our move is {newpgn}")        
                     
                     #we make a list of pgns that we want to feed back into the algorithm, along with cumulative winrates
                     pgnList.append(pgnPlus)
-                    #print(pgnList)
+                    #logging.debug(pgnList)
                     del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                     board.pop() #we go back a move to undo the continuation
                         
                                    
                 
                 else:
-                    print("we find no good reply to", self.pgn, move['san'])
+                    logging.debug(f"we find no good reply to {self.pgn} {move['san']}")
                     board.pop() #we go back a move to undo the continuation
                     del self.likelihood_path [-1] #we remove the continuation from the likelihood path    
                     #we find potency and other stats
@@ -304,7 +301,7 @@ class Grower():
                 Leafer(self.pgn, self.cumulative, self.likelyPath)
                 secondList.extend(pgnsreturned)
                 i += 1
-                # print("iterative",secondList)
+                # logging.debug("iterative",secondList)
            
         #print ("final line list: ", finalLine)
         
@@ -314,7 +311,7 @@ class Grower():
         for line in finalLine:
             if line not in uniqueFinalLine:
                 uniqueFinalLine.append(line)
-        print("unique lines with subsets ", uniqueFinalLine)     
+        logging.debug("unique lines with subsets ", uniqueFinalLine)     
         
         printerFinalLine = [] #we prepare a list ready for printing
         
@@ -326,8 +323,8 @@ class Grower():
             if lineCount == 0:
                 printerFinalLine.append(line) #we add line to go to print
             else:
-                print("duplicate line ", line)
-            print("final line count ", lineCount+1, "for line ", lineString)
+                logging.debug("duplicate line ", line)
+            logging.debug("final line count ", lineCount+1, "for line ", lineString)
         
         
         if config.LONGTOSHORT == 1:
@@ -336,8 +333,8 @@ class Grower():
 
         
         #we print the final list of lines
-        print('number of final lines', len(printerFinalLine))
-        print('final line sorted',printerFinalLine)
+        logging.debug('number of final lines', len(printerFinalLine))
+        logging.debug('final line sorted',printerFinalLine)
         lineNumber = 1        
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
             Printer (pgn, cumulative, likelyPath, winRate, Games, lineNumber)
