@@ -62,4 +62,4 @@ You will get printed explanations of what's happening in the Terminal window. On
 <!-- ACKNOWLEDGEMENTS -->
 ### Acknowledgements
 
-Thanks to David Foster for Chess Trap Scorer, which was a big inspiration and starting point for this code.
+Thanks to creators like Ben Johnson, Daniel Lona, Nate Solon, and Marcus Buffett, for all their ideas and inspiration. Thanks also to David Foster for Chess Trap Scorer, which was not just part of the inspiration, but also all of the starting point code wise for this program. 
