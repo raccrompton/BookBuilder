@@ -18,7 +18,11 @@ from workerEngineReduce import WorkerPlay
 from workerEngineReduce import quitEngine
 import chess.engine
 
-logging.basicConfig(level=logging.INFO)
+
+log_level = logging.INFO
+if config.PRINT_INFO_TO_CONSOLE:
+    log_level = logging.DEBUG
+logging.basicConfig(level=log_level)
 
 working_dir = os.getcwd()
 logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
@@ -65,8 +69,8 @@ class Rooter():
                 move_stats, chance = workerPlay.find_opponent_move(move) #we look for the PGN move in the API response, and return the odds of it being played
                 self.likelihood *= chance #we are creating a cumulative likelihood from each played move in the PGN
                 self.likelihood_path.append((move_stats['san'], chance)) #we are creating a list of PGN moves with the chance of each of them being played 0-1
-                print ("likelihoods to get here: ",self.likelihood_path)
-                print ("cumulative likelihood", "{:+.2%}".format(self.likelihood))
+                logging.debug(f"likelihoods to get here: {self.likelihood_path}")
+                logging.debug(f"cumulative likelihood {'{:+.2%}'.format(self.likelihood)}", )
             board.push(move) #play each move in the PGN
         
         #now we have the likelihood path and cumulative likelihood of each opponent move in the PGN, so pgn can go to leafer
@@ -125,7 +129,7 @@ class Leafer():
                 validContinuations.append(move)
                 #print (float(move['playrate']),float(self.likelihood),float(config.DEPTHLIKELIHOOD))
                 #logging.debug(continuationLikelihood)
-        print ('valid continuations:', validContinuations)
+        logging.debug ('valid continuations: {validContinuations}')
         
         
         
@@ -208,7 +212,7 @@ class Leafer():
                     #we find potency and other stats
                     self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the final position
                     lineWinRate, totalLineGames, throwawayDraws = self.workerPlay.find_potency() #we get the win rate and games played in the final position            
-                    print ('saving no reply line', self.pgn, self.likelihood, self.likelihood_path,lineWinRate, totalLineGames)
+                    logging.debug (f'saving no reply line {self.pgn} {self.likelihood} {self.likelihood_path} {lineWinRate} {totalLineGames}')
                     line = (self.pgn, self.likelihood, self.likelihood_path,lineWinRate, totalLineGames)
                     finalLine.append(line) #we add line to final line list                                 
                 
@@ -245,8 +249,9 @@ class Leafer():
             
 class Printer():
     def __init__(self, pgn, cumulative, likelyPath, winRate, Games, lineNumber):
-        
-        with open(f"{working_dir}/Chapter_{chapter}_{openingName}.pgn", 'a') as file:
+
+        path = f"{working_dir}/Chapter_{chapter}_{openingName}.pgn"
+        with open(path, 'a') as file:
             pgnEvent = '[Event "' + openingName + " Line " + str(lineNumber) + '"]' #we name the event whatever you put in config
             # annotation = "{likelihoods to get here:" + str(self.likelihood_path) + ". Cumulative likelihood" + str("{:+.2%}".format(self.likelihood)) + " }" #we create annotation with opponent move likelihoods and our win rate
             
@@ -265,7 +270,8 @@ class Printer():
             
             file.write('\n' + lineAnnotations)
             
-            file.write("}") #end annotations                 
+            file.write("}") #end annotations                
+        logging.info(f"Wrote data to {path}")
 
 
 class Grower():
@@ -337,8 +343,8 @@ class Grower():
 
         
         #we print the final list of lines
-        logging.debug('number of final lines', len(printerFinalLine))
-        logging.debug('final line sorted',printerFinalLine)
+        logging.debug(f'number of final lines {len(printerFinalLine)}')
+        logging.debug(f'final line sorted {printerFinalLine}')
         lineNumber = 1        
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
             Printer (pgn, cumulative, likelyPath, winRate, Games, lineNumber)

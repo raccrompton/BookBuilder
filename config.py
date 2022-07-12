@@ -3,7 +3,7 @@ import os
 import addict
 
 # You can store your config.yaml location here if you are running this with python and don't want to reinput it everytime
-yaml_location = None
+yaml_location = '/Users/vincenttan/Code/work/BookBuilder/config.yaml'
 
 if yaml_location is None:
     yaml_location = input('What is the full path to your config.yaml file? (ie. /Users/youruser/BookBuilder/config.yaml): ')
