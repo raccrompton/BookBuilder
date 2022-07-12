@@ -1,6 +1,6 @@
 #BOOK SETTINGS
 OPENINGBOOK = [{"Name": "e4 for White", "pgn": "1. e4"},{"Name": "e4 e5 for Black", "pgn": "1. e4 e5"}] 
-#add the books you want to create, with starting point pgns, eg [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}]
+#add the chapter names and pgns you want to create, with starting point pgns, eg [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}].
 LONGTOSHORT = 0
 #if you want the book ordered from long lines to short lines, change to "1". Else 0.
 
