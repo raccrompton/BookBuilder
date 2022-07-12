@@ -321,7 +321,7 @@ class Grower():
         for line in finalLine:
             if line not in uniqueFinalLine:
                 uniqueFinalLine.append(line)
-        logging.debug("unique lines with subsets ", uniqueFinalLine)     
+        logging.debug("unique lines with subsets {uniqueFinalLine}")     
         
         printerFinalLine = [] #we prepare a list ready for printing
         
@@ -334,7 +334,7 @@ class Grower():
                 printerFinalLine.append(line) #we add line to go to print
             else:
                 logging.debug("duplicate line ", line)
-            logging.debug("final line count ", lineCount+1, "for line ", lineString)
+            logging.debug(f"final line count { lineCount+1 } for line {lineString}")
         
         
         if config.LONGTOSHORT == 1:

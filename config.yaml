@@ -50,4 +50,5 @@ ENGINETHREADS: 1 #my max 20
 ENGINEHASH: 320 #my max 10240
 #how much hash you want the engine to use (check your comp and set to 16 if unsure)
 
-PRINT_INFO_TO_CONSOLE: false
+# Change this to true/false depending if you want to see detailed output in your terminal when running the program
+PRINT_INFO_TO_CONSOLE: true
