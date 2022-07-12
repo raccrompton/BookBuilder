@@ -33,7 +33,8 @@ If you get other error messages during this process (because you don't have Git 
    cd BookBuilder
    ```
    OR
-   download the files manually and open them in VSCode
+   download the files manually and open them in VSCode as I do in the loom video.
+   
 3. Pip install requirements (inside a virtual environment/IDE like VSCode)
    ```sh
    pip3 install -r requirements.txt
@@ -42,11 +43,12 @@ If you get other error messages during this process (because you don't have Git 
       ```sh
    pip3 install -r requirements.txt
    ```
+   
 4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.py file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
 
 
 <!-- QUICKSTART -->
-### Quickstart
+### Creating a repertoire
 
 Edit and save the Config.py file with whatever settings you want. The settings are explained in the Config.py file.
 
