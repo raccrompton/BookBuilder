@@ -7,11 +7,12 @@ import scipy.stats as st
 import numpy as np
 import time
 
-import config
+from config import config 
 
 import chess
 import chess.engine
 import re
+
 
 if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH) #WHERE THE ENGINE IS ON YOUR COMPUTER
