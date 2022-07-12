@@ -18,15 +18,19 @@ Then:
 ### Installation
 This can seem difficult if you're not a programmer, but don't worry. It should only take about 5-10 minutes to get going.
 
+I recored a Loom video so you can watch me set it up and create a repertoire in under 2 minutes: https://www.loom.com/share/6e9d5c18c6fe4d7184c7ae1a96412797
+
 1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/ 
 
 If you get other error messages during this process (because you don't have Git or Pip etc), follow the instructions on the error messages or copy and paste the error into Google. Ususally you just have to install something by typing in a command in Terminal. It'll be fine.
 
-2. Open a Terminal, Clone the repo in VSCode (or download the files manually here)
+2. Open a Terminal, Clone the repo in VSCode.
    ```sh
    git clone https://github.com/raccrompton/BookBuilder.git
    cd BookBuilder
    ```
+   OR
+   download the files manually and open them in VSCode
 3. Pip install requirements (inside a virtual environment/IDE like VSCode)
    ```sh
    pip3 install -r requirements.txt
