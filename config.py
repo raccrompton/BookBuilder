@@ -33,9 +33,9 @@ DRAWSAREWINS = 0
 #ENGINE SETTINGS
 ENGINEPATH = r"/Users/AM/Downloads/BookBuilder/Stockfish"
 #the filepath where the engine is stored on your computer, so it can be accessed. Keep the 'r' character
-CAREABOUTENGINE = 1
+CAREABOUTENGINE = 0
 #care about engine eval of position or engine finishing = 1, dont care = 0
-ENGINEDEPTH = 35
+ENGINEDEPTH = 10
 #how deep engine should evaluate best moves
 ENGINEFINISH = 1
 #if we want the engine to complete lines to cumulative likelihood where data is insufficient, 1. Otherwise 0, and lines will end where there's no good human data
@@ -45,8 +45,8 @@ MOVELOSSLIMIT = -99
 #maximum centipawns we are willing to lose vs engine analysis pre move to play a higher winrate move
 IGNORELOSSLIMIT = 300
 #centipawns advantage above which we won't care if we play a move that hits our loss limit, if it has a higher win rate (is easier to win)
-ENGINETHREADS = 5 #max 20
+ENGINETHREADS = 1 #max 20
 #how many threads you want the engine to use (check your comp and set 1 if unsure)
-ENGINEHASH = 4096 #4096 #max 10240
+ENGINEHASH = 320 #4096 #max 10240
 #how much hash you want the engine to use (check your comp and set to 16 if unsure)
 
