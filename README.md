@@ -18,9 +18,11 @@ Then:
 ### Installation
 
 
-1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/
+1. To get it working, you'll need to install an IDE (try VSCode) and Python. You can find them here: https://code.visualstudio.com/ and https://www.python.org/downloads/ 
 
-2. Clone the repo in VSCode (or download the files manually here)
+If you get other error messages during this process (because you don't have Git or Pip etc), follow the instructions on the error messages or copy and paste the error into Google. Ususally you just have to install something by typing in a command in Terminal. It'll be fine.
+
+2. Open a Terminal, Clone the repo in VSCode (or download the files manually here)
    ```sh
    git clone https://github.com/raccrompton/BookBuilder.git
    cd BookBuilder
