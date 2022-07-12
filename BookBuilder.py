@@ -17,7 +17,7 @@ from workerEngineReduce import quitEngine
 import chess.engine
 
 if (config.CAREABOUTENGINE == 1):
-    engine = chess.engine.SimpleEngine.popen_uci(r"C:\Dropbox\Chess\BookBuilder\stockfish_15.exe")  #WHERE THE ENGINE IS ON YOUR COMPUTER
+    engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
     engine.configure({"Hash": config.ENGINEHASH})
     engine.configure({"Threads": config.ENGINETHREADS})
 

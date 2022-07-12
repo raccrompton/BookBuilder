@@ -1,6 +1,6 @@
 #BOOK SETTINGS
 OPENINGBOOK = [{"Name": "e4 for White", "pgn": "1. e4"},{"Name": "e4 e5 for Black", "pgn": "1. e4 e5"}] 
-#add the books you want to create, with starting pgns, eg {"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}
+#add the books you want to create, with starting point pgns, eg [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}]
 LONGTOSHORT = 0
 #if you want the book ordered from long lines to short lines, change to "1". Else 0.
 
@@ -28,9 +28,11 @@ CONTINUATIONGAMES = 10
 # games where moves played this or less than this will not be considered a valid continuation (ie we don't want to be inferring cumulative probability or likely lines from tiny amounts of games/1 game)
 
 #ENGINE SETTINGS
-CAREABOUTENGINE = 0
-#care about engine eval of position = 1, dont care = 0
-ENGINEDEPTH = 35
+ENGINEPATH = r"/Users/AM/Downloads/BookBuilder/Stockfish"
+#the filepath where the engine is stored on your computer, so it can be accessed. Keep the 'r' character
+CAREABOUTENGINE = 1
+#care about engine eval of position or engine finishing = 1, dont care = 0
+ENGINEDEPTH = 5
 #how deep engine should evaluate best moves
 ENGINEFINISH = 1
 #if we want the engine to complete lines to cumulative likelihood where data is insufficient, 1. Otherwise 0, and lines will end where there's no good human data
