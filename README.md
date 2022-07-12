@@ -65,3 +65,6 @@ You will get printed explanations of what's happening in the Terminal window. On
 ### Acknowledgements
 
 Thanks to creators like Ben Johnson, Daniel Lona, Nate Solon, and Marcus Buffett, for all their ideas and inspiration. Thanks also to David Foster for Chess Trap Scorer, which was not just part of the inspiration, but also all of the starting point code wise for this program. 
+
+### Request from me
+If you know how to turn this into a web app, please do.
