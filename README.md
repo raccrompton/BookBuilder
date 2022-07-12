@@ -44,15 +44,15 @@ If you get other error messages during this process (because you don't have Git 
    pip install -r requirements.txt
    ```
    
-4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.py file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
+4. If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.yaml file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
 
 
 <!-- QUICKSTART -->
 ### Creating a repertoire
 
-Edit and save the Config.py file with whatever settings you want. The settings are explained in the Config.py file.
+Edit and save the Config.yaml file with whatever settings you want. The settings are explained in the Config.yaml file.
 
-The Config.py file is also where you put the PGN for whatever openings you want to generate a repertoire for. The repertoire will always be generated from the perspective of the last player to move (eg "1.e4" creates a White repertoire, "1.e4 e5" creates a Black repertoire).
+The Config.yaml file is also where you put the PGN for whatever openings you want to generate a repertoire for. The repertoire will always be generated from the perspective of the last player to move (eg "1.e4" creates a White repertoire, "1.e4 e5" creates a Black repertoire).
 
 To generate a repertoire, navigate to the directory BookBuilder is in in a Terminal window (eg YourComputer/Bookbuilder). Then use the following command:
 
