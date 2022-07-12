@@ -5,9 +5,12 @@ from venv import create
 from numpy import append
 from pyparsing import line
 
-import config
+# import config
             
 import io
+import yaml
+import addict
+import os
 import argparse
 import chess
 import chess.pgn
@@ -15,6 +18,12 @@ import chess.pgn
 from workerEngineReduce import WorkerPlay
 from workerEngineReduce import quitEngine
 import chess.engine
+
+print(f'Your current dir is {os.getcwd()}')
+# yaml_location = input('What is the full path to your config.yaml file? ')
+yaml_location = '/Users/vincenttan/Code/work/BookBuilder/config.yaml'
+with open(yaml_location, "r") as f:
+    config = addict.Dict(yaml.safe_load(f))
 
 if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
