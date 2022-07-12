@@ -18,6 +18,8 @@ Then:
 ### Using BookBuilder if you dont want to touch any code.
 I've made a desktop application which means you won't have to install anything. It's a lot clunkier than the Code version, but it will work without you having to touch any code. For programmers FYI, it's just a pyinstaller --onefile of BookBuilder.py.
 
+####here is a Loom video with how to get going: https://www.loom.com/share/62969969f7c043e5a2db6a1393d54c07
+
 1. Getting the app.
 You can download the application here: https://drive.google.com/drive/folders/1YUJO0usd5vdGP4HapiL_R_j18bdDDUEu?usp=sharing
 In it you'll find:
