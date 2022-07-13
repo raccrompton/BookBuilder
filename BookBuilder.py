@@ -238,8 +238,15 @@ class Leafer():
                 board.pop() #we go back to opponent's move
                 self.workerPlay = WorkerPlay(board.fen(), move)
                 lineWinRate, totalLineGames, draws = self.workerPlay.find_potency()
-                lineWinRate = 1 - lineWinRate - draws
-                
+
+
+                if config.DRAWSAREWINS == 1:
+                    lineWinRate = 1 - lineWinRate + draws
+                    logging.debug(f"total games on previous move: {totalLineGames}, draws are wins and our move is engine 'almost novelty' so win rate based on previous move is {lineWinRate}")  
+                else:
+                    
+                    lineWinRate = 1 - lineWinRate - draws
+                    logging.debug(f"total games on previous move: {totalLineGames}, draws aren't wins and our move is engine 'almost novelty' so win rate based on prev move is {lineWinRate}")                  
                 
 
             line = (self.pgn, self.likelihood, self.likelihood_path, lineWinRate, totalLineGames)
