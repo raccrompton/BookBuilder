@@ -31,6 +31,7 @@ if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
     engine.configure({"Hash": config.ENGINEHASH})
     engine.configure({"Threads": config.ENGINETHREADS})
+    logging.getLogger('chess.engine').setLevel(logging.INFO)
 
 class Rooter():
     def __init__(self, pgn):

@@ -19,6 +19,7 @@ if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH) #WHERE THE ENGINE IS ON YOUR COMPUTER
     engine.configure({"Hash": config.ENGINEHASH})
     engine.configure({"Threads": config.ENGINETHREADS})
+    logging.getLogger('chess.engine').setLevel(logging.INFO)
 
 #function to calculate percentage win rates for each colour, if more than 0 games
 def calc_percs(white, black, draws):
