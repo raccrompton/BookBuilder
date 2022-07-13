@@ -33,9 +33,10 @@ In it you'll find:
 Download the files above, and then open config.yaml. Edit the settings to whatever you want. This Config.yaml file is also where you put the PGN for whatever openings you want to generate a repertoire for. The repertoire will always be generated from the perspective of the last player to move (eg "1.e4" creates a White repertoire, "1.e4 e5" creates a Black repertoire).
 
 Importantly, if you want to use the engine, is to update the filepath for the engine to match that on your computer. You can do this by opening the BookBuilder folder on your computer and finding the engine file. For Windows you can find the file like this: https://www.wikihow.com/Find-a-File%27s-Path-on-Windows or https://setapp.com/how-to/how-to-find-the-path-of-a-file-in-mac.
+The engine path should include the actual engine file, not just the folder. The full path will therefore end in something like /stockfish.exe on Windows or /stockfish on Mac.
 
 3. Creating a repertoire.
-Run the BookBuilder application. You might have to wait a few seconds. You'll be asked for the file path of your config.yaml file. Paste it in and press enter. Sometimes it can take a while for things to happen on screen.
+Run the BookBuilder application. You might have to wait a few seconds. You'll be asked for the file path of your config.yaml file. The full file path should include the actual file, so it will end in 'yourfilepath/config.yaml'.Paste it in and press enter. Sometimes it can take a while for things to happen on screen.
 
 4. The application will create PGN files for each of the openings you put in your config file. BookBuilder tells you where it's storing the files at the beginning, when it's running.
 
