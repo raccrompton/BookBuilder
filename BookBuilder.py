@@ -129,7 +129,7 @@ class Leafer():
                 validContinuations.append(move)
                 #print (float(move['playrate']),float(self.likelihood),float(config.DEPTHLIKELIHOOD))
                 #logging.debug(continuationLikelihood)
-        logging.debug ('valid continuations: {validContinuations}')
+        logging.debug (f'valid continuations: {validContinuations}')
         
         
         
@@ -173,7 +173,7 @@ class Leafer():
                 del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                 board.pop() #we go back a move to undo the continuation
             else:
-                if config.ENGINEFINISH ==1: #if we want engine to finish lines where no good move data exists
+                if (config.CAREABOUTENGINE == 1) and (config.ENGINEFINISH ==1): #if we want engine to finish lines where no good move data exists
                     
                     #we ask the engine the best move
                     PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to finish the line
@@ -195,7 +195,7 @@ class Leafer():
                         newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                         newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(engineMove) #then our best response
                         pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
-                    logging.debug("full new pgn after our move is {newpgn}")        
+                    logging.debug(f"full new pgn after our move is {newpgn}")        
                     
                     #we make a list of pgns that we want to feed back into the algorithm, along with cumulative winrates
                     pgnList.append(pgnPlus)
@@ -320,7 +320,7 @@ class Grower():
         for line in finalLine:
             if line not in uniqueFinalLine:
                 uniqueFinalLine.append(line)
-        logging.debug("unique lines with subsets {uniqueFinalLine}")     
+        logging.debug(f"unique lines with subsets {uniqueFinalLine}")     
         
         printerFinalLine = [] #we prepare a list ready for printing
         
