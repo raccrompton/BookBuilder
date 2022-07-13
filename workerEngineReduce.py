@@ -118,7 +118,7 @@ class WorkerPlay():
         url += f'fen={self.fen}'
         
         self.opening_url = url
-        logging.debug("url of position {url}") #uncomment for debugging
+        logging.debug(f"url of position {url}") #uncomment for debugging
         while True:
             r = requests.get(url)
             if r.status_code == 429:
@@ -222,7 +222,7 @@ class WorkerPlay():
                         afterMoveScore = -9999999999
                     if mateForUs:
                         afterMoveScore = 9999999999        
-                    logging.debug ("final centipawn eval for us post move {san} {afterMoveScore}")  
+                    logging.debug (f"final centipawn eval for us post move {san} {afterMoveScore}")  
                     
                     board.pop () #undo our move to keep board state
                     
@@ -270,7 +270,7 @@ class WorkerPlay():
                                     baseEval = -9999999999
                                 if mateForUs:
                                     baseEval = 9999999999
-                            logging.debug("Base Eval of position {baseEval}")       
+                            logging.debug(f"Base Eval of position {baseEval}")       
                             
                             if (baseEval == 9999999999): #we fail any move that missed a mate
                                 # print ("check using san as variable works", moves[san])
@@ -292,7 +292,7 @@ class WorkerPlay():
                                         lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
                                         ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                                         engineChecked = 1
-                                        logging.debug("move is engine checked and far over winning margin {moves[san]}")                                        
+                                        logging.debug(f"move is engine checked and far over winning margin {moves[san]}")                                        
                                         
                                         
                                     else: #if our move is within 100 CP of our ignore loss limit we double check with eval after engine reply:    
@@ -329,7 +329,7 @@ class WorkerPlay():
                                         if mateForUs:
                                             afterEngineReply = 9999999999
                                     
-                                        logging.debug ("final centipawn eval after engine reply {afterEngineReply}")
+                                        logging.debug (f"final centipawn eval after engine reply {afterEngineReply}")
 
                                         board.pop()#we undo engine reply
                                         board.pop()#we undo our move, so on next loop board is back to base state
@@ -339,14 +339,14 @@ class WorkerPlay():
                                             lb_value = 1
                                             ub_value = 1   
                                             engineChecked = 1 
-                                            logging.debug("move is engine checked {moves[san]}")                   
+                                            logging.debug(f"move is engine checked {moves[san]}")                   
                                         else:      
                                             #now we check that the engine reply centipawn score was not too unsound, and either we are winning by enough to ignore losing centipawns, or that the move doesn't lose too many centipawns
                                             if (afterEngineReply > config.SOUNDNESSLIMIT)  and     (   (afterEngineReply > config.IGNORELOSSLIMIT)    or   ((afterEngineReply - baseEval) > config.MOVELOSSLIMIT)   ): 
                                                 lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
                                                 ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                                                 engineChecked = 1
-                                                logging.debug("move is engine checked {moves[san]}")
+                                                logging.debug(f"move is engine checked {moves[san]}")
                                             else:
                                                 # print ("check using san as variable works", moves[san])
                                                 logging.debug ([str(i) for i in ["engine failed", best_move, moves[san], "eval", afterMoveScore]])
