@@ -15,8 +15,10 @@ If you need something, contact alex@alexcrompton.com.
 Then:
 
 <!-- INSTALLATION -->
-### Using BookBuilder if you dont want to touch any code.
-I've made a Mac desktop application which means you won't have to install anything. It's slower/clunkier than the Code version, but it will work without you having to touch any code.
+## Option 1: Using BookBuilder if you dont want to touch any code.
+
+
+I've made a Mac desktop application which means you won't have to install anything. It's slower/clunkier than the code version, but it will work without you having to touch any code. If you think you can, try the code version (Option 2 section below).
 
 Here is a Loom video with how to get going: https://www.loom.com/share/62969969f7c043e5a2db6a1393d54c07
 
@@ -65,7 +67,9 @@ Take your PGN files and upload them to your favourite place like Chessable, Ches
 
 
 <!-- INSTALLATION -->
-### Using BookBuilder if you dont mind installing programming tools like IDEs or Python. This is the fast/most customisable/up to date version and works on all platforms (Windows / Mac / Linux)
+## Option 2: Using BookBuilder if you dont mind installing programming tools like IDEs or Python.
+
+This is the fast/most customisable/up to date version and works on all platforms (Windows / Mac / Linux)
 
 This can seem difficult if you're not a programmer, but don't worry. It should only take about 5-10 minutes to get going.
 
