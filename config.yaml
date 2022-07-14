@@ -32,7 +32,7 @@ DRAWSAREWINS: 0
 
 #ENGINE SETTINGS
 ENGINEPATH: "/Users/vincenttan/Code/work/BookBuilder/stockfish15mac"
-#the filepath where the engine is stored on your computer, so it can be accessed. Keep the 'r' character
+#the filepath where the engine is stored on your computer, so it can be accessed. It should end in the actual engine file, not the folder, so /engine.exe or similar. Some users reported errors if the engine has _ in the file name.
 CAREABOUTENGINE: 0
 #care about engine eval of position or engine finishing = 1, dont care = 0
 ENGINEDEPTH: 10
