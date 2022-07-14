@@ -119,7 +119,7 @@ class WorkerPlay():
         url += f'fen={self.fen}'
         
         self.opening_url = url
-        logging.debug(f"url of position {url}") #uncomment for debugging
+        #logging.debug(f"url of position {url}") #uncomment for debugging
         while True:
             r = requests.get(url)
             if r.status_code == 429:
@@ -154,11 +154,11 @@ class WorkerPlay():
         for move in self.stats['moves']: #array of all moves returned from the API as next moves in a given position.
             if self.board.turn == chess.WHITE: #if it's white to play
                 value, lb_value, ub_value, n = calc_value(move['white_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move white win percentage and total games move was played to calculate 'potency' on confidence intervals
-                for_printing= ''.join([str(i) for i in ["candidate move is", move['san'], 'lb win rate is', "{:+.2%}".format(move['white_perc']), 'playrate', "{:+.2%}".format(move['playrate']),"lb value", lb_value]])
+                for_printing= ''.join([str(i) for i in ["candidate move is ", move['san'], 'lb win rate is ', "{:+.2%}".format(move['white_perc']), 'playrate ', "{:+.2%}".format(move['playrate']),"lb value ", lb_value]])
                 logging.debug(for_printing)
             else: #if it's not white it's black to play
                 value, lb_value, ub_value, n = calc_value(move['black_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move black win percentage and total games move was played to calculate 'potency' on confidence intervals
-                for_printing= ''.join([str(i) for i in ["candidate move is", move['san'], 'lb win rate is', "{:+.2%}".format(move['black_perc']), 'playrate', "{:+.2%}".format(move['playrate']), "lb value", lb_value]])
+                for_printing= ''.join([str(i) for i in ["candidate move is ", move['san'], 'lb win rate is ', "{:+.2%}".format(move['black_perc']), 'playrate' , "{:+.2%}".format(move['playrate']), "lb value ", lb_value]])
                 logging.debug(for_printing)
             key = move['san']
             moves[key] = {
