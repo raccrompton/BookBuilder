@@ -23,14 +23,10 @@ I've made a Windows/Mac desktop application which means you won't have to instal
 Here is a Loom video with how to get going: https://www.loom.com/share/62969969f7c043e5a2db6a1393d54c07
 
 
-#### Request for help: FYI, the desktop app is just a pyinstaller --onefile of BookBuilder.py. If you have a Windows machine, please consider sharing the latest version as an application for Windows users, since pyinstaller is OS specific and I don't have access to Windows atm.
-
-
-
 #### 1. Get the app.
 
 
-You can download the application here: https://www.dropbox.com/sh/34yo6it36v7mhqi/AACdMLa0yIVJavHZtEVrVn_xa?dl=0
+You can download the app here: https://www.dropbox.com/sh/34yo6it36v7mhqi/AACdMLa0yIVJavHZtEVrVn_xa?dl=0
 
 
 In it you'll find:
