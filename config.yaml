@@ -1,6 +1,7 @@
 #BOOK SETTINGS
-OPENINGBOOK: [{"Name": "London Countergambit", "pgn": "1. d4 d5 2. Bf4 c5"}] 
-#add the starting point PGNs you want to create repertoires for, with starting point pgns. The format for multiple PGNs and chapters looks like this: [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}]
+OPENINGBOOK: [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}] 
+#add the starting point PGNs you want to create repertoires for, with starting point pgns.
+#The format for multiple PGNs and chapters looks like this: [{"Name": "Book A", "pgn": "1. e4 e5"},{"Name": "Book B", "pgn": "1. e4 e5 2. f4"}]
 LONGTOSHORT: 0
 #if you want the chapter ordered from long lines to short lines, instead of short to long, change to "1". Else 0.
 
@@ -31,10 +32,11 @@ DRAWSAREWINS: 0
 
 
 #ENGINE SETTINGS
-ENGINEPATH: "/Users/vincenttan/Code/work/BookBuilder/stockfish15mac"
-#the filepath where the engine is stored on your computer, so it can be accessed. It should end in the actual engine file, not the folder, so /engine.exe or similar. Some users reported errors if the engine has _ in the file name.
+ENGINEPATH: 'C:\Dropbox\Chess\BookBuilder-main\stockfish15.exe'
+#the filepath where the engine is stored on your computer, so it can be accessed. It should end in the actual engine file, not the folder, so /engine.exe or similar.
+#Some users reported errors if the engine has _ in the file name.
 CAREABOUTENGINE: 0
-#care about engine eval of position or engine finishing = 1, dont care = 0
+#care about engine eval of position or engine finishing = 1, dont care = 0. If this is 0 then no engine functionality will work.
 ENGINEDEPTH: 10
 #what depth the engine should evaluate best moves. the higher the depth the longer the evaluation will take.
 ENGINEFINISH: 1
@@ -45,10 +47,12 @@ MOVELOSSLIMIT: -99
 #maximum centipawns we are willing to lose vs engine analysis pre move to play a higher winrate move. We never give up a forced mate, however.
 IGNORELOSSLIMIT: 300
 #centipawns advantage above which we won't care if we play a move that hits our loss limit, if it has a higher win rate (is easier to win)
-ENGINETHREADS: 1 #my max 20
+ENGINETHREADS: 1
 #how many threads you want the engine to use (check your comp and set 1 if unsure)
-ENGINEHASH: 320 #my max 10240
-#how much hash you want the engine to use (check your comp and set to 16 if unsure)
+#for reference my safemax is 20
+ENGINEHASH: 320 
+#how much hash (RAM) you want the engine to use (check your comp and set to 16 if unsure)
+#for reference my safe max is 10240
 
 # Change this to true/false depending if you want to see detailed output in your terminal when running the program
 PRINT_INFO_TO_CONSOLE: true

@@ -3,7 +3,8 @@ import os
 import addict
 import logging
 
-# You can store your config.yaml location here if you are running this with python and don't want to reinput it everytime
+# You can store your '/config.yaml' location here if you are running this with python and don't want to reinput it everytime
+# eg change 'None' to something like 'C:\Dropbox\Chess\BookBuilder-main\config.yaml'
 yaml_location = None
 
 if yaml_location is None:
