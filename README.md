@@ -18,7 +18,7 @@ Then:
 ## Option 1: Using BookBuilder if you dont want to touch any code.
 
 
-I've made a Mac desktop application which means you won't have to install anything. It's slower/clunkier than the code version, but it will work without you having to touch any code. If you think you can, try the code version (Option 2 section below).
+I've made a Windows/Mac desktop application which means you won't have to install anything. It's slower/clunkier than the code version, and might not be as up to date as the version on GitHub. but it will work without you having to touch any code. If you think you can, try the code version (Option 2 section below).
 
 Here is a Loom video with how to get going: https://www.loom.com/share/62969969f7c043e5a2db6a1393d54c07
 
@@ -34,7 +34,7 @@ You can download the application here: https://drive.google.com/drive/folders/1Y
 
 
 In it you'll find:
-- the BookBuilder application for Mac
+- the BookBuilder application for Mac and Windows
 - Stockfish 15 for Mac and Windows
 - config.yaml
 
@@ -56,7 +56,7 @@ Run the BookBuilder application. You might have to wait a few seconds. You'll be
 #### 4. Find your repertoire files.
 
 
-The application will create PGN files for each of the openings you put in your config file. BookBuilder tells you where it's storing the files at the beginning, when it's running. You can change where it stores the files by using terminal commands like 'cd' to navigate, but it might take some Googling to figure out.
+The application will create PGN files for each of the openings you put in your config file. On Mac, BookBuilder tells you where it's storing the files at the beginning, when it's running. You can change where it stores the files by using terminal commands like 'cd' to navigate, but it might take some Googling to figure out. On Windows, Bookbuilder puts the PGN files in the same folder as the BookBuilder app, and closes itself when it's finished running.
 
 
 #### 5. Off you go!
