@@ -108,7 +108,7 @@ If you get other error messages during this process (because you don't have Git 
 
 If you want to use the engine features, download the latest version of whatever engine you want to use, and update the engine filepath in the Config.yaml file with the filepath for where you've saved the engine on your computer. I recommend Stockfish https://stockfishchess.org/ which is strong and free, and to just put it in the BookBuilder folder.
 The engine path should include the actual engine program, not just the folder that the engine program might be in. The full path will therefore end in something like /stockfish.exe on Windows or /stockfish on Mac.
-No underscores are allowed in the engine file path or engine file name. Make sure if you are on Mac you are using the Stockfish or other engine itself, not the Mac app. To be sure, use the commons 'brew install stockfish'
+No underscores are allowed in the engine file path or engine file name. Make sure if you are on Mac you are using the Stockfish or other engine itself, not the Mac app. To be sure, use the command 'brew install stockfish'
 
 
 #### 5. Customise the settings and input your PGNs
