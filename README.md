@@ -30,7 +30,7 @@ Here is a Loom video with how to get going: https://www.loom.com/share/62969969f
 #### 1. Get the app.
 
 
-You can download the application here: https://drive.google.com/drive/folders/1YUJO0usd5vdGP4HapiL_R_j18bdDDUEu?usp=sharing
+You can download the application here: https://www.dropbox.com/sh/34yo6it36v7mhqi/AACdMLa0yIVJavHZtEVrVn_xa?dl=0
 
 
 In it you'll find:
