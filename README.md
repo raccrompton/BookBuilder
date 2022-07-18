@@ -151,5 +151,8 @@ The [lichess opening API](https://lichess.org/api) is used to gather data for th
 
 Thanks to creators like Ben Johnson, Daniel Lona, Nate Solon, and Marcus Buffett, for all their ideas and inspiration. Thanks also to David Foster for Chess Trap Scorer, which was not just part of the inspiration, but also all of the starting point code wise for this program. 
 
-### Request from me
+### Help out
 If you know how to turn this into a web or desktop app more easily used by non programmers, please do.
+
+RajjSinghh has done some great work on turning this into an API, so help him here: https://github.com/RajjSinghh/BookBuilder
+The main limitation right now would be that the Lichess API rate limits when even one user runs lots of queries, but perhaps this can be avoided. There may also be engine limitations. Other users have suggested that a rewrite with everything running in JS in the browser would get around both issues.
