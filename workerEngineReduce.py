@@ -26,7 +26,7 @@ def calc_percs(white, black, draws):
 
     n = white + black + draws #wins + draws after move was played
 
-    if (n > 0) and (config.DRAWSAREWINS == 0):
+    if (n > 0) and (config.DRAWSAREHALF == 0):
         total_games = n
         white_perc = white / n
         black_perc = black / n
@@ -34,10 +34,10 @@ def calc_percs(white, black, draws):
         return white_perc, black_perc, draw_perc, total_games
     
     else:
-        if (n > 0) and (config.DRAWSAREWINS == 1):
+        if (n > 0) and (config.DRAWSAREHALF == 1):
                 total_games = n
-                white_perc = (white + draws) / n
-                black_perc = (black + draws) / n
+                white_perc = (white + (0.5 * draws)) / n
+                black_perc = (black + (0.5 *draws)) / n
                 draw_perc = draws / n
                 return white_perc, black_perc, draw_perc, total_games
     

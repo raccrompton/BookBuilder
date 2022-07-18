@@ -240,12 +240,12 @@ class Leafer():
                 lineWinRate, totalLineGames, draws = self.workerPlay.find_potency()
 
 
-                if config.DRAWSAREWINS == 1:
-                    lineWinRate = 1 - lineWinRate + draws
+                if config.DRAWSAREHALF == 1: #if draws are half we inverse the winrate on the last move, and add half the draws
+                    lineWinRate = 1 - lineWinRate + (0.5 * draws)
                     logging.debug(f"total games on previous move: {totalLineGames}, draws are wins and our move is engine 'almost novelty' so win rate based on previous move is {lineWinRate}")  
                 else:
                     
-                    lineWinRate = 1 - lineWinRate - draws
+                    lineWinRate = 1 - lineWinRate - draws #if draws aren't half we inverse the winrate and remove minus the draws
                     logging.debug(f"total games on previous move: {totalLineGames}, draws aren't wins and our move is engine 'almost novelty' so win rate based on prev move is {lineWinRate}")                  
                 
 
