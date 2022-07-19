@@ -38,22 +38,23 @@ ENGINEPATH: '/Users/AM/Downloads/BookBuilder-main/stockfish'
 #Some users reported errors if the engine has _ in the file name.
 CAREABOUTENGINE: 0
 #care about engine eval of position or engine finishing = 1, dont care = 0. If this is 0 then no engine functionality will work.
-ENGINEDEPTH: 10
+ENGINEDEPTH: 20
+#RECOMMENDED minimum 20+ ideally 30+ for stable evaluations in the opening phase.
 #what depth the engine should evaluate best moves. the higher the depth the longer the evaluation will take.
 ENGINEFINISH: 1
 #if we want the engine to complete lines upto the cumulative likelihood, where where data from our perspective doesn't meet minimum criteria. For this kind of finishing, 1. Otherwise 0, and lines will end where there's no good human data for one player.
 SOUNDNESSLIMIT: -99
 #maximum centipawns we are willing to be down in engine eval, provided the winrate is better (-300 = losing by 3 pawns in eval). We never give up a forced mate, however.
 MOVELOSSLIMIT: -99
-#RECOMMENDED NOT TO GO CLOSER TO 0 THAN -30 BECAUSE ENGINES ARE BAD AT EVALUATING OPENINGS ON LOW DEPTH AND THIS CAN CAUSE ISSUES.
+#RECOMMENDED NOT TO GO CLOSER TO 0 THAN -50 BECAUSE ENGINES ARE INCONSISTENT WHEN EVALUATING OPENINGS, ESPECIALLY ON LOW DEPTH.
 #maximum centipawns we are willing to lose vs engine analysis pre move to play a higher winrate move. We never give up a forced mate, however.
 IGNORELOSSLIMIT: 300
 #centipawns advantage above which we won't care if we play a move that hits our loss limit, if it has a higher win rate (is easier to win)
 ENGINETHREADS: 1
-#how many threads you want the engine to use (check your comp and set 1 if unsure)
+#Increase this number to speed the engine up. It's how many threads you want the engine to use (check your comp and set 1 if unsure)
 #for reference my safemax is 20
 ENGINEHASH: 320
-#how much hash (RAM) you want the engine to use (check your comp and set to 16 if unsure)
+#Increase this number to speed the engine up. It's how much hash (RAM) you want the engine to use (check your comp and set to 16 if unsure)
 #for reference my safe max is 10240
 
 # Change this to true/false depending if you want to see detailed output in your terminal when running the program
