@@ -45,6 +45,7 @@ ENGINEFINISH: 1
 SOUNDNESSLIMIT: -99
 #maximum centipawns we are willing to be down in engine eval, provided the winrate is better (-300 = losing by 3 pawns in eval). We never give up a forced mate, however.
 MOVELOSSLIMIT: -99
+#RECOMMENDED NOT TO GO CLOSER TO 0 THAN -30 BECAUSE ENGINES ARE BAD AT EVALUATING OPENINGS ON LOW DEPTH AND THIS CAN CAUSE ISSUES.
 #maximum centipawns we are willing to lose vs engine analysis pre move to play a higher winrate move. We never give up a forced mate, however.
 IGNORELOSSLIMIT: 300
 #centipawns advantage above which we won't care if we play a move that hits our loss limit, if it has a higher win rate (is easier to win)
