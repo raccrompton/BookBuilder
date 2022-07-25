@@ -1,5 +1,6 @@
 from collections import Counter
 from audioop import reverse
+from operator import itemgetter
 from typing import final
 from venv import create
 from numpy import append
@@ -224,34 +225,39 @@ class Leafer():
         #if there are no valid continuations we save the line to a file
         if not validContinuations:
             
+            logging.debug (f'no valid continuations to {self.pgn}')
+            
             #we find potency and other stats
             self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the final position
             lineWinRate, totalLineGames, throwawayDraws = self.workerPlay.find_potency() #we get the win rate and games played in the final position            
             
 
-            if (totalLineGames == 0) and (lineWinRate == 1): #if the line ends in mate  there are no games played from the position so we need to populate games number from last move
+            if (totalLineGames == 0) and (lineWinRate == None): #if the line ends in mate there are no games played from the position so we need to populate games number from last move
                 board.pop()
                 self.workerPlay = WorkerPlay(board.fen(), move) #we call the api to get the stats in the final position
-                throwawayWinRate, totalLineGames, throwawayDraws = self.workerPlay.find_potency() #we get the win rate and games played in the pre Mate position
+                throwawayWinRate, totalLineGames, throwawayDraws = self.workerPlay.find_potency() #we get the games played in the pre Mate position
+                lineWinRate = 1 #we make line win rate 1
+                logging.debug(f'line ends in mate')
             
-            if (totalLineGames < config.MINGAMES) : #if our response is an engine 'novelty' there is no reliable lineWinRate or total games
-                board.pop() #we go back to opponent's move
-                self.workerPlay = WorkerPlay(board.fen(), move)
-                lineWinRate, totalLineGames, draws = self.workerPlay.find_potency()
+            else:
+                if (totalLineGames < config.MINGAMES) : #if our response is an engine 'novelty' there is no reliable lineWinRate or total games
+                    board.pop() #we go back to opponent's move
+                    self.workerPlay = WorkerPlay(board.fen(), move)
+                    lineWinRate, totalLineGames, draws = self.workerPlay.find_potency()
 
 
-                if config.DRAWSAREHALF == 1: #if draws are half we inverse the winrate on the last move, and add half the draws
-                    lineWinRate = 1 - lineWinRate + (0.5 * draws)
-                    logging.debug(f"total games on previous move: {totalLineGames}, draws are wins and our move is engine 'almost novelty' so win rate based on previous move is {lineWinRate}")  
-                else:
+                    if config.DRAWSAREHALF == 1: #if draws are half we inverse the winrate on the last move, and add half the draws
+                        lineWinRate = 1 - lineWinRate + (0.5 * draws)
+                        logging.debug(f"total games on previous move: {totalLineGames}, draws are wins and our move is engine 'almost novelty' so win rate based on previous move is {lineWinRate}")  
+                    else:
+                        
+                        lineWinRate = 1 - lineWinRate - draws #if draws aren't half we inverse the winrate and remove minus the draws
+                        logging.debug(f"total games on previous move: {totalLineGames}, draws aren't wins and our move is engine 'almost novelty' so win rate based on prev move is {lineWinRate}")                  
                     
-                    lineWinRate = 1 - lineWinRate - draws #if draws aren't half we inverse the winrate and remove minus the draws
-                    logging.debug(f"total games on previous move: {totalLineGames}, draws aren't wins and our move is engine 'almost novelty' so win rate based on prev move is {lineWinRate}")                  
-                
 
             line = (self.pgn, self.likelihood, self.likelihood_path, lineWinRate, totalLineGames)
             finalLine.append(line) #we add line to final line list 
-            
+                
             
             
             
@@ -280,9 +286,12 @@ class Printer():
             
             
             #we write them in as annotations
-            lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate: " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
-            
+            if config.DRAWSAREHALF == 1:
+                lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate (draws are half): " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
+            if config.DRAWSAREHALF == 0:
+                lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate (excluding draws): " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
             file.write('\n' + lineAnnotations)
+
             
             file.write("}") #end annotations                
         logging.info(f"Wrote data to {self.filepath}")
@@ -328,7 +337,7 @@ class Grower():
         for line in finalLine:
             if line not in uniqueFinalLine:
                 uniqueFinalLine.append(line)
-        logging.debug(f"unique lines with subsets {uniqueFinalLine}")     
+        # logging.debug(f"unique lines with subsets {uniqueFinalLine}")     
         
         printerFinalLine = [] #we prepare a list ready for printing
         
@@ -344,10 +353,28 @@ class Grower():
             logging.debug(f"final line count { lineCount+1 } for line {lineString}")
         
         
+        logging.debug (f'we sort the lines by consecutive move probabilities')        
+        def extract_key(printerFinalLine):
+            return [v for _, v in printerFinalLine[2]]
+
+        printerFinalLine = sorted(printerFinalLine, key=extract_key)
+        
+        for line in printerFinalLine:
+            logging.debug (line[0])        
+
+
+        
+        
+        logging.debug (f'we reverse the sort to make long to short')        
         if config.LONGTOSHORT == 1:
             printerFinalLine.reverse() #we make the longest (main lines) first
+            
         
-
+        for line in printerFinalLine:
+            logging.debug (line[0])
+            
+            
+        
         
         #we print the final list of lines
         logging.debug(f'number of final lines {len(printerFinalLine)}')
