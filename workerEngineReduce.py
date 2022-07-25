@@ -1,4 +1,5 @@
 from cgitb import strong
+from email.mime import base
 from pstats import Stats
 from re import M
 import chess.svg
@@ -6,6 +7,7 @@ import requests
 import scipy.stats as st
 import numpy as np
 import time
+import copy
 
 from config import config 
 
@@ -180,7 +182,7 @@ class WorkerPlay():
         if (config.CAREABOUTENGINE == 1) and (potency > 0) :
 
             engineChecked = 0
-            baseEval = []
+            bestEval = None
             
             while engineChecked == 0:
                 board = self.board
@@ -193,181 +195,163 @@ class WorkerPlay():
                 n = moves[best_move]['n']
                 gamesPlayed = n
                 
-                if moves[best_move]['lb_value'] == 0: #if there is no best move candidate we dont ask engine as error will be caught later
+                if moves[best_move]['lb_value'] == 0: #if there is no best move candidate with a potency > 0 we dont ask engine, we go straight to return no best move
                     engineChecked = 1
                     print("no engine approved move found by statistics")
+                
                 else: #we ask engine for eval after move
-                    san = best_move
-                    board.push_san(san) # push our candidate move
-                    # print("after push")
-                    # print(board)
-                    print("engine evaluating...")
-                    score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from their perspective
-                    # print("Their Score:", score["score"])
-                    scoreString = str(score["score"])
-                    # print ("Eval for them after our move", scoreString) 
+               
+                    # if we don't already have the top engine move and eval
+                    if bestEval == None:
                     
-                    #we switch to our perspective            
-                    goodForUs = ('-' in scoreString) # check if it's good for us
-                    # print("good for us", goodForUs)
-                    mateForUs = (goodForUs) and ('Mate' in scoreString) #if it's mate for us
-                    # print("mate for us", mateForUs)
-                    mateForThem = (not goodForUs) and ('Mate' in scoreString) #if it's mate for them
-                    # print("mate for them", mateForThem)
-                    afterMoveScore = [int(s) for s in re.findall(r'\b\d+\b',scoreString)]
-                    afterMoveScore = afterMoveScore[0]
-                    # print("raw centipawn score", centipawnScore)
-                    if not goodForUs:
-                        afterMoveScore = -afterMoveScore
-                    if mateForThem:
-                        afterMoveScore = -9999999999
-                    if mateForUs:
-                        afterMoveScore = 9999999999        
-                    logging.debug (f"final centipawn eval for us post move {san} {afterMoveScore}")  
-                    
-                    board.pop () #undo our move to keep board state
-                    
-                    if (afterMoveScore == 9999999999): #if move is mate we give lb winrate as 1
-                        potency = 1
-                        lb_value = 1
-                        ub_value = 1      
-                        engineChecked = 1
-                        logging.debug(f"move is engine checked {moves[san]}")  
-                    else:      
-                        if (afterMoveScore < config.SOUNDNESSLIMIT): #we throw out moves lower than our soundness limit
-                            # print ("check using san as variable works", moves[san])
-                            logging.debug ([str(i) for i in ["engine failed",best_move, moves[san], "eval", afterMoveScore]])
-                            moves[san] = {
-                                'value': 0  #raw winrate
-                                , 'lb_value': 0 #lower bound potency value
-                                , 'ub_value': 0 #upper bound potency value
-                                , 'n': n #total games played
-                            }                            
-
-                      
+                        #we ask engine for best move. If candidate move is best move, we approve, otherwise we calc difference.
+                        logging.debug (f"engine working...")  
+                        PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to play
                         
-                        else:
-                            #if the move is not junk, we check further with the engine
-                            
-                            if not baseEval: #if we already have a base eval, we just use that one
-                                logging.debug("engine evaluating...")
-                                score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval before our move from their perspective
-                                # print("Their Score:", score["score"])
-                                scoreString = str(score["score"])
-                                # print ("Eval for them,", scoreString) 
-                                
-                                goodForThem = ('-' in scoreString) # check if it's good for us
-                                # print("good for them", goodForThem)
-                                mateForThem = (goodForThem) and ('Mate' in scoreString) #if it's mate for us
-                                # print("mate for us", mateForThem)
-                                mateForUs = (not goodForThem) and ('Mate' in scoreString) #if it's mate for them
-                                # print("mate for them", mateForUs)
-                                baseEval = [int(s) for s in re.findall(r'\b\d+\b',scoreString)]
-                                baseEval = baseEval[0]
+                        engineMoveSan = board.san(PlayResult.move)
+                        board.push(PlayResult.move)
+                        
+                        engineMoveBoard = copy.copy(board)
+                        board.pop () #undo engine move to keep board state                    
+                        
+                        
+                    #If candidate move is best move, we approve, otherwise we calc difference.
+                    san = best_move
+                    board.push_san(san) # push our candidate move                    
+                    ourMoveBoard = copy.copy(board)
+                    board.pop () #undo our move to keep board state          
+                    
+                    
+                    logging.debug (f"engine move {engineMoveSan}")                      
+                    # logging.debug(engineMoveBoard)
+                    
+                    logging.debug (f"our candidate move {san}")                      
+                    # logging.debug(ourMoveBoard)               
+                    
+                    #if our move is the top engine move, we just approve it. Bug note: We can get loss limit / soundness limit slip in some scenarios (eg if move goes out of soundness limits and engine can't see, but unlikely)
+                    if ourMoveBoard == engineMoveBoard:
+                        logging.debug("our move is top engine move so we approve")
+                        lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                        ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                        engineChecked = 1
+                        logging.debug(f"move is top engine move {san}")                    
+                    
+                    #if our move is not top engine move, we compare the CP after our move with the centipawns after engine move. Bug note: Not checking after opponent's response could cause slip in some scenarios (eg if move goes out of soundness limits and engine can't see, but unlikely)
+                    else:
+                        logging.debug (f"our move is not top engine move. engine working...")
+                        
+                        if bestEval == None:
+                            #we get engine move eval
+                            # engineMoveReply = engine.play(engineMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we play one more move after engine move, to avoid slipping out of soundness limits
+                            # engineMoveBoard.push(engineMoveReply.move)            
+                            engineMoveScore = engine.analyse(engineMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from opponent's perspective 
 
-                                if goodForThem:
-                                    baseEval = -baseEval
-                                if mateForThem:
-                                    baseEval = -9999999999
-                                if mateForUs:
-                                    baseEval = 9999999999
-                            logging.debug(f"Base Eval of position {baseEval}")       
+                            #we convert the engine move score to a string so we can parse it
+                            engineMoveScoreString = str(engineMoveScore["score"])
+                            logging.debug (f"Eval from perspective after Engine move {engineMoveSan} {engineMoveScore['score']}") 
+                                                                        
+                            #we switch to our perspective            
+                            goodForThem = not ('-' in engineMoveScoreString) # check if it's good for them
+                            # print("good for them", goodForThem)
+                            mateForThem = (goodForThem) and ('Mate' in engineMoveScoreString) #if it's mate for us
+                            # print("mate for us", mateForUs)
+                            mateForUs = (not goodForThem) and ('Mate' in engineMoveScoreString) #if it's mate for them
+                            # print("mate for them", mateForThem)
+                            afterEngineMoveScore = [int(s) for s in re.findall(r'\b\d+\b',engineMoveScoreString)]
+                            afterEngineMoveScore = afterEngineMoveScore[0]
+                            # print("raw centipawn score", afterEngineReply)
+                            if goodForThem:
+                                afterEngineMoveScore = -afterEngineMoveScore
+                            if mateForThem:
+                                afterEngineMoveScore = -9999999999
+                            if mateForUs:
+                                afterEngineMoveScore = 9999999999      
+                                                   
                             
-                            if (baseEval == 9999999999): #we fail any move that missed a mate
-                                # print ("check using san as variable works", moves[san])
-                                logging.debug ([str(i) for i in ["engine failed for missed mate",best_move, moves[san], "eval", afterMoveScore]])
+                            bestEval = afterEngineMoveScore
+                        logging.debug (f"centipawn eval from our perspective after engine move {engineMoveSan}  {bestEval}") 
+                        
+                        if bestEval < config.SOUNDNESSLIMIT:
+                            # engine checked = 1 leaves the checking loop and setting values to 0 triggers bookbuilder to finish with engine.    
+                            logging.debug (f"failed best engine move {engineMoveSan} on soundness limit - we may have slipped outside soundness limit. We will check other moves, but maybe move selection this move is left to engine finishing if available. eval: {bestEval}")
+                            # potency = 0
+                            # lb_value = 0
+                            # ub_value = 0
+                            # n = 0    
+                            # engineChecked = 1 
+                        
+                        logging.debug (f"analysing our move eval. engine working...")                        
+                        #we get our move eval
+                        # ourMoveReply = engine.play(ourMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we play one more move after our move                      
+                        # ourMoveBoard.push(ourMoveReply.move)  
+                        ourMoveScore = engine.analyse(ourMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from opponent's perspective                       
+                        
+                        logging.debug (f"Eval from perspective after our move {ourMoveScore['score']}") 
+                        
+                        #we convert our move score to a string so we can parse it
+                        ourMoveScoreString = str(ourMoveScore["score"])
+                    
+                        #we switch to our perspective            
+                        goodForThem = not ('-' in ourMoveScoreString) # check if it's good for us
+                        # print("good for them", goodForThem)
+                        mateForThem = (goodForThem) and ('Mate' in ourMoveScoreString) #if it's mate for us
+                        # print("mate for us", mateForUs)
+                        mateForUs = (not goodForThem) and ('Mate' in ourMoveScoreString) #if it's mate for them
+                        # print("mate for them", mateForThem)
+                        afterOurMoveScore = [int(s) for s in re.findall(r'\b\d+\b',ourMoveScoreString)]
+                        afterOurMoveScore = afterOurMoveScore[0]
+                        # print("raw centipawn score", afterEngineReply)
+                        if goodForThem:
+                            afterOurMoveScore = -afterOurMoveScore
+                        if mateForThem:
+                            afterOurMoveScore = -9999999999
+                        if mateForUs:
+                            afterOurMoveScore = 9999999999    
+                        logging.debug (f"centipawn eval from our perspective after our move {san} {afterOurMoveScore}")                      
+                        
+                        
+                        
+                        if (afterOurMoveScore == 9999999999): #if move is mate we give lb winrate as 1 and approve the move
+                            potency = 1
+                            lb_value = 1
+                            ub_value = 1      
+                            engineChecked = 1
+                            logging.debug(f"move is approved - engine checked as mate {moves[san]}")
+                            
+
+                        #if not, we check it doesn't break soundness and move loss limits
+                        else:
+                            
+                            #we calculated the CP loss between best move and our move
+                            if bestEval >= afterOurMoveScore:
+
+                                moveLoss = afterOurMoveScore - bestEval
+                                logging.debug(f'moveloss implies our move worse than engine move')                            
+                            #sometimes the engine actually prefers the user move once there is a reply
+                            if bestEval < afterOurMoveScore:
+                                moveLoss = afterOurMoveScore - bestEval
+                                logging.debug(f'moveloss implies our move better than engine move')  
+                            
+                            logging.debug(f'our move centipawns vs engine move {moveLoss}')
+                    
+                            #we approve the move if it meets soundness limits + loss limits, or passes our ignorelosslimit, or is evaluated stronger than top engine move after playing
+                            if ( (afterOurMoveScore > config.SOUNDNESSLIMIT)  and  (moveLoss > config.MOVELOSSLIMIT)) or (afterOurMoveScore > (config.IGNORELOSSLIMIT)) or (moveLoss >= 0):
+                                lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                                ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                                engineChecked = 1
+                                logging.debug([str(i) for i in ["move is engine checked and passes soundness + moveloss limits, passes the ignoreloss limit or is better than engine move", best_move, moves[san], "eval:", afterOurMoveScore, "loss:", moveLoss]])
+
+                            else:
+
+                                logging.debug ([str(i) for i in ["engine failed move on soundness or move loss limits", best_move, moves[san], "eval:", afterOurMoveScore, "loss:", moveLoss]])
                                 moves[san] = {
                                     'value': 0  #raw winrate
                                     , 'lb_value': 0 #lower bound potency value
                                     , 'ub_value': 0 #upper bound potency value
                                     , 'n': n #total games played
-                                }  
+                                }         
 
-                            else:    
-                            
-                            
-                                #we check if the aftermove score is winning enough to ignore centipawns lost, or the centipawns lost is not too much. We throw out moves that are not winning enough and lose too many centipawns
-                                if (   (afterMoveScore > config.IGNORELOSSLIMIT)    or   ((afterMoveScore - baseEval) > config.MOVELOSSLIMIT)   ): 
-
-                                    if(afterMoveScore > (config.IGNORELOSSLIMIT + 100)): #we don't both to double check our opponents move if the eval is 100 over our ignore loss limit
-                                        lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                                        ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
-                                        engineChecked = 1
-                                        logging.debug(f"move is engine checked and far over winning margin {moves[san]}")                                        
-                                        
-                                        
-                                    else: #if our move is within 100 CP of our ignore loss limit we double check with eval after engine reply:    
-                                        # print(board)
-                                        board.push_san(san) # push our candidate move
-                                        # print("after push")
-                                        # print(board)
-                                        
-                                        #then we get the engine to reply, and check again the eval hasn't changed too much. This avoids bugs later.
-                                        #print((engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH))))
-                                        PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to play
-                                        board.push(PlayResult.move) #we get engine to reply to our move, then check eval
-                                        # print(board)
-                                        
-                                        logging.debug("engine evaluating...")
-                                        score = engine.analyse(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval
-                                        # print("After their move pur Score:", score["score"])
-                                        scoreString = str(score["score"])
-                                        # print ("Eval for us,", scoreString)  
-                                        
-                                        goodForThem = ('-' in scoreString) # check if it's good for us
-                                        # print("good for them", goodForThem)
-                                        mateForThem = (goodForThem) and ('Mate' in scoreString) #if it's mate for us
-                                        # print("mate for us", mateForUs)
-                                        mateForUs = (not goodForThem) and ('Mate' in scoreString) #if it's mate for them
-                                        # print("mate for them", mateForThem)
-                                        afterEngineReply = [int(s) for s in re.findall(r'\b\d+\b',scoreString)]
-                                        afterEngineReply = afterEngineReply[0]
-                                        # print("raw centipawn score", afterEngineReply)
-                                        if goodForThem:
-                                            afterEngineReply = -afterEngineReply
-                                        if mateForThem:
-                                            afterEngineReply = -9999999999
-                                        if mateForUs:
-                                            afterEngineReply = 9999999999
-                                    
-                                        logging.debug (f"final centipawn eval after engine reply {afterEngineReply}")
-
-                                        board.pop()#we undo engine reply
-                                        board.pop()#we undo our move, so on next loop board is back to base state
-                                        
-                                        if (afterEngineReply == 9999999999): #if move is mate we give lb winrate as 1
-                                            potency = 1
-                                            lb_value = 1
-                                            ub_value = 1   
-                                            engineChecked = 1 
-                                            logging.debug(f"move is engine checked {moves[san]}")                   
-                                        else:      
-                                            #now we check that the engine reply centipawn score was not too unsound, and either we are winning by enough to ignore losing centipawns, or that the move doesn't lose too many centipawns
-                                            if (afterEngineReply > config.SOUNDNESSLIMIT)  and     (   (afterEngineReply > config.IGNORELOSSLIMIT)    or   ((afterEngineReply - baseEval) > config.MOVELOSSLIMIT)   ): 
-                                                lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                                                ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
-                                                engineChecked = 1
-                                                logging.debug(f"move is engine checked {moves[san]}")
-                                            else:
-                                                # print ("check using san as variable works", moves[san])
-                                                logging.debug ([str(i) for i in ["engine failed", best_move, moves[san], "eval", afterMoveScore]])
-                                                moves[san] = {
-                                                    'value': 0  #raw winrate
-                                                    , 'lb_value': 0 #lower bound potency value
-                                                    , 'ub_value': 0 #upper bound potency value
-                                                    , 'n': n #total games played
-                                                }                            
-
-
-                                else:
-                                    # print ("check using san as variable works", moves[san])
-                                    logging.debug ([str(i) for i in ["engine failed on soundness or loss limit", best_move, moves[san], "eval", afterMoveScore]])
-                                    moves[san] = {
-                                        'value': 0  #raw winrate
-                                        , 'lb_value': 0 #lower bound potency value
-                                        , 'ub_value': 0 #upper bound potency value
-                                        , 'n': n #total games played
-                                    }                            
+                    
 
 
         logging.debug(f'best move is - {best_move} & win rate is - {potency} & lower bound win rate is - {lb_potency}')
