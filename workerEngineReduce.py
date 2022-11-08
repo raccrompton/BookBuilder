@@ -1,7 +1,3 @@
-from cgitb import strong
-from email.mime import base
-from pstats import Stats
-from re import M
 import chess.svg
 import requests
 import scipy.stats as st

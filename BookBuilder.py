@@ -1,22 +1,12 @@
-from collections import Counter
-from audioop import reverse
-from operator import itemgetter
-from typing import final
-from venv import create
-from numpy import append
-from pyparsing import line
-            
-from config import config 
+from config import config
 
 import io
 import os
 import logging
-import argparse
 import chess
 import chess.pgn
 
-from workerEngineReduce import WorkerPlay
-from workerEngineReduce import quitEngine
+from workerEngineReduce import WorkerPlay, quitEngine
 import chess.engine
 
 
@@ -28,6 +18,7 @@ logging.basicConfig(level=log_level)
 working_dir = os.getcwd()
 logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 
+engine = None
 if (config.CAREABOUTENGINE == 1):
     engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
     engine.configure({"Hash": config.ENGINEHASH})
@@ -303,6 +294,10 @@ class Grower():
         for chapter, opening in enumerate(config.OPENINGBOOK, 1):
             self.pgn = opening['pgn']
             self.iterator(chapter, opening['Name'])
+
+        if config.CAREABOUTENGINE == 1:
+            quitEngine()  # quit worker engine
+            engine.quit()  # quit bb engine
         
     def iterator(self, chapter, openingName):
         global finalLine
@@ -385,18 +380,3 @@ class Grower():
         for pgn, cumulative, likelyPath, winRate, Games in printerFinalLine:
             printer.print(pgn, cumulative, likelyPath, winRate, Games, lineNumber, openingName)
             lineNumber += 1
-
-
-def main():
-
-    grower = Grower()
-    grower.run()
-
-
-if __name__=='__main__':
-    main()
-
-    if (config.CAREABOUTENGINE == 1):    
-        quitEngine() # quit worker engine
-
-        engine.quit() # quit bb engine
