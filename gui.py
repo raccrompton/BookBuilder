@@ -6,12 +6,14 @@ import psutil
 
 from BookBuilder import Grower
 from gui_themes import set_imgui_light_theme
-from settings import DatabaseSettings, settings
+from settings import DatabaseSettings, settings, load_settings, save_settings
 
 window_width = 980
 window_height = 720
 
 settings_group_xoffset = 180
+
+primary_window_tag = "primary_window"
 
 blog_link = "https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck"
 source_code_link = "https://github.com/raccrompton/BookBuilder"
@@ -32,11 +34,16 @@ def _menu_link(label: str, url: str):
 
 
 def menu_bar():
+    def reload_settings():
+        load_settings()
+        # the easiest way to put new data in the gui is to destroy and recreate it
+        dpg.delete_item(primary_window_tag)
+        create_primary_window()
+
     with dpg.menu_bar():
         with dpg.menu(label="Settings"):
-            dpg.add_menu_item(label="Load")
-            dpg.add_menu_item(label="Save")
-            dpg.add_menu_item(label="Save as...")
+            dpg.add_menu_item(label="Load", callback=reload_settings)
+            dpg.add_menu_item(label="Save", callback=lambda: save_settings())
 
         with dpg.menu(label="Help"):
             _menu_link("Announcement blog post and FAQ", blog_link)
@@ -66,7 +73,7 @@ def summary():
         if len(invalid_books) > 0:
             dpg.set_value(status_text,
                           "Error, book(s) listed below are invalid. Correct them under 'Book settings' and retry\n\n"
-                          + "\n\n".join([str(book) for book in invalid_books]))
+                          + "\n\n".join([book.__str__() for book in invalid_books]))
             return
 
         def finish_callback():
@@ -256,8 +263,8 @@ def engine_settings():
                                              show=False,
                                              callback=call_path_callback_and_update_path_in_gui):
                             dpg.add_file_extension(".*")
-                            dpg.add_file_extension("", color=(0, 255, 255, 255))
-                            dpg.add_file_extension(".exe", color=(0, 255, 0, 255))
+                            dpg.add_file_extension("", color=(0, 0, 255, 255))
+                            dpg.add_file_extension(".exe", color=(0, 180, 0, 255))
 
                         dpg.add_button(label="Select engine file",
                                        user_data=dpg.last_container(),
@@ -352,18 +359,19 @@ def engine_settings():
                 dpg.add_input_int(default_value=s.ignore_loss_limit, callback=s.ignore_loss_limit_callback)
 
 
-def create_gui():
-    dpg.create_context()
-
-    with dpg.window(tag="Primary window"):
+def create_primary_window():
+    with dpg.window(tag=primary_window_tag):
+        dpg.set_primary_window(primary_window_tag, True)
         menu_bar()
         summary()
         book_settings()
         database_settings()
         move_selection_settings()
         engine_settings()
-    dpg.set_primary_window("Primary window", True)
 
+
+def create_gui():
+    dpg.create_context()
     dpg.create_viewport(
         title='BookBuilder',
         width=window_width,
@@ -373,6 +381,8 @@ def create_gui():
         y_pos=0)
 
     set_imgui_light_theme()
+    create_primary_window()
+
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()

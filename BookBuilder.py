@@ -14,7 +14,6 @@ logging.basicConfig(level=log_level)
 logging.getLogger("chess.pgn").setLevel(logging.CRITICAL)
 
 working_dir = os.getcwd()
-logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 
 # todo: move this deeper so it's set after a user presses the "Generate" button, not at program start
 engine = None

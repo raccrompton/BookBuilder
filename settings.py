@@ -1,4 +1,7 @@
 import io
+import logging
+import os
+import pickle
 from enum import Enum
 from typing import Set, List
 
@@ -17,7 +20,7 @@ class BookSettings:
             self.name = name
             self.pgn = pgn
 
-        def __repr__(self) -> str:
+        def __str__(self) -> str:
             return f"Name: {self.name}\nPGN: {self.pgn}"
 
         def is_valid_pgn(self) -> bool:
@@ -190,7 +193,26 @@ class Settings:
     engine = EngineSettings()
 
 
-settings = Settings()
+settings_file = 'settings.pik'
 
-# todo: allow saving and loading settings from a file
-# todo: initialize those values based on a file
+
+def save_settings():
+    with open(settings_file, 'wb') as file:
+        pickle.dump(settings, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_settings():
+    if not os.path.exists(settings_file):
+        logging.info(f"No settings file {settings_file} found, skipping loading settings")
+
+    with open(settings_file, 'rb') as file:
+        from_file = pickle.load(file)
+
+        settings.book = from_file.book
+        settings.database = from_file.database  # todo: looks like loading speeds and ratings does not work
+        settings.moveSelection = from_file.moveSelection
+        settings.engine = from_file.engine
+
+
+settings = Settings()
+load_settings()
