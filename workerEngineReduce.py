@@ -105,12 +105,8 @@ class WorkerPlay():
         
         url = 'https://explorer.lichess.ovh/lichess?'
         url += f'variant={variant}&'
-        for speed in speeds:
-            url += f'speeds={speed}&'
-
-        for rating in ratings:
-            url += f'ratings={rating}&'
-
+        url += f'speeds={",".join(speeds)}&'
+        url += f'ratings={",".join(ratings)}&'
         url += f'recentGames={recentGames}&'
         url += f'topGames={topGames}&'
         url += f'moves={moves}&'
