@@ -1,5 +1,3 @@
-from config import config
-
 import io
 import os
 import logging

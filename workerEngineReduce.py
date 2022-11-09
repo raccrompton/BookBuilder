@@ -5,8 +5,6 @@ import numpy as np
 import time
 import copy
 
-from config import config 
-
 import chess
 import chess.engine
 import re
