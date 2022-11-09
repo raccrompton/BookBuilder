@@ -1,3 +1,4 @@
+import os
 import webbrowser
 
 import dearpygui.dearpygui as dpg
@@ -9,7 +10,6 @@ from settings import DatabaseSettings, settings
 window_width = 980
 window_height = 720
 
-spacer_height = 20
 settings_group_xoffset = 180
 
 blog_link = "https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck"
@@ -45,17 +45,36 @@ def menu_bar():
 def summary():
     dpg.add_text("An automatic practical chess opening repertoire builder using Lichess opening explorer API")
     dpg.add_text("Customize your settings and then press the button below to begin generating your repertoire")
-    # todo: make this button more visible - change size and color
-    # todo: disable this button after clicking until generation completes
+    status_text = dpg.add_text()
 
     def start_generation():
-        # todo: validate free-input form with book names and PGNs; create Book objects - partially implemented, search for "Invalid PGN"
-        # todo: if engine is enabled, validate that the path is correct (or set at all)
-        # todo: add some GUI part that displays the progress of generating the repertoire
-        Grower().run()
+        # validate engine path
+        if settings.engine.enabled:
+            if settings.engine.path == settings.engine.NO_FILE_SELECTED:
+                dpg.set_value(status_text, f"Error, no engine path was provided\n"
+                                           f"Provide it under 'Engine settings' or unselect 'Use engine' and retry")
+                return
+            if not os.path.exists(settings.engine.path):
+                dpg.set_value(status_text, f"Error, provided engine path '{settings.engine.path}' does not exist\n"
+                                           f"Correct it under 'Engine settings' or unselect 'Use engine' and retry")
+                return
 
-    dpg.add_button(label="Generate PGN", callback=start_generation)
-    dpg.add_spacer(height=spacer_height)
+        # validate books from free-text input are valid
+        settings.book.create_books_from_string()
+        invalid_books = settings.book.get_invalid_books()
+        if len(invalid_books) > 0:
+            dpg.set_value(status_text,
+                          "Error, book(s) listed below are invalid. Correct them under 'Book settings' and retry\n\n"
+                          + "\n\n".join([str(book) for book in invalid_books]))
+            return
+
+        # todo: update the status text during generation to show to the user the program is working
+        dpg.set_value(status_text, "PGN generation started")
+        # Grower().run()
+
+    # todo: make this button more visible - change size and color
+    # todo: disable this button after clicking until generation completes
+    dpg.add_button(label="Generate PGN", before=status_text, callback=start_generation)
 
 
 def book_settings():

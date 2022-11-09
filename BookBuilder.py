@@ -11,10 +11,9 @@ from workerEngineReduce import WorkerPlay, quitEngine
 import chess.engine
 
 
-log_level = logging.INFO
-if config.PRINT_INFO_TO_CONSOLE:
-    log_level = logging.DEBUG
+log_level = logging.DEBUG
 logging.basicConfig(level=log_level)
+logging.getLogger("chess.pgn").setLevel(logging.CRITICAL)
 
 working_dir = os.getcwd()
 logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
@@ -293,9 +292,9 @@ class Printer():
 class Grower():
     
     def run(self):
-        for chapter, opening in enumerate(config.OPENINGBOOK, 1):
-            self.pgn = opening['pgn']
-            self.iterator(chapter, opening['Name'])
+        for chapter, opening in enumerate(settings.book.books, 1):
+            self.pgn = opening.pgn
+            self.iterator(chapter, opening.name)
 
         if settings.engine.enabled:
             quitEngine()  # quit worker engine

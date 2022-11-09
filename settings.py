@@ -1,6 +1,9 @@
+import io
 from enum import Enum
-from typing import Set
+from typing import Set, List
 
+import chess
+import chess.pgn
 import psutil
 
 
@@ -14,18 +17,37 @@ class BookSettings:
             self.name = name
             self.pgn = pgn
 
-        def __str__(self) -> str:
-            return f"{self.name}\n{self.pgn}"
+        def __repr__(self) -> str:
+            return f"Name: {self.name}\nPGN: {self.pgn}"
+
+        def is_valid_pgn(self) -> bool:
+            # poor man's validation: if chess.pgn throws when parsing a PGN, the PGN is not valid
+            game = chess.pgn.read_game(io.StringIO(self.pgn))
+            return len(game.errors) == 0
 
     order: Order = Order.SHORT_TO_LONG
-    books_string = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
-    # books: List[Book] = (Book("Book A", "1. e4 e5"), Book("Book B", "1. e4 e5 2. f4"))
+    books_string: str = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
+    books: List[Book] = list()
 
     def order_callback(self, _, order_value):
         self.order = self.Order(order_value)
 
     def books_string_callback(self, _, books_string):
         self.books_string = books_string
+
+    def create_books_from_string(self):
+        self.books = list()
+        lines = self.books_string.splitlines()
+        non_empty_lines = iter([line.strip() for line in lines if line and line.strip()])
+        for book_name in non_empty_lines:
+            self.books.append(self.Book(book_name, next(non_empty_lines)))
+
+    def get_invalid_books(self) -> List[Book]:
+        invalid_books = list()
+        for book in self.books:
+            if not book.is_valid_pgn():
+                invalid_books.append(book)
+        return invalid_books
 
 
 class DatabaseSettings:
@@ -115,10 +137,10 @@ class MoveSelectionSettings:
 
 
 class EngineSettings:
-    __NO_FILE_SELECTED = "No engine file selected"
+    NO_FILE_SELECTED = "No engine file selected"
 
     enabled: bool = False
-    path: str = __NO_FILE_SELECTED
+    path: str = NO_FILE_SELECTED
     finish: bool = True
     depth: int = 20
     threads: int = int(psutil.cpu_count(logical=True) / 2)  # half of logical CPU cores
