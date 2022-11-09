@@ -3,7 +3,7 @@ import logging
 import os
 import pickle
 from enum import Enum
-from typing import Set, List
+from typing import List
 
 import chess
 import chess.pgn
@@ -31,6 +31,17 @@ class BookSettings:
     order: Order = Order.SHORT_TO_LONG
     books_string: str = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
     books: List[Book] = list()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # don't pickle books
+        del state["books"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # add books back since it doesn't exist in the pickle
+        self.books = list()
 
     def order_callback(self, _, order_value):
         self.order = self.Order(order_value)
@@ -81,9 +92,16 @@ class DatabaseSettings:
         ELO_2500 = "2500"
 
     variant: Variant = Variant.STANDARD
-    speeds: Set[Speed] = {Speed.RAPID, Speed.CLASSICAL}
-    ratings: Set[Rating] = {Rating.ELO_1800, Rating.ELO_2000, Rating.ELO_2200}
+    speeds: List[Speed] = [Speed.RAPID, Speed.CLASSICAL]
+    ratings: List[Rating] = [Rating.ELO_1800, Rating.ELO_2000, Rating.ELO_2200]
     moves: int = 10
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # for whatever reason those two properties are not part of __dict__
+        state["speeds"] = self.speeds
+        state["ratings"] = self.ratings
+        return state
 
     def variant_callback(self, _, variant_name):
         self.variant = self.Variant[variant_name]
@@ -91,14 +109,14 @@ class DatabaseSettings:
     def speed_callback(self, _, is_selected, speed_name):
         speed = self.Speed[speed_name]
         if is_selected:
-            self.speeds.add(speed)
+            self.speeds.append(speed)
         else:
             self.speeds.remove(speed)
 
     def rating_callback(self, _, is_selected, rating_name):
         rating = self.Rating[rating_name]
         if is_selected:
-            self.ratings.add(rating)
+            self.ratings.append(rating)
         else:
             self.ratings.remove(rating)
 
@@ -199,6 +217,7 @@ settings_file = 'settings.pik'
 def save_settings():
     with open(settings_file, 'wb') as file:
         pickle.dump(settings, file, protocol=pickle.HIGHEST_PROTOCOL)
+        logging.info(f"Saved settings to {settings_file}")
 
 
 def load_settings():
@@ -209,9 +228,10 @@ def load_settings():
         from_file = pickle.load(file)
 
         settings.book = from_file.book
-        settings.database = from_file.database  # todo: looks like loading speeds and ratings does not work
+        settings.database = from_file.database
         settings.moveSelection = from_file.moveSelection
         settings.engine = from_file.engine
+        logging.info(f"Loaded settings from {settings_file}")
 
 
 settings = Settings()
