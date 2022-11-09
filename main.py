@@ -1,5 +1,7 @@
 from BookBuilder import Grower
+from gui import create_gui
 
 if __name__ == '__main__':
-    grower = Grower()
-    grower.run()
+    create_gui()
+    # grower = Grower()
+    # grower.run()

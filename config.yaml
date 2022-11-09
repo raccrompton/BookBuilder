@@ -42,7 +42,7 @@ ENGINEDEPTH: 20
 #RECOMMENDED minimum 20+ ideally 30+ for stable evaluations in the opening phase.
 #what depth the engine should evaluate best moves. the higher the depth the longer the evaluation will take.
 ENGINEFINISH: 1
-#if we want the engine to complete lines upto the cumulative likelihood, where where data from our perspective doesn't meet minimum criteria. For this kind of finishing, 1. Otherwise 0, and lines will end where there's no good human data for one player.
+#if we want the engine to complete lines upto the cumulative likelihood, where data from our perspective doesn't meet minimum criteria. For this kind of finishing, 1. Otherwise 0, and lines will end where there's no good human data for one player.
 SOUNDNESSLIMIT: -99
 #maximum centipawns we are willing to be down in engine eval, provided the winrate is better (-300 = losing by 3 pawns in eval). We never give up a forced mate, however.
 MOVELOSSLIMIT: -99
