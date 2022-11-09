@@ -3,6 +3,7 @@ import webbrowser
 import dearpygui.dearpygui as dpg
 import psutil
 
+from BookBuilder import Grower
 from settings import DatabaseSettings, settings
 
 window_width = 980
@@ -44,7 +45,16 @@ def menu_bar():
 def summary():
     dpg.add_text("An automatic practical chess opening repertoire builder using Lichess opening explorer API")
     dpg.add_text("Customize your settings and then press the button below to begin generating your repertoire")
-    dpg.add_button(label="Generate PGN")  # todo: make this button more visible - change size and color
+    # todo: make this button more visible - change size and color
+    # todo: disable this button after clicking until generation completes
+
+    def start_generation():
+        # todo: validate free-input form with book names and PGNs; create Book objects - partially implemented, search for "Invalid PGN"
+        # todo: if engine is enabled, validate that the path is correct (or set at all)
+        # todo: add some GUI part that displays the progress of generating the repertoire
+        Grower().run()
+
+    dpg.add_button(label="Generate PGN", callback=start_generation)
     dpg.add_spacer(height=spacer_height)
 
 

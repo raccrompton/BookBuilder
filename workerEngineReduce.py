@@ -12,11 +12,13 @@ import chess.engine
 import re
 import logging
 
+from settings import settings
 
-if (config.CAREABOUTENGINE == 1):
-    engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH) #WHERE THE ENGINE IS ON YOUR COMPUTER
-    engine.configure({"Hash": config.ENGINEHASH})
-    engine.configure({"Threads": config.ENGINETHREADS})
+# todo: move this deeper so it's set after a user presses the "Generate" button, not at program start
+if settings.engine.enabled:
+    engine = chess.engine.SimpleEngine.popen_uci(settings.engine.path) #WHERE THE ENGINE IS ON YOUR COMPUTER
+    engine.configure({"Hash": settings.engine.hash})
+    engine.configure({"Threads": settings.engine.threads})
     logging.getLogger('chess.engine').setLevel(logging.INFO)
 
 #function to calculate percentage win rates for each colour, if more than 0 games
@@ -24,7 +26,7 @@ def calc_percs(white, black, draws):
 
     n = white + black + draws #wins + draws after move was played
 
-    if (n > 0) and (config.DRAWSAREHALF == 0):
+    if (n > 0) and not settings.moveSelection.draws_are_half:
         total_games = n
         white_perc = white / n
         black_perc = black / n
@@ -33,7 +35,7 @@ def calc_percs(white, black, draws):
         
     
     else:
-        if (n > 0) and (config.DRAWSAREHALF == 1):
+        if (n > 0) and settings.moveSelection.draws_are_half:
                 total_games = n
                 white_perc = (white + (0.5 * draws)) / n
                 black_perc = (black + (0.5 *draws)) / n
@@ -48,12 +50,12 @@ def calc_percs(white, black, draws):
 
 def calc_value(winRate, gamesPlayed, playRate, san, board): # p = white/black win rate and n = total games p was played, this function calculates values used in the potentcy score of each potential move. It do
 
-    if (gamesPlayed > config.MINGAMES) and (playRate >config.MINPLAYRATE): #total games move was played must be more than min games and min perc play rate (otherwise data is bad)
+    if (gamesPlayed > settings.moveSelection.min_games) and (playRate > settings.moveSelection.min_play_rate): #total games move was played must be more than min games and min perc play rate (otherwise data is bad)
         # print("check this", np.sqrt(winRate * (1-winRate) / gamesPlayed))
-        # print ("check this",st.norm.ppf(1 - config.ALPHA/2))
-        # print ("check this",winRate - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed))
-        lb_value = max(0, winRate - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #lower bound wr at 95% confidence interval
-        ub_value = max(0, winRate + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #upper bound wr at
+        # print ("check this",st.norm.ppf(1 - settings.moveSelection.alpha/2))
+        # print ("check this",winRate - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed))
+        lb_value = max(0, winRate - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #lower bound wr at 95% confidence interval
+        ub_value = max(0, winRate + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #upper bound wr at
     else:
         winRate = 0
         lb_value = 0
@@ -95,10 +97,10 @@ class WorkerPlay():
        
 #generate the Lichess API URL from config file               
     def call_api(self):
-        variant = config.VARIANT
-        speeds = config.SPEEDS
-        ratings = config.RATINGS
-        moves = config.MOVES
+        variant = settings.database.variant.value
+        speeds = [speed.value for speed in settings.database.speeds]
+        ratings = [rating.value for rating in settings.database.ratings]
+        moves = settings.database.moves
         recentGames = 0
         topGames = 0
         play = ""
@@ -176,7 +178,7 @@ class WorkerPlay():
         ub_potency = moves[best_move]['ub_value']
         n = moves[best_move]['n']
                 
-        if (config.CAREABOUTENGINE == 1) and (potency > 0) :
+        if settings.engine.enabled and (potency > 0) :
 
             engineChecked = 0
             bestEval = None
@@ -203,7 +205,7 @@ class WorkerPlay():
                     
                         #we ask engine for best move. If candidate move is best move, we approve, otherwise we calc difference.
                         logging.debug (f"engine working...")  
-                        PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to play
+                        PlayResult = engine.play(board, chess.engine.Limit(depth=settings.engine.depth)) #we get the engine to play
                         
                         engineMoveSan = board.san(PlayResult.move)
                         board.push(PlayResult.move)
@@ -228,8 +230,8 @@ class WorkerPlay():
                     #if our move is the top engine move, we just approve it. Bug note: We can get loss limit / soundness limit slip in some scenarios (eg if move goes out of soundness limits and engine can't see, but unlikely)
                     if ourMoveBoard == engineMoveBoard:
                         logging.debug("our move is top engine move so we approve")
-                        lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                        ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                        lb_value = max(0, potency - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                        ub_value = max(0, potency + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                         engineChecked = 1
                         logging.debug(f"move is top engine move {san}")                    
                     
@@ -239,9 +241,9 @@ class WorkerPlay():
                         
                         if bestEval == None:
                             #we get engine move eval
-                            # engineMoveReply = engine.play(engineMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we play one more move after engine move, to avoid slipping out of soundness limits
+                            # engineMoveReply = engine.play(engineMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after engine move, to avoid slipping out of soundness limits
                             # engineMoveBoard.push(engineMoveReply.move)            
-                            engineMoveScore = engine.analyse(engineMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from opponent's perspective 
+                            engineMoveScore = engine.analyse(engineMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we get engine's eval from opponent's perspective
 
                             #we convert the engine move score to a string so we can parse it
                             engineMoveScoreString = str(engineMoveScore["score"])
@@ -268,7 +270,7 @@ class WorkerPlay():
                             bestEval = afterEngineMoveScore
                         logging.debug (f"centipawn eval from our perspective after engine move {engineMoveSan}  {bestEval}") 
                         
-                        if bestEval < config.SOUNDNESSLIMIT:
+                        if bestEval < settings.engine.soundness_limit:
                             # engine checked = 1 leaves the checking loop and setting values to 0 triggers bookbuilder to finish with engine.    
                             logging.debug (f"failed best engine move {engineMoveSan} on soundness limit - we may have slipped outside soundness limit. We will check other moves, but maybe move selection this move is left to engine finishing if available. eval: {bestEval}")
                             # potency = 0
@@ -277,11 +279,11 @@ class WorkerPlay():
                             # n = 0    
                             # engineChecked = 1 
                         
-                        logging.debug (f"analysing our move eval. engine working...")                        
+                        logging.debug (f"analysing our move eval. engine working...")
                         #we get our move eval
-                        # ourMoveReply = engine.play(ourMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we play one more move after our move                      
+                        # ourMoveReply = engine.play(ourMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after our move
                         # ourMoveBoard.push(ourMoveReply.move)  
-                        ourMoveScore = engine.analyse(ourMoveBoard, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get engine's eval from opponent's perspective                       
+                        ourMoveScore = engine.analyse(ourMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we get engine's eval from opponent's perspective
                         
                         logging.debug (f"Eval from perspective after our move {ourMoveScore['score']}") 
                         
@@ -332,9 +334,9 @@ class WorkerPlay():
                             logging.debug(f'our move centipawns vs engine move {moveLoss}')
                     
                             #we approve the move if it meets soundness limits + loss limits, or passes our ignorelosslimit, or is evaluated stronger than top engine move after playing
-                            if ( (afterOurMoveScore > config.SOUNDNESSLIMIT)  and  (moveLoss > config.MOVELOSSLIMIT)) or (afterOurMoveScore > (config.IGNORELOSSLIMIT)) or (moveLoss >= 0):
-                                lb_value = max(0, potency - st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                                ub_value = max(0, potency + st.norm.ppf(1 - config.ALPHA/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                            if ( (afterOurMoveScore > settings.engine.soundness_limit)  and  (moveLoss > settings.engine.move_loss_limit)) or (afterOurMoveScore > (settings.engine.ignore_loss_limit)) or (moveLoss >= 0):
+                                lb_value = max(0, potency - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                                ub_value = max(0, potency + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                                 engineChecked = 1
                                 logging.debug([str(i) for i in ["move is engine checked and passes soundness + moveloss limits, passes the ignoreloss limit or is better than engine move", best_move, moves[san], "eval:", afterOurMoveScore, "loss:", moveLoss]])
 

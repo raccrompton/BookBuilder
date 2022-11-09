@@ -19,11 +19,7 @@ class BookSettings:
 
     order: Order = Order.SHORT_TO_LONG
     books_string = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
-
     # books: List[Book] = (Book("Book A", "1. e4 e5"), Book("Book B", "1. e4 e5 2. f4"))
-    # todo: validate this list when clicking the "start" button; probably when I'll create those books
-    # todo: also if engine is enabled, validate that the path is correct (or set at all)
-    # todo: add some GUI part that displays the progress of generating the repertoire
 
     def order_callback(self, _, order_value):
         self.order = self.Order(order_value)

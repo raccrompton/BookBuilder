@@ -6,6 +6,7 @@ import logging
 import chess
 import chess.pgn
 
+from settings import settings
 from workerEngineReduce import WorkerPlay, quitEngine
 import chess.engine
 
@@ -18,11 +19,12 @@ logging.basicConfig(level=log_level)
 working_dir = os.getcwd()
 logging.info(f'Starting BookBuilder. Your current dir is {working_dir}. Files will be saved to this location.')
 
+# todo: move this deeper so it's set after a user presses the "Generate" button, not at program start
 engine = None
-if (config.CAREABOUTENGINE == 1):
-    engine = chess.engine.SimpleEngine.popen_uci(config.ENGINEPATH)  #WHERE THE ENGINE IS ON YOUR COMPUTER
-    engine.configure({"Hash": config.ENGINEHASH})
-    engine.configure({"Threads": config.ENGINETHREADS})
+if settings.engine.enabled:
+    engine = chess.engine.SimpleEngine.popen_uci(settings.engine.path)  #WHERE THE ENGINE IS ON YOUR COMPUTER
+    engine.configure({"Hash": settings.engine.hash})
+    engine.configure({"Threads": settings.engine.threads})
     logging.getLogger('chess.engine').setLevel(logging.INFO)
 
 class Rooter():
@@ -117,10 +119,10 @@ class Leafer():
         
         for move in continuations:
             continuationLikelihood = float(move['playrate']) * float(self.likelihood)
-            if (continuationLikelihood >= (float(config.DEPTHLIKELIHOOD))) and (move['total_games'] > config.CONTINUATIONGAMES): #we eliminate continuations that don't meet depth likelihood or minimum games
+            if (continuationLikelihood >= (float(settings.moveSelection.depth_likelihood))) and (move['total_games'] > settings.moveSelection.continuation_games): #we eliminate continuations that don't meet depth likelihood or minimum games
                 move ['cumulativeLikelihood'] = (continuationLikelihood)
                 validContinuations.append(move)
-                #print (float(move['playrate']),float(self.likelihood),float(config.DEPTHLIKELIHOOD))
+                #print (float(move['playrate']),float(self.likelihood),float(settings.moveSelection.depth_likelihood))
                 #logging.debug(continuationLikelihood)
         logging.debug (f'valid continuations: {validContinuations}')
         
@@ -144,7 +146,7 @@ class Leafer():
             
             #we check our response playrate and minimum played games meet threshold. if so we pass the pgn. if not we add pgn to final list
             
-            if (move['playrate'] > config.MINPLAYRATE) and (self.total_games >config.MINGAMES) and (self.potency != 0):
+            if (move['playrate'] > settings.moveSelection.min_play_rate) and (self.total_games > settings.moveSelection.min_games) and (self.potency != 0):
                 
                 #we add the pgn of the continuation and our best move to a list
                 if  self.perspective_str == 'Black':
@@ -166,10 +168,10 @@ class Leafer():
                 del self.likelihood_path [-1] #we remove the continuation from the likelihood path                         
                 board.pop() #we go back a move to undo the continuation
             else:
-                if (config.CAREABOUTENGINE == 1) and (config.ENGINEFINISH ==1): #if we want engine to finish lines where no good move data exists
+                if settings.engine.enabled and settings.engine.finish: #if we want engine to finish lines where no good move data exists
                     
                     #we ask the engine the best move
-                    PlayResult = engine.play(board, chess.engine.Limit(depth = config.ENGINEDEPTH)) #we get the engine to finish the line
+                    PlayResult = engine.play(board, chess.engine.Limit(depth=settings.engine.depth)) #we get the engine to finish the line
                     board.push(PlayResult.move)
                     logging.debug(f"engine finished {PlayResult.move}")
                     board.pop() #we go back a move to undo the engine
@@ -231,13 +233,13 @@ class Leafer():
                 logging.debug(f'line ends in mate')
             
             else:
-                if (totalLineGames < config.MINGAMES) : #if our response is an engine 'novelty' there is no reliable lineWinRate or total games
+                if (totalLineGames < settings.moveSelection.min_games) : #if our response is an engine 'novelty' there is no reliable lineWinRate or total games
                     board.pop() #we go back to opponent's move
                     self.workerPlay = WorkerPlay(board.fen(), move)
                     lineWinRate, totalLineGames, draws = self.workerPlay.find_potency()
 
 
-                    if config.DRAWSAREHALF == 1: #if draws are half we inverse the winrate on the last move, and add half the draws
+                    if settings.moveSelection.draws_are_half: #if draws are half we inverse the winrate on the last move, and add half the draws
                         lineWinRate = 1 - lineWinRate + (0.5 * draws)
                         logging.debug(f"total games on previous move: {totalLineGames}, draws are wins and our move is engine 'almost novelty' so win rate based on previous move is {lineWinRate}")  
                     else:
@@ -277,14 +279,14 @@ class Printer():
             
             
             #we write them in as annotations
-            if config.DRAWSAREHALF == 1:
+            if settings.moveSelection.draws_are_half:
                 lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate (draws are half): " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
-            if config.DRAWSAREHALF == 0:
+            else:
                 lineAnnotations = "Line cumulative playrate: " + str("{:+.2%}".format(cumulative)) + '\n' + "Line winrate (excluding draws): " + str("{:+.2%}".format(winRate)) + ' over ' + str(Games) + ' games'
             file.write('\n' + lineAnnotations)
 
             
-            file.write("}") #end annotations                
+            file.write("}") #end annotations
         logging.info(f"Wrote data to {self.filepath}")
 
 
@@ -295,7 +297,7 @@ class Grower():
             self.pgn = opening['pgn']
             self.iterator(chapter, opening['Name'])
 
-        if config.CAREABOUTENGINE == 1:
+        if settings.engine.enabled:
             quitEngine()  # quit worker engine
             engine.quit()  # quit bb engine
         
@@ -348,7 +350,7 @@ class Grower():
             logging.debug(f"final line count { lineCount+1 } for line {lineString}")
         
         
-        logging.debug (f'we sort the lines by consecutive move probabilities')        
+        logging.debug (f'we sort the lines by consecutive move probabilities')
         def extract_key(printerFinalLine):
             return [v for _, v in printerFinalLine[2]]
 
@@ -360,8 +362,8 @@ class Grower():
 
         
         
-        logging.debug (f'we reverse the sort to make long to short')        
-        if config.LONGTOSHORT == 1:
+        logging.debug (f'we reverse the sort to make long to short')
+        if settings.book.order.LONG_TO_SHORT:
             printerFinalLine.reverse() #we make the longest (main lines) first
             
         
