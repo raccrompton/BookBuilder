@@ -289,7 +289,7 @@ class Printer():
 
 class Grower():
     
-    def run(self):
+    def run(self, callback):
         for chapter, opening in enumerate(settings.book.books, 1):
             self.pgn = opening.pgn
             self.iterator(chapter, opening.name)
@@ -297,6 +297,8 @@ class Grower():
         if settings.engine.enabled:
             quitEngine()  # quit worker engine
             engine.quit()  # quit bb engine
+
+        callback()
         
     def iterator(self, chapter, openingName):
         global finalLine

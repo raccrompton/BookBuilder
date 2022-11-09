@@ -5,6 +5,7 @@ import dearpygui.dearpygui as dpg
 import psutil
 
 from BookBuilder import Grower
+from gui_themes import set_imgui_light_theme
 from settings import DatabaseSettings, settings
 
 window_width = 980
@@ -21,7 +22,7 @@ def _help(message: str):
     group = dpg.add_group(horizontal=True)
     dpg.move_item(last_item, parent=group)
     dpg.capture_next_item(lambda s: dpg.move_item(s, parent=group))
-    t = dpg.add_text("(?)", color=[0, 255, 0])
+    t = dpg.add_text("(?)", color=[0.26 * 255, 0.59 * 255, 0.98 * 255, 255])
     with dpg.tooltip(t):
         dpg.add_text(message)
 
@@ -47,7 +48,7 @@ def summary():
     dpg.add_text("Customize your settings and then press the button below to begin generating your repertoire")
     status_text = dpg.add_text()
 
-    def start_generation():
+    def start_generation(button_tag):
         # validate engine path
         if settings.engine.enabled:
             if settings.engine.path == settings.engine.NO_FILE_SELECTED:
@@ -68,19 +69,22 @@ def summary():
                           + "\n\n".join([str(book) for book in invalid_books]))
             return
 
+        def finish_callback():
+            dpg.enable_item(button_tag)
+            dpg.set_value(status_text, "PGN generation finished")
+
         # todo: update the status text during generation to show to the user the program is working
         dpg.set_value(status_text, "PGN generation started")
-        # Grower().run()
+        dpg.disable_item(button_tag)
+        Grower().run(finish_callback)
 
-    # todo: make this button more visible - change size and color
-    # todo: disable this button after clicking until generation completes
-    dpg.add_button(label="Generate PGN", before=status_text, callback=start_generation)
+    dpg.add_button(label="Generate PGN", width=120, height=30, before=status_text, callback=start_generation)
 
 
 def book_settings():
     s = settings.book
     with dpg.group():
-        with dpg.collapsing_header(label="Book settings", default_open=False):
+        with dpg.collapsing_header(label="Book settings", default_open=True):
             with dpg.group(horizontal=True, xoffset=settings_group_xoffset):
                 dpg.add_text("Variations order")
                 _help("Choose whether you want chapters ordered from long lines to short lines or the opposite way")
@@ -105,7 +109,7 @@ def book_settings():
 def database_settings():
     s = settings.database
     with dpg.group():
-        with dpg.collapsing_header(label="Database settings", default_open=False):
+        with dpg.collapsing_header(label="Database settings", default_open=True):
             with dpg.group(horizontal=True, xoffset=settings_group_xoffset):
                 dpg.add_text("Variant")
                 _help("Variant to use in the analysis")
@@ -151,7 +155,7 @@ def database_settings():
 def move_selection_settings():
     s = settings.moveSelection
     with dpg.group():
-        with dpg.collapsing_header(label="Move selection settings", default_open=False):
+        with dpg.collapsing_header(label="Move selection settings", default_open=True):
             with dpg.group(horizontal=True, xoffset=settings_group_xoffset):
                 dpg.add_text("Depth likelihood %")
                 _help("This controls how deep moves and lines are generated\n"
@@ -228,7 +232,7 @@ def move_selection_settings():
 def engine_settings():
     s = settings.engine
     with dpg.group():
-        with dpg.collapsing_header(label="Engine settings", default_open=True):
+        with dpg.collapsing_header(label="Engine settings", default_open=False):
             with dpg.group(horizontal=True, xoffset=settings_group_xoffset):
                 dpg.add_text("Use engine")
                 _help("Select this if you want to use engine evaluations of positions or engine finishing")
@@ -368,6 +372,7 @@ def create_gui():
         x_pos=0,
         y_pos=0)
 
+    set_imgui_light_theme()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
