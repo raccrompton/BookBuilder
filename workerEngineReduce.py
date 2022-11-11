@@ -133,7 +133,7 @@ class WorkerPlay:
                     
                         #we ask engine for best move. If candidate move is best move, we approve, otherwise we calc difference.
                         depth = self.settings.engine.depth
-                        self.status.info2(f"Running engine for '{board.fen()}' at depth {depth}, this can take a while")
+                        self.status.info2(f"Looking for best engine move at '{board.fen()}', depth {depth}, this can take a while")
                         logging.debug(f"engine working...")
                         PlayResult = self.engine.play(board, chess.engine.Limit(depth=depth)) #we get the engine to play
                         
@@ -172,8 +172,10 @@ class WorkerPlay:
                         if bestEval == None:
                             #we get engine move eval
                             # engineMoveReply = engine.play(engineMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after engine move, to avoid slipping out of soundness limits
-                            # engineMoveBoard.push(engineMoveReply.move)            
-                            engineMoveScore = self.engine.analyse(engineMoveBoard, chess.engine.Limit(depth=self.settings.engine.depth)) #we get engine's eval from opponent's perspective
+                            # engineMoveBoard.push(engineMoveReply.move)
+                            depth = self.settings.engine.depth
+                            self.status.info2(f"Looking for best engine move at '{board.fen()}', depth {depth}, this can take a while")
+                            engineMoveScore = self.engine.analyse(engineMoveBoard, chess.engine.Limit(depth=depth)) #we get engine's eval from opponent's perspective
 
                             #we convert the engine move score to a string so we can parse it
                             engineMoveScoreString = str(engineMoveScore["score"])
@@ -212,8 +214,10 @@ class WorkerPlay:
                         logging.debug (f"analysing our move eval. engine working...")
                         #we get our move eval
                         # ourMoveReply = engine.play(ourMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after our move
-                        # ourMoveBoard.push(ourMoveReply.move)  
-                        ourMoveScore = self.engine.analyse(ourMoveBoard, chess.engine.Limit(depth=self.settings.engine.depth)) #we get engine's eval from opponent's perspective
+                        # ourMoveBoard.push(ourMoveReply.move)
+                        depth = self.settings.engine.depth
+                        self.status.info2(f"Evaluating board after best human move, {ourMoveBoard.fen()}, depth {depth}, this can take a while")
+                        ourMoveScore = self.engine.analyse(ourMoveBoard, chess.engine.Limit(depth=depth)) #we get engine's eval from opponent's perspective
                         
                         logging.debug (f"Eval from perspective after our move {ourMoveScore['score']}") 
                         
