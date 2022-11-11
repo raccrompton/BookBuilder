@@ -30,18 +30,6 @@ class BookSettings:
 
     order: Order = Order.SHORT_TO_LONG
     books_string: str = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
-    books: List[Book] = list()
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # don't pickle books
-        del state["books"]
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        # add books back since it doesn't exist in the pickle
-        self.books = list()
 
     def order_callback(self, _, order_value):
         self.order = self.Order(order_value)
@@ -49,19 +37,13 @@ class BookSettings:
     def books_string_callback(self, _, books_string):
         self.books_string = books_string
 
-    def create_books_from_string(self):
-        self.books = list()
+    def create_books_from_string(self) -> List[Book]:
+        books = list()
         lines = self.books_string.splitlines()
         non_empty_lines = iter([line.strip() for line in lines if line and line.strip()])
         for book_name in non_empty_lines:
-            self.books.append(self.Book(book_name, next(non_empty_lines)))
-
-    def get_invalid_books(self) -> List[Book]:
-        invalid_books = list()
-        for book in self.books:
-            if not book.is_valid_pgn():
-                invalid_books.append(book)
-        return invalid_books
+            books.append(self.Book(book_name, next(non_empty_lines)))
+        return books
 
 
 class DatabaseSettings:
@@ -205,34 +187,30 @@ class EngineSettings:
 
 
 class Settings:
+    _settings_file = 'settings.pickle'
+
     book = BookSettings()
     database = DatabaseSettings()
     moveSelection = MoveSelectionSettings()
     engine = EngineSettings()
 
+    def __init__(self):
+        self.load_from_file()
 
-settings_file = 'settings.pik'
+    def save_to_file(self):
+        with open(self._settings_file, 'wb') as file:
+            pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
+            logging.info(f"Saved settings to {self._settings_file}")
 
+    def load_from_file(self):
+        if not os.path.exists(self._settings_file):
+            logging.info(f"No settings file {self._settings_file} found, skipping loading settings")
 
-def save_settings():
-    with open(settings_file, 'wb') as file:
-        pickle.dump(settings, file, protocol=pickle.HIGHEST_PROTOCOL)
-        logging.info(f"Saved settings to {settings_file}")
+        with open(self._settings_file, 'rb') as file:
+            from_file = pickle.load(file)
 
-
-def load_settings():
-    if not os.path.exists(settings_file):
-        logging.info(f"No settings file {settings_file} found, skipping loading settings")
-
-    with open(settings_file, 'rb') as file:
-        from_file = pickle.load(file)
-
-        settings.book = from_file.book
-        settings.database = from_file.database
-        settings.moveSelection = from_file.moveSelection
-        settings.engine = from_file.engine
-        logging.info(f"Loaded settings from {settings_file}")
-
-
-settings = Settings()
-load_settings()
+            self.book = from_file.book
+            self.database = from_file.database
+            self.moveSelection = from_file.moveSelection
+            self.engine = from_file.engine
+            logging.info(f"Loaded settings from {self._settings_file}")

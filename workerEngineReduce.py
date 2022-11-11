@@ -10,67 +10,13 @@ import chess.engine
 import re
 import logging
 
-from settings import settings
 
-# todo: move this deeper so it's set after a user presses the "Generate" button, not at program start
-if settings.engine.enabled:
-    engine = chess.engine.SimpleEngine.popen_uci(settings.engine.path) #WHERE THE ENGINE IS ON YOUR COMPUTER
-    engine.configure({"Hash": settings.engine.hash})
-    engine.configure({"Threads": settings.engine.threads})
-    logging.getLogger('chess.engine').setLevel(logging.INFO)
-
-#function to calculate percentage win rates for each colour, if more than 0 games
-def calc_percs(white, black, draws):
-
-    n = white + black + draws #wins + draws after move was played
-
-    if (n > 0) and not settings.moveSelection.draws_are_half:
-        total_games = n
-        white_perc = white / n
-        black_perc = black / n
-        draw_perc = draws / n
-        return white_perc, black_perc, draw_perc, total_games
-        
-    
-    else:
-        if (n > 0) and settings.moveSelection.draws_are_half:
-                total_games = n
-                white_perc = (white + (0.5 * draws)) / n
-                black_perc = (black + (0.5 *draws)) / n
-                draw_perc = draws / n
-                return white_perc, black_perc, draw_perc, total_games
-
-        else:
-                return None, None, None, 0
-
-
-
-
-def calc_value(winRate, gamesPlayed, playRate, san, board): # p = white/black win rate and n = total games p was played, this function calculates values used in the potentcy score of each potential move. It do
-
-    if (gamesPlayed > settings.moveSelection.min_games) and (playRate > settings.moveSelection.min_play_rate): #total games move was played must be more than min games and min perc play rate (otherwise data is bad)
-        # print("check this", np.sqrt(winRate * (1-winRate) / gamesPlayed))
-        # print ("check this",st.norm.ppf(1 - settings.moveSelection.alpha/2))
-        # print ("check this",winRate - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed))
-        lb_value = max(0, winRate - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #lower bound wr at 95% confidence interval
-        ub_value = max(0, winRate + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed)) #upper bound wr at
-    else:
-        winRate = 0
-        lb_value = 0
-        ub_value = 0
-
-
-
-    return winRate, lb_value, ub_value, gamesPlayed
-
-
-class WorkerPlay():
-    def __init__(self, fen, lastmove = '', san = '', ):
+class WorkerPlay:
+    def __init__(self, settings, engine, fen):
+        self.settings = settings
+        self.engine = engine
         self.fen = fen #fen is the game moves format needed to feed lichess api
         self.short_fen = fen[:-4]
-        self.lastmove = lastmove
-        self.san = san #san is the human written format for chess moves like 'Bc4'
-        self.terminal = '#' in san
         self.explored = False
         self.best_move = None
         
@@ -79,12 +25,13 @@ class WorkerPlay():
         self.stats = self.call_api()
         self.parse_stats()
        
-#generate the Lichess API URL from config file               
+    #generate the Lichess API URL from config file
     def call_api(self):
-        variant = settings.database.variant.value
-        speeds = [speed.value for speed in settings.database.speeds]
-        ratings = [rating.value for rating in settings.database.ratings]
-        moves = settings.database.moves
+        db = self.settings.database
+        variant = db.variant.value
+        speeds = [speed.value for speed in db.speeds]
+        ratings = [rating.value for rating in db.ratings]
+        moves = db.moves
         recentGames = 0
         topGames = 0
         play = ""
@@ -112,15 +59,13 @@ class WorkerPlay():
 
         return response
 
-
-
     def parse_stats(self, move = None): #parse the stats returned by the API
 
         stats = self.stats #self.stats is what the api call returns
-        stats['white_perc'], stats['black_perc'], stats['draw_perc'], stats['total_games'] = calc_percs(stats['white'], stats['black'], stats['draws']) # base rate?? sends the whiteWin / blackWin / draw / total games move was played numbers to calculate win percentages function, and define stats
+        stats['white_perc'], stats['black_perc'], stats['draw_perc'], stats['total_games'] = self.calc_percs(stats['white'], stats['black'], stats['draws']) # base rate?? sends the whiteWin / blackWin / draw / total games move was played numbers to calculate win percentages function, and define stats
         #print(stats) #uncomment for debugging
         for m in self.stats['moves']:
-            m['white_perc'], m['black_perc'], m['draw_perc'], m['total_games'] = calc_percs(m['white'], m['black'], m['draws']) #each position iterate through all the moves to get win rate stats
+            m['white_perc'], m['black_perc'], m['draw_perc'], m['total_games'] = self.calc_percs(m['white'], m['black'], m['draws']) #each position iterate through all the moves to get win rate stats
             m['playrate'] = m['total_games'] / stats['total_games']
             #print(m) #uncomment for debugging
             #TO DO call api for each move to get real percentages and total game numbers for transposition
@@ -134,11 +79,11 @@ class WorkerPlay():
         best_move = None
         for move in self.stats['moves']: #array of all moves returned from the API as next moves in a given position.
             if self.board.turn == chess.WHITE: #if it's white to play
-                value, lb_value, ub_value, n = calc_value(move['white_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move white win percentage and total games move was played to calculate 'potency' on confidence intervals
+                value, lb_value, ub_value, n = self.calc_value(move['white_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move white win percentage and total games move was played to calculate 'potency' on confidence intervals
                 for_printing= ''.join([str(i) for i in ["candidate move is ", move['san'], ' win rate is ', "{:+.2%}".format(move['white_perc']), ' playrate ', "{:+.2%}".format(move['playrate'])," lb value ", lb_value]])
                 logging.debug(for_printing)
             else: #if it's not white it's black to play
-                value, lb_value, ub_value, n = calc_value(move['black_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move black win percentage and total games move was played to calculate 'potency' on confidence intervals
+                value, lb_value, ub_value, n = self.calc_value(move['black_perc'], move['total_games'], move['playrate'], move['san'], self.board) #sends move black win percentage and total games move was played to calculate 'potency' on confidence intervals
                 for_printing= ''.join([str(i) for i in ["candidate move is ", move['san'], ' win rate is ', "{:+.2%}".format(move['black_perc']), ' playrate' , "{:+.2%}".format(move['playrate']), " lb value ", lb_value]])
                 logging.debug(for_printing)
             key = move['san']
@@ -158,7 +103,7 @@ class WorkerPlay():
         ub_potency = moves[best_move]['ub_value']
         n = moves[best_move]['n']
                 
-        if settings.engine.enabled and (potency > 0) :
+        if self.settings.engine.enabled and (potency > 0):
 
             engineChecked = 0
             bestEval = None
@@ -185,7 +130,7 @@ class WorkerPlay():
                     
                         #we ask engine for best move. If candidate move is best move, we approve, otherwise we calc difference.
                         logging.debug (f"engine working...")  
-                        PlayResult = engine.play(board, chess.engine.Limit(depth=settings.engine.depth)) #we get the engine to play
+                        PlayResult = self.engine.play(board, chess.engine.Limit(depth=self.settings.engine.depth)) #we get the engine to play
                         
                         engineMoveSan = board.san(PlayResult.move)
                         board.push(PlayResult.move)
@@ -210,8 +155,8 @@ class WorkerPlay():
                     #if our move is the top engine move, we just approve it. Bug note: We can get loss limit / soundness limit slip in some scenarios (eg if move goes out of soundness limits and engine can't see, but unlikely)
                     if ourMoveBoard == engineMoveBoard:
                         logging.debug("our move is top engine move so we approve")
-                        lb_value = max(0, potency - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                        ub_value = max(0, potency + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                        lb_value = max(0, potency - st.norm.ppf(1 - self.settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                        ub_value = max(0, potency + st.norm.ppf(1 - self.settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                         engineChecked = 1
                         logging.debug(f"move is top engine move {san}")                    
                     
@@ -223,7 +168,7 @@ class WorkerPlay():
                             #we get engine move eval
                             # engineMoveReply = engine.play(engineMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after engine move, to avoid slipping out of soundness limits
                             # engineMoveBoard.push(engineMoveReply.move)            
-                            engineMoveScore = engine.analyse(engineMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we get engine's eval from opponent's perspective
+                            engineMoveScore = self.engine.analyse(engineMoveBoard, chess.engine.Limit(depth=self.settings.engine.depth)) #we get engine's eval from opponent's perspective
 
                             #we convert the engine move score to a string so we can parse it
                             engineMoveScoreString = str(engineMoveScore["score"])
@@ -250,7 +195,7 @@ class WorkerPlay():
                             bestEval = afterEngineMoveScore
                         logging.debug (f"centipawn eval from our perspective after engine move {engineMoveSan}  {bestEval}") 
                         
-                        if bestEval < settings.engine.soundness_limit:
+                        if bestEval < self.settings.engine.soundness_limit:
                             # engine checked = 1 leaves the checking loop and setting values to 0 triggers bookbuilder to finish with engine.    
                             logging.debug (f"failed best engine move {engineMoveSan} on soundness limit - we may have slipped outside soundness limit. We will check other moves, but maybe move selection this move is left to engine finishing if available. eval: {bestEval}")
                             # potency = 0
@@ -263,7 +208,7 @@ class WorkerPlay():
                         #we get our move eval
                         # ourMoveReply = engine.play(ourMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we play one more move after our move
                         # ourMoveBoard.push(ourMoveReply.move)  
-                        ourMoveScore = engine.analyse(ourMoveBoard, chess.engine.Limit(depth=settings.engine.depth)) #we get engine's eval from opponent's perspective
+                        ourMoveScore = self.engine.analyse(ourMoveBoard, chess.engine.Limit(depth=self.settings.engine.depth)) #we get engine's eval from opponent's perspective
                         
                         logging.debug (f"Eval from perspective after our move {ourMoveScore['score']}") 
                         
@@ -287,16 +232,14 @@ class WorkerPlay():
                         if mateForUs:
                             afterOurMoveScore = 9999999999    
                         logging.debug (f"centipawn eval from our perspective after our move {san} {afterOurMoveScore}")                      
-                        
-                        
-                        
+
                         if (afterOurMoveScore == 9999999999): #if move is mate we give lb winrate as 1 and approve the move
                             potency = 1
                             lb_value = 1
                             ub_value = 1      
                             engineChecked = 1
                             logging.debug(f"move is approved - engine checked as mate {moves[san]}")
-                            
+
 
                         #if not, we check it doesn't break soundness and move loss limits
                         else:
@@ -314,9 +257,9 @@ class WorkerPlay():
                             logging.debug(f'our move centipawns vs engine move {moveLoss}')
                     
                             #we approve the move if it meets soundness limits + loss limits, or passes our ignorelosslimit, or is evaluated stronger than top engine move after playing
-                            if ( (afterOurMoveScore > settings.engine.soundness_limit)  and  (moveLoss > settings.engine.move_loss_limit)) or (afterOurMoveScore > (settings.engine.ignore_loss_limit)) or (moveLoss >= 0):
-                                lb_value = max(0, potency - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
-                                ub_value = max(0, potency + st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
+                            if ( (afterOurMoveScore > self.settings.engine.soundness_limit)  and  (moveLoss > self.settings.engine.move_loss_limit)) or (afterOurMoveScore > (self.settings.engine.ignore_loss_limit)) or (moveLoss >= 0):
+                                lb_value = max(0, potency - st.norm.ppf(1 - self.settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #lower bound wr at 95% confidence interval
+                                ub_value = max(0, potency + st.norm.ppf(1 - self.settings.moveSelection.alpha/2) * np.sqrt(potency * (1-potency) / gamesPlayed)) #upper bound wr at
                                 engineChecked = 1
                                 logging.debug([str(i) for i in ["move is engine checked and passes soundness + moveloss limits, passes the ignoreloss limit or is better than engine move", best_move, moves[san], "eval:", afterOurMoveScore, "loss:", moveLoss]])
 
@@ -328,10 +271,7 @@ class WorkerPlay():
                                     , 'lb_value': 0 #lower bound potency value
                                     , 'ub_value': 0 #upper bound potency value
                                     , 'n': n #total games played
-                                }         
-
-                    
-
+                                }
 
         logging.debug(f'best move is - {best_move} & win rate is - {potency} & lower bound win rate is - {lb_potency}')
         return moves, best_move, potency, (lb_potency, ub_potency), n
@@ -355,12 +295,11 @@ class WorkerPlay():
         return move_stats, chance
 
     def find_move_tree(self): #how we return possible opponent continuations
-
         return self.stats['moves']
 
     def find_potency(self): #how we return possible opponent continuations
         stats = self.stats
-        stats['white_perc'], stats['black_perc'], stats['draw_perc'], stats['total_games'] = calc_percs(stats['white'], stats['black'], stats['draws'])        
+        stats['white_perc'], stats['black_perc'], stats['draw_perc'], stats['total_games'] = self.calc_percs(stats['white'], stats['black'], stats['draws'])
         if self.board.turn == chess.WHITE: #if we are white
             potency = stats['black_perc']
             draws = stats['draw_perc']
@@ -368,7 +307,43 @@ class WorkerPlay():
             potency = stats['white_perc']
             draws = stats['draw_perc']
         return potency, stats ['total_games'], draws
-    
 
-def quitEngine():
-    engine.quit()
+    # function to calculate percentage win rates for each colour, if more than 0 games
+    def calc_percs(self, white, black, draws):
+        n = white + black + draws  # wins + draws after move was played
+
+        if (n > 0) and not self.settings.moveSelection.draws_are_half:
+            total_games = n
+            white_perc = white / n
+            black_perc = black / n
+            draw_perc = draws / n
+            return white_perc, black_perc, draw_perc, total_games
+        else:
+            if (n > 0) and self.settings.moveSelection.draws_are_half:
+                total_games = n
+                white_perc = (white + (0.5 * draws)) / n
+                black_perc = (black + (0.5 * draws)) / n
+                draw_perc = draws / n
+                return white_perc, black_perc, draw_perc, total_games
+
+            else:
+                return None, None, None, 0
+
+    def calc_value(self, winRate, gamesPlayed, playRate, san,
+                   board):  # p = white/black win rate and n = total games p was played, this function calculates values used in the potentcy score of each potential move. It do
+
+        if (gamesPlayed > self.settings.moveSelection.min_games) and (
+                playRate > self.settings.moveSelection.min_play_rate):  # total games move was played must be more than min games and min perc play rate (otherwise data is bad)
+            # print("check this", np.sqrt(winRate * (1-winRate) / gamesPlayed))
+            # print ("check this",st.norm.ppf(1 - settings.moveSelection.alpha/2))
+            # print ("check this",winRate - st.norm.ppf(1 - settings.moveSelection.alpha/2) * np.sqrt(winRate * (1-winRate) / gamesPlayed))
+            lb_value = max(0, winRate - st.norm.ppf(1 - self.settings.moveSelection.alpha / 2) * np.sqrt(
+                winRate * (1 - winRate) / gamesPlayed))  # lower bound wr at 95% confidence interval
+            ub_value = max(0, winRate + st.norm.ppf(1 - self.settings.moveSelection.alpha / 2) * np.sqrt(
+                winRate * (1 - winRate) / gamesPlayed))  # upper bound wr at
+        else:
+            winRate = 0
+            lb_value = 0
+            ub_value = 0
+
+        return winRate, lb_value, ub_value, gamesPlayed
