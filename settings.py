@@ -24,6 +24,9 @@ class Book:
         return f"Name: {self.name}\nPGN: {self.pgn}"
 
     def is_valid_pgn(self) -> bool:
+        if not self.pgn:
+            return False
+
         # poor man's validation: if chess.pgn throws when parsing a PGN, the PGN is not valid
         game = chess.pgn.read_game(io.StringIO(self.pgn))
         return len(game.errors) == 0
@@ -45,7 +48,7 @@ class BookSettings:
         lines = self.books_string.splitlines()
         non_empty_lines = iter([line.strip() for line in lines if line and line.strip()])
         for book_name in non_empty_lines:
-            books.append(Book(book_name, next(non_empty_lines)))
+            books.append(Book(book_name, next(non_empty_lines, None)))
         return books
 
 

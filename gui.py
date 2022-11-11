@@ -7,7 +7,7 @@ import psutil
 
 from BookBuilder import Grower
 from gui_themes import set_imgui_light_theme
-from settings import Settings, Speed, Rating, Book
+from settings import Settings, Speed, Rating, Book, Order, Variant
 
 WINDOW_WIDTH = 980
 WINDOW_HEIGHT = 720
@@ -124,7 +124,6 @@ class Gui:
                     return
 
             # validate books from free-text input are valid
-            s.book.get_books()
             invalid_books = get_invalid_books()
             if len(invalid_books) > 0:
                 status.error("Book(s) listed below are invalid. Correct them under 'Book settings' and retry\n",
@@ -150,7 +149,7 @@ class Gui:
                     dpg.add_text("Variations order")
                     _help(
                         "Choose whether you want chapters ordered from long lines to short lines or the opposite way")
-                    dpg.add_combo(items=[o.value for o in s.Order], default_value=s.order.value,
+                    dpg.add_combo(items=[str(o.value) for o in Order], default_value=s.order.value,
                                   callback=s.order_callback)
 
                 with dpg.group(horizontal=True, xoffset=SETTINGS_GROUP_XOFFSET):
@@ -176,7 +175,7 @@ class Gui:
                     dpg.add_text("Variant")
                     _help("Variant to use in the analysis")
                     dpg.add_combo(
-                        items=[v.name for v in s.Variant],
+                        items=[v.name for v in Variant],
                         default_value=s.variant.name,
                         callback=s.variant_callback)
 
