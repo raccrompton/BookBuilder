@@ -138,14 +138,12 @@ class Leafer():
             if (move['playrate'] > moveSelection.min_play_rate) and (self.total_games > moveSelection.min_games) and (self.potency != 0):
                 
                 #we add the pgn of the continuation and our best move to a list
-                if  self.perspective_str == 'Black':
+                if self.perspective_str == 'Black':
                     newpgn = self.pgn + " " + str(board.fullmove_number) + ". " + str(move['san']) #we add opponent's continuations first
                     newpgn = newpgn + " " + str(self.best_move) #then our best response
                     pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]
                     #need to return a pgn as well as moves + chance + cumulative likelihood
-                        
-
-                if  self.perspective_str == 'White':
+                else:
                     newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                     newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(self.best_move) #then our best response
                     pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
@@ -168,14 +166,12 @@ class Leafer():
                     engineMove = board.san(PlayResult.move)
                     
                     #we add the pgn of the continuation and our best move to a list
-                    if  self.perspective_str == 'Black':
+                    if self.perspective_str == 'Black':
                         newpgn = self.pgn + " " + str(board.fullmove_number) + ". " + str(move['san']) #we add opponent's continuations first
                         newpgn = newpgn + " " + str(engineMove) #then our best response
                         pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]
                         #need to return a pgn as well as moves + chance + cumulative likelihood
-                            
-
-                    if  self.perspective_str == 'White':
+                    else:
                         newpgn = self.pgn + " " + move['san'] #we add opponent's continuations first
                         newpgn = newpgn + " " + str(board.fullmove_number) + ". " + str(engineMove) #then our best response
                         pgnPlus = [newpgn, move ['cumulativeLikelihood'], self.likelihood_path[:]]          
@@ -289,7 +285,7 @@ class Grower:
         self.settings = settings
         self.start_engine()
 
-        for chapter, opening in enumerate(settings.book.create_books_from_string(), 1):
+        for chapter, opening in enumerate(settings.book.get_books(), 1):
             self.iterator(chapter, opening.name, opening.pgn)
 
         self.stop()

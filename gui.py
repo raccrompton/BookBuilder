@@ -7,7 +7,7 @@ import psutil
 
 from BookBuilder import Grower
 from gui_themes import set_imgui_light_theme
-from settings import DatabaseSettings, Settings, BookSettings
+from settings import Settings, Speed, Rating, Book
 
 WINDOW_WIDTH = 980
 WINDOW_HEIGHT = 720
@@ -46,7 +46,6 @@ class GenerationStatus:
 
 
 class Gui:
-
     def __init__(self, settings: Settings, grower: Grower):
         self.settings = settings
         self.grower = grower
@@ -105,9 +104,9 @@ class Gui:
         dpg.add_text("Customize your settings and then press the button below to begin generating your repertoire")
         status = GenerationStatus()
 
-        def get_invalid_books() -> List[BookSettings.Book]:
+        def get_invalid_books() -> List[Book]:
             invalid_books = list()
-            for book in s.book.create_books_from_string():
+            for book in s.book.get_books():
                 if not book.is_valid_pgn():
                     invalid_books.append(book)
             return invalid_books
@@ -125,7 +124,7 @@ class Gui:
                     return
 
             # validate books from free-text input are valid
-            s.book.create_books_from_string()
+            s.book.get_books()
             invalid_books = get_invalid_books()
             if len(invalid_books) > 0:
                 status.error("Book(s) listed below are invalid. Correct them under 'Book settings' and retry\n",
@@ -186,7 +185,7 @@ class Gui:
                         dpg.add_text("Speeds")
                         _help("Formats to include in the analysis")
                     with dpg.group():
-                        for speed in DatabaseSettings.Speed:
+                        for speed in Speed:
                             dpg.add_selectable(
                                 label=speed.name,
                                 user_data=speed.name,
@@ -197,7 +196,7 @@ class Gui:
                     dpg.add_text("Ratings")
                     _help("Ratings of the players to include in the analysis")
                     with dpg.group():
-                        for rating in DatabaseSettings.Rating:
+                        for rating in Rating:
                             dpg.add_selectable(
                                 label=str(rating.value),
                                 user_data=rating.name,

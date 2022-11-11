@@ -37,7 +37,7 @@ class BookSettings:
     def books_string_callback(self, _, books_string):
         self.books_string = books_string
 
-    def create_books_from_string(self) -> List[Book]:
+    def get_books(self) -> List[Book]:
         books = list()
         lines = self.books_string.splitlines()
         non_empty_lines = iter([line.strip() for line in lines if line and line.strip()])

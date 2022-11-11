@@ -246,11 +246,10 @@ class WorkerPlay:
                             
                             #we calculated the CP loss between best move and our move
                             if bestEval >= afterOurMoveScore:
-
                                 moveLoss = afterOurMoveScore - bestEval
                                 logging.debug(f'moveloss implies our move worse than engine move')                            
                             #sometimes the engine actually prefers the user move once there is a reply
-                            if bestEval < afterOurMoveScore:
+                            else:
                                 moveLoss = afterOurMoveScore - bestEval
                                 logging.debug(f'moveloss implies our move better than engine move')  
                             
