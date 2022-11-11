@@ -10,29 +10,32 @@ import chess.pgn
 import psutil
 
 
+class Order(Enum):
+    LONG_TO_SHORT = "Long lines to short lines"
+    SHORT_TO_LONG = "Short lines to long lines"
+
+
+class Book:
+    def __init__(self, name: str, pgn: str):
+        self.name = name
+        self.pgn = pgn
+
+    def __str__(self) -> str:
+        return f"Name: {self.name}\nPGN: {self.pgn}"
+
+    def is_valid_pgn(self) -> bool:
+        # poor man's validation: if chess.pgn throws when parsing a PGN, the PGN is not valid
+        game = chess.pgn.read_game(io.StringIO(self.pgn))
+        return len(game.errors) == 0
+
+
 class BookSettings:
-    class Order(Enum):
-        LONG_TO_SHORT = "Long lines to short lines"
-        SHORT_TO_LONG = "Short lines to long lines"
-
-    class Book:
-        def __init__(self, name: str, pgn: str):
-            self.name = name
-            self.pgn = pgn
-
-        def __str__(self) -> str:
-            return f"Name: {self.name}\nPGN: {self.pgn}"
-
-        def is_valid_pgn(self) -> bool:
-            # poor man's validation: if chess.pgn throws when parsing a PGN, the PGN is not valid
-            game = chess.pgn.read_game(io.StringIO(self.pgn))
-            return len(game.errors) == 0
-
-    order: Order = Order.SHORT_TO_LONG
-    books_string: str = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
+    def __init__(self) -> None:
+        self.order: Order = Order.SHORT_TO_LONG
+        self.books_string: str = "Book A\n1. e4 e5\n\nBook B\n1. e4 e5 2. f4"
 
     def order_callback(self, _, order_value):
-        self.order = self.Order(order_value)
+        self.order = Order(order_value)
 
     def books_string_callback(self, _, books_string):
         self.books_string = books_string
@@ -42,61 +45,58 @@ class BookSettings:
         lines = self.books_string.splitlines()
         non_empty_lines = iter([line.strip() for line in lines if line and line.strip()])
         for book_name in non_empty_lines:
-            books.append(self.Book(book_name, next(non_empty_lines)))
+            books.append(Book(book_name, next(non_empty_lines)))
         return books
 
 
+class Variant(Enum):
+    STANDARD = "standard"
+    CHESS960 = "chess960"
+    CRAZYHOUSE = "crazyhouse"
+    ANTICHESS = "antichess"
+    ATOMIC = "atomic"
+    HORDE = "horde"
+    KING_OF_THE_HILL = "kingOfTheHill"
+    RACING_KINGS = "racingKings"
+    THREE_CHECK = "threeCheck"
+
+
+class Speed(Enum):
+    ULTRA_BULLET = "ultraBullet"
+    BULLET = "bullet"
+    BLITZ = "blitz"
+    RAPID = "rapid"
+    CLASSICAL = "classical"
+    CORRESPONDENCE = "correspondence"
+
+
+class Rating(Enum):
+    ELO_1600 = "1600"
+    ELO_1800 = "1800"
+    ELO_2000 = "2000"
+    ELO_2200 = "2200"
+    ELO_2500 = "2500"
+
+
 class DatabaseSettings:
-    class Variant(Enum):
-        STANDARD = "standard"
-        CHESS960 = "chess960"
-        CRAZYHOUSE = "crazyhouse"
-        ANTICHESS = "antichess"
-        ATOMIC = "atomic"
-        HORDE = "horde"
-        KING_OF_THE_HILL = "kingOfTheHill"
-        RACING_KINGS = "racingKings"
-        THREE_CHECK = "threeCheck"
-
-    class Speed(Enum):
-        ULTRA_BULLET = "ultraBullet"
-        BULLET = "bullet"
-        BLITZ = "blitz"
-        RAPID = "rapid"
-        CLASSICAL = "classical"
-        CORRESPONDENCE = "correspondence"
-
-    class Rating(Enum):
-        ELO_1600 = "1600"
-        ELO_1800 = "1800"
-        ELO_2000 = "2000"
-        ELO_2200 = "2200"
-        ELO_2500 = "2500"
-
-    variant: Variant = Variant.STANDARD
-    speeds: List[Speed] = [Speed.RAPID, Speed.CLASSICAL]
-    ratings: List[Rating] = [Rating.ELO_1800, Rating.ELO_2000, Rating.ELO_2200]
-    moves: int = 10
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # for whatever reason those two properties are not part of __dict__
-        state["speeds"] = self.speeds
-        state["ratings"] = self.ratings
-        return state
+    def __init__(self):
+        self.variant: Variant = Variant.STANDARD
+        self.speeds: List[Speed] = [Speed.RAPID, Speed.CLASSICAL]
+        self.ratings: List[Rating] = [Rating.ELO_1800, Rating.ELO_2000, Rating.ELO_2200]
+        self.moves: int = 10
 
     def variant_callback(self, _, variant_name):
-        self.variant = self.Variant[variant_name]
+        self.variant = Variant[variant_name]
 
     def speed_callback(self, _, is_selected, speed_name):
-        speed = self.Speed[speed_name]
+        speed = Speed[speed_name]
         if is_selected:
             self.speeds.append(speed)
         else:
             self.speeds.remove(speed)
 
     def rating_callback(self, _, is_selected, rating_name):
-        rating = self.Rating[rating_name]
+        rating = Rating[rating_name]
         if is_selected:
             self.ratings.append(rating)
         else:
@@ -108,12 +108,13 @@ class DatabaseSettings:
 
 
 class MoveSelectionSettings:
-    depth_likelihood: float = 0.01
-    alpha: float = 0.001
-    min_play_rate: float = 0.001
-    min_games: int = 20
-    continuation_games: int = 10
-    draws_are_half: bool = False
+    def __init__(self):
+        self.depth_likelihood: float = 0.01
+        self.alpha: float = 0.001
+        self.min_play_rate: float = 0.001
+        self.min_games: int = 20
+        self.continuation_games: int = 10
+        self.draws_are_half: bool = False
 
     def depth_callback(self, _, depth):
         if depth >= 0:
@@ -142,15 +143,16 @@ class MoveSelectionSettings:
 class EngineSettings:
     NO_FILE_SELECTED = "No engine file selected"
 
-    enabled: bool = False
-    path: str = NO_FILE_SELECTED
-    finish: bool = True
-    depth: int = 20
-    threads: int = int(psutil.cpu_count(logical=True) / 2)  # half of logical CPU cores
-    hash: int = int(psutil.virtual_memory().available / 1024 / 1024 / 2)  # half of available RAM
-    soundness_limit: int = -99
-    move_loss_limit: int = -99
-    ignore_loss_limit: int = 300
+    def __init__(self):
+        self.enabled: bool = False
+        self.path: str = self.NO_FILE_SELECTED
+        self.finish: bool = True
+        self.depth: int = 20
+        self.threads: int = int(psutil.cpu_count(logical=True) / 2)  # half of logical CPU cores
+        self.hash: int = int(psutil.virtual_memory().available / 1024 / 1024 / 2)  # half of available RAM
+        self.soundness_limit: int = -99
+        self.move_loss_limit: int = -99
+        self.ignore_loss_limit: int = 300
 
     def enabled_callback(self, _, enabled):
         self.enabled = enabled
@@ -189,12 +191,11 @@ class EngineSettings:
 class Settings:
     _settings_file = 'settings.pickle'
 
-    book = BookSettings()
-    database = DatabaseSettings()
-    moveSelection = MoveSelectionSettings()
-    engine = EngineSettings()
-
     def __init__(self):
+        self.book = BookSettings()
+        self.database = DatabaseSettings()
+        self.moveSelection = MoveSelectionSettings()
+        self.engine = EngineSettings()
         self.load_from_file()
 
     def save_to_file(self):
