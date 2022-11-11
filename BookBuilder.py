@@ -125,7 +125,7 @@ class Leafer():
             
                                     
             #we look for the best move for us to play
-            self.workerPlay = WorkerPlay(settings, engine, board.fen(), lastmove=move)
+            self.workerPlay = WorkerPlay(settings, engine, board.fen())
             _, self.best_move, self.potency, self.potency_range, self.total_games = self.workerPlay.pick_candidate() #list best candidate move, win rate,
             print_playrate = '{:+.2%}'.format(move['playrate'])
             print_cumulativelikelihood = '{:+.2%}'.format(move['cumulativeLikelihood'])

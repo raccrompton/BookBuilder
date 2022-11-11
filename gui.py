@@ -20,6 +20,31 @@ BLOG_LINK = "https://www.alexcrompton.com/blog/automatically-creating-a-practica
 SOURCE_CODE_LINK = "https://github.com/raccrompton/BookBuilder"
 
 
+class GenerationStatus:
+    black = [0, 0, 0]
+    red = [255, 0, 0]
+
+    def __init__(self):
+        self._line1 = dpg.add_text()
+        self._line2 = dpg.add_text()
+
+    def info(self, line1: str = "", line2: str = ""):
+        self._set_color(self.black)
+        self._set_text(line1, line2)
+
+    def error(self, line1: str = "", line2: str = ""):
+        self._set_color(self.red)
+        self._set_text(line1, line2)
+
+    def _set_color(self, color):
+        dpg.configure_item(self._line1, color=color)
+        dpg.configure_item(self._line2, color=color)
+
+    def _set_text(self, line1, line2):
+        dpg.set_value(self._line1, line1)
+        dpg.set_value(self._line2, line2)
+
+
 class Gui:
 
     def __init__(self, settings: Settings, grower: Grower):
@@ -78,8 +103,7 @@ class Gui:
         s = self.settings
         dpg.add_text("An automatic practical chess opening repertoire builder using Lichess opening explorer API")
         dpg.add_text("Customize your settings and then press the button below to begin generating your repertoire")
-        # todo: turn this into an object with easy to use API (error, status, probably two lines), pass to grower
-        status_text = dpg.add_text()
+        status = GenerationStatus()
 
         def get_invalid_books() -> List[BookSettings.Book]:
             invalid_books = list()
@@ -92,34 +116,32 @@ class Gui:
             # validate engine path
             if s.engine.enabled:
                 if s.engine.path == s.engine.NO_FILE_SELECTED:
-                    dpg.set_value(status_text, f"Error, no engine path was provided\n"
-                                               f"Provide it under 'Engine settings' or unselect 'Use engine' and retry")
+                    status.error("No engine path was provided",
+                                 "Provide it under 'Engine settings' or unselect 'Use engine' and retry")
                     return
                 if not os.path.exists(s.engine.path):
-                    dpg.set_value(status_text,
-                                  f"Error, provided engine path '{s.engine.path}' does not exist\n"
-                                  f"Correct it under 'Engine settings' or unselect 'Use engine' and retry")
+                    status.error(f"Provided engine path '{s.engine.path}' does not exist\n",
+                                 "Correct it under 'Engine settings' or unselect 'Use engine' and retry")
                     return
 
             # validate books from free-text input are valid
             s.book.create_books_from_string()
             invalid_books = get_invalid_books()
             if len(invalid_books) > 0:
-                dpg.set_value(status_text,
-                              "Error, book(s) listed below are invalid. Correct them under 'Book settings' and retry\n\n"
-                              + "\n\n".join([book.__str__() for book in invalid_books]))
+                status.error("Book(s) listed below are invalid. Correct them under 'Book settings' and retry\n",
+                             "\n\n".join([book.__str__() for book in invalid_books]))
                 return
 
             def finish_callback():
                 dpg.enable_item(button_tag)
-                dpg.set_value(status_text, "PGN generation finished")
+                status.info("PGN generation finished")
 
             # todo: update the status text during generation to show to the user the program is working
-            dpg.set_value(status_text, "PGN generation started")
+            status.info("PGN generation started")
             dpg.disable_item(button_tag)
             self.grower.run(self.settings, finish_callback)
 
-        dpg.add_button(label="Generate PGN", width=120, height=30, before=status_text, callback=start_generation)
+        dpg.add_button(label="Generate PGN", width=120, height=30, before=status._line1, callback=start_generation)
 
     def _book_settings(self):
         s = self.settings.book
@@ -206,7 +228,7 @@ class Gui:
                         min_value=0,
                         max_value=10,
                         min_clamped=True,
-                        format='%.2f',
+                        format='%.4f',
                         step=0.01,
                         step_fast=0.1,
                         default_value=s.depth_likelihood * 100,
@@ -220,7 +242,7 @@ class Gui:
                         min_value=0,
                         max_value=10,
                         min_clamped=True,
-                        format='%.2f',
+                        format='%.3f',
                         step=0.01,
                         step_fast=0.1,
                         default_value=s.alpha * 100,
@@ -234,7 +256,7 @@ class Gui:
                         min_value=0,
                         max_value=10,
                         min_clamped=True,
-                        format='%.2f',
+                        format='%.3f',
                         step=0.01,
                         step_fast=0.1,
                         default_value=s.min_play_rate * 100,
