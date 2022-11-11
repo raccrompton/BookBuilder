@@ -78,20 +78,6 @@ class WorkerPlay():
         
         self.stats = self.call_api()
         self.parse_stats()
-           
-    def show(self):
-        try:
-            print('')
-            display(chess.svg.board(self.board, lastmove = self.lastmove, size = 400))
-            print('')
-        except:
-            pass
-
-    def play(self, san):
-        board = chess.Board(self.fen)
-        move = board.push_san(san)
-        workerPlay = workerPlay(board.fen(), lastmove = move, san = san)
-        return workerPlay
        
 #generate the Lichess API URL from config file               
     def call_api(self):
@@ -367,18 +353,6 @@ class WorkerPlay():
         #print("move opponent played =",move, " & percent chance of them playing it =", chance) #prints move opponent played from each position
         #print (move_stats)
         return move_stats, chance
-
-
-    def create_children(self):
-
-        children = []
-        for i, m in enumerate(self.stats['moves']):
-            worker = self.play(m['san'])
-            children.append(worker)
-        return children
-    
-    
-
 
     def find_move_tree(self): #how we return possible opponent continuations
 
