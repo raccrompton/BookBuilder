@@ -205,6 +205,7 @@ class Settings:
     def load_from_file(self):
         if not os.path.exists(self._settings_file):
             logging.info(f"No settings file {self._settings_file} found, skipping loading settings")
+            return
 
         with open(self._settings_file, 'rb') as file:
             from_file = pickle.load(file)
