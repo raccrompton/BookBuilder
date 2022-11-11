@@ -12,8 +12,9 @@ import logging
 
 
 class WorkerPlay:
-    def __init__(self, settings, engine, fen):
+    def __init__(self, settings, status, engine, fen):
         self.settings = settings
+        self.status = status
         self.engine = engine
         self.fen = fen #fen is the game moves format needed to feed lichess api
         self.short_fen = fen[:-4]
@@ -45,12 +46,14 @@ class WorkerPlay:
         url += f'moves={moves}&'
         url += f'play={play}&'
         url += f'fen={self.fen}'
-        
+
+        self.status.info2(f"Looking for a move at FEN {self.fen}")
         self.opening_url = url
         #logging.debug(f"url of position {url}") #uncomment for debugging
         while True:
             r = requests.get(url)
             if r.status_code == 429:
+                self.status.info2(f"Hit Lichess API rate limit, waiting for 60 seconds")
                 print('Rate limited - waiting 60s...')
                 time.sleep(60)
             else:
@@ -129,8 +132,10 @@ class WorkerPlay:
                     if bestEval == None:
                     
                         #we ask engine for best move. If candidate move is best move, we approve, otherwise we calc difference.
-                        logging.debug (f"engine working...")  
-                        PlayResult = self.engine.play(board, chess.engine.Limit(depth=self.settings.engine.depth)) #we get the engine to play
+                        depth = self.settings.engine.depth
+                        self.status.info2(f"Running engine for '{board.fen()}' at depth {depth}, this can take a while")
+                        logging.debug(f"engine working...")
+                        PlayResult = self.engine.play(board, chess.engine.Limit(depth=depth)) #we get the engine to play
                         
                         engineMoveSan = board.san(PlayResult.move)
                         board.push(PlayResult.move)
@@ -276,17 +281,18 @@ class WorkerPlay:
         return moves, best_move, potency, (lb_potency, ub_potency), n
 
     def find_opponent_move(self, move):
-        try: # find the odds of the pgn opponent move in the opening stats from the API.
-            if move.uci() == 'e8g8': #Change the values for castling in Universal Chess Interface codes, can ignore
-                move_uci = 'e8h8'
-            elif move.uci() == 'e1g1':
-                move_uci = 'e1h1'
-            else:
-                move_uci = move.uci()
+        if move.uci() == 'e8g8': #Change the values for castling in Universal Chess Interface codes, can ignore
+            move_uci = 'e8h8'
+        elif move.uci() == 'e1g1':
+            move_uci = 'e1h1'
+        else:
+            move_uci = move.uci()
 
+        try: # find the odds of the pgn opponent move in the opening stats from the API.
             move_stats = next(item for item in self.stats['moves'] if item["uci"] == move_uci) #move stats is the next move in self stats moves which matches the move fed into function
         except:
-            raise Exception(f'Cannot find move {move_uci} in opening explorer API response') 
+            self.status.error(f"Failed to find move {move_uci} in the Opening Explorer API response", f"FEN: {self.fen}")
+            raise Exception(f'Cannot find move {move_uci} in opening explorer API response')
 
         chance = move_stats['total_games'] / self.stats['total_games'] #total games for next move overf total games for current move
         #print("move opponent played =",move, " & percent chance of them playing it =", chance) #prints move opponent played from each position

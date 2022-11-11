@@ -6,6 +6,7 @@ import dearpygui.dearpygui as dpg
 import psutil
 
 from BookBuilder import Grower
+from gui_generation_status import GenerationStatus
 from gui_themes import set_imgui_light_theme
 from settings import Settings, Speed, Rating, Book, Order, Variant
 
@@ -18,31 +19,6 @@ PRIMARY_WINDOW_TAG = "primary_window"
 
 BLOG_LINK = "https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck"
 SOURCE_CODE_LINK = "https://github.com/raccrompton/BookBuilder"
-
-
-class GenerationStatus:
-    black = [0, 0, 0]
-    red = [255, 0, 0]
-
-    def __init__(self):
-        self._line1 = dpg.add_text()
-        self._line2 = dpg.add_text()
-
-    def info(self, line1: str = "", line2: str = ""):
-        self._set_color(self.black)
-        self._set_text(line1, line2)
-
-    def error(self, line1: str = "", line2: str = ""):
-        self._set_color(self.red)
-        self._set_text(line1, line2)
-
-    def _set_color(self, color):
-        dpg.configure_item(self._line1, color=color)
-        dpg.configure_item(self._line2, color=color)
-
-    def _set_text(self, line1, line2):
-        dpg.set_value(self._line1, line1)
-        dpg.set_value(self._line2, line2)
 
 
 class Gui:
@@ -132,12 +108,12 @@ class Gui:
 
             def finish_callback():
                 dpg.enable_item(button_tag)
-                status.info("PGN generation finished")
+                status.info("Finished generating your repertoire",
+                            "You will find your PGNs in the same folder where BookBuilder is located")
 
-            # todo: update the status text during generation to show to the user the program is working
             status.info("PGN generation started")
             dpg.disable_item(button_tag)
-            self.grower.run(self.settings, finish_callback)
+            self.grower.run(self.settings, status, finish_callback)
 
         dpg.add_button(label="Generate PGN", width=120, height=30, before=status._line1, callback=start_generation)
 
