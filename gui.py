@@ -39,10 +39,14 @@ class Gui:
         set_imgui_light_theme()
         self._create_primary_window()
 
+        dpg.set_exit_callback(callback=self._shutdown_callback)
         dpg.setup_dearpygui()
         dpg.show_viewport()
         dpg.start_dearpygui()
         dpg.destroy_context()
+
+    def _shutdown_callback(self):
+        self.grower.stop()
 
     def _create_primary_window(self):
         with dpg.window(tag=PRIMARY_WINDOW_TAG):

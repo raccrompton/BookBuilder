@@ -279,7 +279,7 @@ class Grower:
     engine = None
     settings = None
 
-    # todo: this method needs to be synchronised
+    # todo: this method needs to be synchronised, and main logic should run in a separate thread
     def run(self, settings: Settings, callback: Callable):
         if self.is_running:
             logging.info("Repertoire generation is already running")
@@ -292,10 +292,13 @@ class Grower:
         for chapter, opening in enumerate(settings.book.create_books_from_string(), 1):
             self.iterator(chapter, opening.name, opening.pgn)
 
-        if settings.engine.enabled:
+        self.stop()
+        callback()
+
+    def stop(self):
+        if self.engine:
             self.engine.quit()
         self.is_running = False
-        callback()
 
     def start_engine(self):
         if not self.settings.engine.enabled:

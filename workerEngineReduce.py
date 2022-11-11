@@ -325,12 +325,11 @@ class WorkerPlay:
                 black_perc = (black + (0.5 * draws)) / n
                 draw_perc = draws / n
                 return white_perc, black_perc, draw_perc, total_games
-
             else:
                 return None, None, None, 0
 
-    def calc_value(self, winRate, gamesPlayed, playRate, san,
-                   board):  # p = white/black win rate and n = total games p was played, this function calculates values used in the potentcy score of each potential move. It do
+    # p = white/black win rate and n = total games p was played, this function calculates values used in the potentcy score of each potential move. It do
+    def calc_value(self, winRate, gamesPlayed, playRate, san, board):
 
         if (gamesPlayed > self.settings.moveSelection.min_games) and (
                 playRate > self.settings.moveSelection.min_play_rate):  # total games move was played must be more than min games and min perc play rate (otherwise data is bad)
