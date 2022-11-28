@@ -9,6 +9,9 @@ If you want to understand why this exists, how it works, or get example repertoi
 https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck
 
 
+## GUI Update
+The awesome @drauf has built an interface so lots of the below doesn't apply. It should however be much more self explanatory now!
+
 ## Bugs, requests, contact
 If you need something, contact alex@alexcrompton.com.
 
