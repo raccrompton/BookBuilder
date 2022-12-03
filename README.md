@@ -123,7 +123,7 @@ Edit and save the Config.yaml file with whatever settings you want. The settings
 #### 6. Generate your repertoire
 
 
-To generate a repertoire, navigate to the directory BookBuilder is in in a Terminal window (eg YourComputer/Bookbuilder). Then use the following command:
+To generate a repertoire, navigate in a Terminal window to the directory where BookBuilder is installed (eg YourComputer/Bookbuilder). Then use the following command:
 
    ```sh
    python3 BookBuilder.py
