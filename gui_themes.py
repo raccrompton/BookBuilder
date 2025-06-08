@@ -98,26 +98,26 @@ def set_imgui_light_theme():
                                 category=dpg.mvThemeCat_Plots)
             dpg.add_theme_color(dpg.mvPlotCol_InlayText, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
                                 category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_XAxis, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_XAxisGrid, (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxis, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid, (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxis2, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid2, (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxis3, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid3, (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255),
-                                category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_XAxis, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_XAxisGrid, (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxis, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid, (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxis2, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid2, (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxis3, (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid3, (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
             dpg.add_theme_color(dpg.mvPlotCol_Selection, (0.82 * 255, 0.64 * 255, 0.03 * 255, 1.00 * 255),
                                 category=dpg.mvThemeCat_Plots)
-            dpg.add_theme_color(dpg.mvPlotCol_Query, (0.00 * 255, 0.84 * 255, 0.37 * 255, 1.00 * 255),
-                                category=dpg.mvThemeCat_Plots)
+            # dpg.add_theme_color(dpg.mvPlotCol_Query, (0.00 * 255, 0.84 * 255, 0.37 * 255, 1.00 * 255),
+            #                     category=dpg.mvThemeCat_Plots)
             dpg.add_theme_color(dpg.mvPlotCol_Crosshairs, (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255),
                                 category=dpg.mvThemeCat_Plots)
             dpg.add_theme_color(dpg.mvNodeCol_NodeBackground, (240, 240, 240, 255), category=dpg.mvThemeCat_Nodes)
