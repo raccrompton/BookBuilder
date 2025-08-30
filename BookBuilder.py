@@ -1,10 +1,5 @@
 from collections import Counter
-from audioop import reverse
 from operator import itemgetter
-from typing import final
-from venv import create
-from numpy import append
-from pyparsing import line
             
 from config import config 
 

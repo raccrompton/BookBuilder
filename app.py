@@ -337,24 +337,50 @@ HTML_TEMPLATE = '''
                 const formData = new FormData(e.target);
                 const config = {};
                 
-                // Convert form data to config object
+                // Convert form data to config object with proper field mapping
+                const fieldMapping = {
+                    'opening_books': 'OPENINGBOOK',
+                    'long_to_short': 'LONGTOSHORT',
+                    'variant': 'VARIANT',
+                    'speeds': 'SPEEDS',
+                    'ratings': 'RATINGS',
+                    'moves': 'MOVES',
+                    'depth_likelihood': 'DEPTHLIKELIHOOD',
+                    'alpha': 'ALPHA',
+                    'min_playrate': 'MINPLAYRATE',
+                    'min_games': 'MINGAMES',
+                    'continuation_games': 'CONTINUATIONGAMES',
+                    'draws_half': 'DRAWSAREHALF',
+                    'care_engine': 'CAREABOUTENGINE',
+                    'engine_depth': 'ENGINEDEPTH',
+                    'engine_finish': 'ENGINEFINISH',
+                    'soundness_limit': 'SOUNDNESSLIMIT',
+                    'move_loss_limit': 'MOVELOSSLIMIT'
+                };
+                
                 for (let [key, value] of formData.entries()) {
+                    const configKey = fieldMapping[key];
+                    if (!configKey) continue; // Skip unknown fields
+                    
                     if (key === 'opening_books') {
                         try {
-                            config['OPENINGBOOK'] = JSON.parse(value);
+                            config[configKey] = JSON.parse(value);
                         } catch (err) {
                             throw new Error('Invalid opening books JSON format');
                         }
+                    } else if (key === 'speeds' || key === 'ratings') {
+                        // Keep as single comma-separated string in array format for original config compatibility
+                        config[configKey] = [value.trim()];
+                    } else if (key.includes('likelihood') || key === 'alpha' || key.includes('playrate')) {
+                        config[configKey] = parseFloat(value);
+                    } else if (key.includes('games') || key.includes('depth') || key.includes('moves') || key.includes('limit')) {
+                        config[configKey] = parseInt(value);
                     } else {
-                        // Convert key format and handle data types
-                        const configKey = key.toUpperCase().replace(/-/g, '');
-                        
-                        if (key.includes('likelihood') || key.includes('alpha') || key.includes('playrate')) {
-                            config[configKey] = parseFloat(value);
-                        } else if (key.includes('games') || key.includes('depth') || key.includes('moves') || key.includes('limit')) {
+                        // Handle select dropdowns and other string values
+                        if (value === 'true' || value === 'false') {
+                            config[configKey] = parseInt(value === 'true' ? '1' : '0');
+                        } else if (!isNaN(value) && value !== '') {
                             config[configKey] = parseInt(value);
-                        } else if (key === 'speeds' || key === 'ratings') {
-                            config[configKey] = value.split(',').map(s => s.trim());
                         } else {
                             config[configKey] = value;
                         }
@@ -442,6 +468,22 @@ def generate_repertoire():
         config_filename = f"config_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}.yaml"
         config_path = os.path.join(UPLOAD_FOLDER, config_filename)
         
+        # Ensure all config values are proper primitive types (not nested objects)
+        def flatten_config_value(value):
+            """Convert any nested dict/object values to primitives"""
+            if isinstance(value, dict) and len(value) == 0:
+                return 0  # Empty dict becomes 0
+            elif isinstance(value, dict) and len(value) == 1:
+                # Single-key dict, return the value
+                return list(value.values())[0]
+            elif isinstance(value, (list, tuple)) and len(value) == 1:
+                return flatten_config_value(value[0])
+            return value
+        
+        # Flatten all config values to avoid addict.Dict issues
+        for key, value in config_data.items():
+            config_data[key] = flatten_config_value(value)
+            
         # Add required fields that aren't in the form
         config_data.update({
             'VARIANT': config_data.get('VARIANT', 'standard'),
@@ -451,6 +493,9 @@ def generate_repertoire():
             'IGNORELOSSLIMIT': 300,
             'PRINT_INFO_TO_CONSOLE': True
         })
+        
+        # Debug: Log the final config structure
+        logger.info(f"Final config before writing: DRAWSAREHALF={config_data.get('DRAWSAREHALF', 'MISSING')}, type={type(config_data.get('DRAWSAREHALF', 'MISSING'))}")
         
         # Write config file
         with open(config_path, 'w') as f:
@@ -533,10 +578,13 @@ def download_file(filename):
         if not filename.endswith('.pgn') or not filename.startswith('Chapter_'):
             abort(404)
         
-        file_path = os.path.join(OUTPUT_FOLDER, secure_filename(filename))
+        # Try the filename as-is first, then with secure_filename transformation
+        file_path = os.path.join(OUTPUT_FOLDER, filename)
+        if not os.path.exists(file_path):
+            file_path = os.path.join(OUTPUT_FOLDER, secure_filename(filename))
         
         if not os.path.exists(file_path):
-            logger.warning(f"Requested file not found: {file_path}")
+            logger.warning(f"Requested file not found: {filename} (tried both original and secure versions)")
             abort(404)
         
         logger.info(f"Serving download: {filename}")
