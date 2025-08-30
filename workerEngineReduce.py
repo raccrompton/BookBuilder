@@ -27,6 +27,9 @@ if (config.CAREABOUTENGINE == 1):
 def calc_percs(white, black, draws):
 
     n = white + black + draws #wins + draws after move was played
+    
+    # DEBUG: Check config value
+    print(f"DEBUG calc_percs: n={n}, DRAWSAREHALF={config.DRAWSAREHALF}, type={type(config.DRAWSAREHALF)}")
 
     if (n > 0) and (config.DRAWSAREHALF == 0):
         total_games = n
@@ -110,10 +113,10 @@ class WorkerPlay():
         url = 'https://explorer.lichess.ovh/lichess?'
         url += f'variant={variant}&'
         for speed in speeds:
-            url += f'speeds={speed}&'
+            url += f'speeds[]={speed}&'
 
         for rating in ratings:
-            url += f'ratings={rating}&'
+            url += f'ratings[]={rating}&'
 
         url += f'recentGames={recentGames}&'
         url += f'topGames={topGames}&'
@@ -139,10 +142,26 @@ class WorkerPlay():
     def parse_stats(self, move = None): #parse the stats returned by the API
 
         stats = self.stats #self.stats is what the api call returns
+        
+        # DEBUG: Print raw API response
+        print(f"DEBUG: Raw API response: {stats}")
+        print(f"DEBUG: API white={stats.get('white', 'MISSING')}, black={stats.get('black', 'MISSING')}, draws={stats.get('draws', 'MISSING')}")
+        
         stats['white_perc'], stats['black_perc'], stats['draw_perc'], stats['total_games'] = calc_percs(stats['white'], stats['black'], stats['draws']) # base rate?? sends the whiteWin / blackWin / draw / total games move was played numbers to calculate win percentages function, and define stats
+        
+        # DEBUG: Print calculated totals
+        print(f"DEBUG: Calculated stats['total_games'] = {stats['total_games']}")
+        
         #print(stats) #uncomment for debugging
-        for m in self.stats['moves']:
+        print(f"DEBUG: Number of moves in response: {len(self.stats.get('moves', []))}")
+        
+        for i, m in enumerate(self.stats['moves']):
+            print(f"DEBUG: Move {i}: {m.get('san', 'UNKNOWN')} - white={m.get('white', 'MISSING')}, black={m.get('black', 'MISSING')}, draws={m.get('draws', 'MISSING')}")
+            
             m['white_perc'], m['black_perc'], m['draw_perc'], m['total_games'] = calc_percs(m['white'], m['black'], m['draws']) #each position iterate through all the moves to get win rate stats
+            
+            print(f"DEBUG: Move {i} calculated total_games = {m['total_games']}, stats total_games = {stats['total_games']}")
+            
             m['playrate'] = m['total_games'] / stats['total_games']
             #print(m) #uncomment for debugging
             #TO DO call api for each move to get real percentages and total game numbers for transposition
