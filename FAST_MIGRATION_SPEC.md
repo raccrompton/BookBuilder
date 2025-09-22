@@ -71,8 +71,10 @@ test('stockfish evaluates positions and suggests moves', async () => {
 **File**: `src/stats/Statistics.js`
 ```javascript
 class Statistics {
-  calculateWinRate(white, draws, black, drawsAreHalf) { /* exact Python logic */ }
+  calculateWinRate(white, draws, black, drawsAreHalf) { /* exact calc_percs logic */ }
   calculateCumulativeProbability(moves) { /* sorting + cumsum */ }
+  calculateConfidenceInterval(winRate, gamesPlayed, alpha) { /* exact calc_value logic */ }
+  validateMoveDataQuality(gamesPlayed, playRate, config) { /* MINGAMES/MINPLAYRATE filtering */ }
 }
 ```
 **Critical Test**:
@@ -91,6 +93,9 @@ class MoveSelector {
   async selectBestMove(position, candidates, config) { /* statistics + engine */ }
   async validateMoveSoundness(fen, move, engineMove, config) { /* centipawn loss check */ }
   filterCandidatesByEngine(candidates, engineBest, config) { /* soundness limits */ }
+  calculateConfidenceInterval(winRate, gamesPlayed, alpha) { /* exact calc_value logic */ }
+  evaluateMoveLoss(ourMoveScore, engineMoveScore, config) { /* loss limit validation */ }
+  handleMateScenarios(scoreString) { /* mate detection from engine */ }
 }
 ```
 **Critical Test**:
@@ -145,16 +150,18 @@ export default {
   MINDEPTH: 4,
   MAXDEPTH: 15,
   MINPLAYRATE: 0.01,
-  MINGAMES: 500,
-  DEPTHLIKELIHOOD: 0.8,
+  MINGAMES: 19,
+  CONTINUATIONGAMES: 10,
+  ALPHA: 0.001,
+  DEPTHLIKELIHOOD: 0.03,
   DRAWSAREHALF: 0,
   // Engine settings
   CAREABOUTENGINE: 1,          // Use Stockfish validation
   ENGINEDEPTH: 20,             // Analysis depth
   ENGINEFINISH: 1,             // Complete lines with engine
-  SOUNDNESSLIMIT: -50,         // Max centipawn loss
-  LOSSLIMIT: 25,               // Move loss threshold
-  IGNORELOSSLIMIT: 50,         // Override threshold
+  SOUNDNESSLIMIT: -99,         // Max centipawn loss
+  LOSSLIMIT: -99,              // Move loss threshold
+  IGNORELOSSLIMIT: 300,        // Override threshold
   openings: [
     { name: "Ruy Lopez", fen: "...", perspective: "white" },
     { name: "Kings Indian", fen: "...", perspective: "black" }

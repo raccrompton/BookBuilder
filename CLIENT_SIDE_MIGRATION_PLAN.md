@@ -15,11 +15,13 @@
 
 ### Step 2: JavaScript Migration
 ```
-□ Port config.yaml logic to JavaScript
+□ Port config.yaml logic to JavaScript (include all 15+ settings)
 □ Implement chess.js + stockfish.js integration
-□ Port statistical calculations
-□ Add Lichess API calls with basic error handling
-□ Implement PGN generation
+□ Port statistical calculations with exact confidence interval logic
+□ Add Lichess API calls with retry handling
+□ Implement complex engine validation (soundness/loss limits)
+□ Implement PGN generation with exact formatting
+□ Add cumulative probability calculations for line depth
 ```
 
 ## **Phase 3: Testing & Deployment (2-3 days)**
@@ -44,9 +46,11 @@
 ## **Simple Validation**
 
 ### Basic Functional Check
-- ✅ PGN generation works
-- ✅ Stockfish.js provides reasonable evaluations
-- ✅ Lichess API integration functions
+- ✅ PGN generation matches golden master format exactly
+- ✅ Stockfish.js provides evaluations with proper loss limit validation
+- ✅ Lichess API integration with retry logic functions
+- ✅ Statistical calculations match Python within 0.01% precision
+- ✅ Engine validation (soundness/move loss limits) works correctly
 - ✅ No major errors or crashes
 
 ## **Risk Mitigation**
