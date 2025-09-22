@@ -1,5 +1,6 @@
 import yaml
 import os
+import sys
 import addict
 import logging
 
@@ -7,9 +8,18 @@ import logging
 # eg change 'None' to something like 'C:\Dropbox\Chess\BookBuilder-main\config.yaml'
 yaml_location = None
 
-if yaml_location is None:
+# Check for command line argument first
+if len(sys.argv) > 1:
+    yaml_location = sys.argv[1]
+elif yaml_location is None:
     yaml_location = input('What is the full path to your config.yaml file? (ie. /Users/youruser/BookBuilder/config.yaml): ')
+
 while not os.path.exists(yaml_location):
+    if len(sys.argv) > 1:
+        # If command line arg was provided but file doesn't exist, exit with error
+        print(f"Error: Config file not found: {yaml_location}")
+        sys.exit(1)
+    else:
         yaml_location = input('The location you have input does not exist, please try again: ')
 
 print("Loading config file...")

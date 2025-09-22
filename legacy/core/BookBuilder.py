@@ -1,7 +1,7 @@
 from collections import Counter
 from operator import itemgetter
             
-from config import config 
+from legacy.core.config import config 
 
 import io
 import os
@@ -10,8 +10,8 @@ import argparse
 import chess
 import chess.pgn
 
-from workerEngineReduce import WorkerPlay
-from workerEngineReduce import quitEngine
+from legacy.core.workerEngineReduce import WorkerPlay
+from legacy.core.workerEngineReduce import quitEngine
 import chess.engine
 
 
