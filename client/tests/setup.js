@@ -5,6 +5,10 @@
  * for golden master testing and chess domain validation.
  */
 
+// Polyfill fetch for Node.js testing
+import fetch from 'node-fetch';
+global.fetch = fetch;
+
 // Custom matchers for chess domain testing
 expect.extend({
   /**
