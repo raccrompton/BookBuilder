@@ -131,6 +131,37 @@ HTML_TEMPLATE = '''
             border-radius: 6px;
             margin: 20px 0;
         }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .progress-note {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin: 10px 0;
+        }
+        .progress-warning {
+            font-size: 13px;
+            color: #e67e22;
+            font-weight: 600;
+            margin: 10px 0;
+        }
         .results {
             display: none;
             margin-top: 20px;
@@ -301,8 +332,12 @@ HTML_TEMPLATE = '''
 
         <div class="progress" id="progress">
             <h3>🔄 Generating Your Repertoire...</h3>
-            <p>This may take several minutes depending on the complexity of your openings and engine settings.</p>
-            <p>Please keep this page open while generation is in progress.</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p id="progress-text">Analyzing your opening configuration...</p>
+            <p class="progress-note">This may take 5-30 minutes depending on complexity. Complex repertoires with engine analysis take longer.</p>
+            <p class="progress-warning">⚠️ Please keep this page open - closing it will cancel the generation.</p>
         </div>
 
         <div class="error" id="error-message"></div>
@@ -315,6 +350,61 @@ HTML_TEMPLATE = '''
     </div>
 
     <script>
+        let progressInterval;
+        let progressPhase = 0;
+        let progressPercentage = 0;
+        
+        const progressPhases = [
+            { text: "Analyzing your opening configuration...", duration: 5000, progress: 10 },
+            { text: "Fetching Lichess database statistics...", duration: 15000, progress: 25 },
+            { text: "Processing opening variations...", duration: 20000, progress: 45 },
+            { text: "Running Stockfish engine analysis...", duration: 25000, progress: 70 },
+            { text: "Building repertoire chapters...", duration: 15000, progress: 85 },
+            { text: "Finalizing PGN files...", duration: 10000, progress: 95 }
+        ];
+        
+        function startProgressSimulation() {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            
+            progressPhase = 0;
+            progressPercentage = 0;
+            
+            function updateProgress() {
+                if (progressPhase < progressPhases.length) {
+                    const phase = progressPhases[progressPhase];
+                    progressText.textContent = phase.text;
+                    
+                    // Gradually fill progress bar for current phase
+                    const targetProgress = phase.progress;
+                    const increment = (targetProgress - progressPercentage) / (phase.duration / 500);
+                    
+                    const fillInterval = setInterval(() => {
+                        progressPercentage += increment;
+                        progressFill.style.width = Math.min(progressPercentage, targetProgress) + '%';
+                        
+                        if (progressPercentage >= targetProgress) {
+                            clearInterval(fillInterval);
+                            progressPhase++;
+                            setTimeout(updateProgress, 1000); // Brief pause between phases
+                        }
+                    }, 500);
+                } else {
+                    // Final phase - slow progress to 99%
+                    progressText.textContent = "Almost complete...";
+                    progressFill.style.width = '99%';
+                }
+            }
+            
+            updateProgress();
+        }
+        
+        function stopProgressSimulation() {
+            clearInterval(progressInterval);
+            const progressFill = document.getElementById('progress-fill');
+            progressFill.style.width = '100%';
+        }
+
         document.getElementById('bookbuilder-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -331,6 +421,9 @@ HTML_TEMPLATE = '''
             progress.style.display = 'block';
             generateBtn.disabled = true;
             generateBtn.textContent = '⏳ Generating...';
+            
+            // Start progress simulation
+            startProgressSimulation();
             
             try {
                 // Collect form data
@@ -403,8 +496,11 @@ HTML_TEMPLATE = '''
                 
                 const result = await response.json();
                 
-                // Hide progress
-                progress.style.display = 'none';
+                // Complete progress and hide
+                stopProgressSimulation();
+                setTimeout(() => {
+                    progress.style.display = 'none';
+                }, 1000);
                 
                 // Show results
                 results.style.display = 'block';
@@ -433,6 +529,7 @@ HTML_TEMPLATE = '''
                 
             } catch (error) {
                 console.error('Error:', error);
+                stopProgressSimulation();
                 progress.style.display = 'none';
                 errorDiv.style.display = 'block';
                 errorDiv.textContent = `Error: ${error.message}`;
@@ -480,9 +577,10 @@ def generate_repertoire():
                 return flatten_config_value(value[0])
             return value
         
-        # Flatten all config values to avoid addict.Dict issues
+        # Flatten all config values to avoid addict.Dict issues (except OPENINGBOOK which must remain a list)
         for key, value in config_data.items():
-            config_data[key] = flatten_config_value(value)
+            if key != 'OPENINGBOOK':  # Preserve OPENINGBOOK as list of dictionaries
+                config_data[key] = flatten_config_value(value)
             
         # Add required fields that aren't in the form
         config_data.update({
@@ -510,20 +608,20 @@ def generate_repertoire():
         try:
             # Run BookBuilder.py with the generated config
             cmd = [
-                'python3', 
-                os.path.join(original_cwd, 'BookBuilder.py')
+                'python3',
+                os.path.join(original_cwd, 'core', 'BookBuilder.py'),
+                config_path
             ]
             
             logger.info(f"Running command: {' '.join(cmd)}")
             logger.info(f"Working directory: {os.getcwd()}")
             
-            # Run with config path as input
+            # Run with config path as command line argument
             process = subprocess.run(
                 cmd,
-                input=config_path,
                 text=True,
                 capture_output=True,
-                timeout=300  # 5 minute timeout
+                timeout=1800  # 30 minute timeout for complex repertoires
             )
             
             logger.info(f"BookBuilder exit code: {process.returncode}")

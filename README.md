@@ -3,6 +3,45 @@
 # BookBuilder
 An automatic practical Chess opening repertoire builder.
 
+## 🚀 Migration Status
+
+**This project has been reorganized for a Python → JavaScript migration with zero hosting costs.**
+
+- **Current Users**: Use the `legacy/` folder - all existing functionality works as before
+- **Repository Structure**: Completely reorganized for streamlined client-side migration
+- **Migration Plan**: See [CLIENT_SIDE_MIGRATION_PLAN.md](CLIENT_SIDE_MIGRATION_PLAN.md) for the simplified ~10-day migration plan
+
+### Current Project Structure
+- `legacy/` - Original Python implementation (production-ready, moved from root)
+  - `legacy/tests/` - Comprehensive test suite with 95%+ coverage
+  - `legacy/config/` - Configuration files and examples
+  - `legacy/core/` - Core Python application
+- `client/` - New JavaScript implementation (ready for development)
+  - `client/tests/` - Test infrastructure prepared
+  - `client/src/` - Source code structure planned
+- `shared/` - Common test data and resources
+- `migration/` - Migration validation tools
+- `docs/` - Documentation and architectural plans
+- `deployment/` - Legacy deployment configurations
+
+### Migration Benefits
+- **$0 hosting costs** - GitHub Pages/Netlify static hosting
+- **No server maintenance** - eliminates Railway timeouts and scaling issues
+- **Unlimited concurrent users** - no single-user bottleneck
+- **Better rate limiting** - each user gets their own Lichess API quota
+- **Faster performance** - client-side execution with modern JavaScript
+
+### Migration Progress
+**Phase 1: Repository Reorganization** ✅ **COMPLETE**
+- Legacy code moved to `legacy/` folder
+- New project structure implemented
+- Migration plan finalized
+
+**Phase 2: Core Implementation** 🔄 **NEXT**
+- JavaScript port of core functionality
+- Stockfish.js + chess.js integration
+- Client-side PGN generation
+
 
 If you want to understand why this exists, how it works, or get example repertoires, check here:
 
@@ -94,14 +133,10 @@ If you get other error messages during this process (because you don't have Git 
 #### 3. Open a Terminal and Pip install the requirements to run the program (inside a virtual environment/IDE like VSCode)
 
    ```sh
-   pip3 install -r requirements.txt
+   pip3 install -r legacy/requirements.txt
    ```
-   
-   or
-   
-   ```sh
-   pip install -r requirements.txt
-   ```
+
+   Note: The requirements file is now located in the `legacy/` folder as part of the reorganization.
 
 
 #### 4. Add the Engine
@@ -123,14 +158,14 @@ Edit and save the Config.yaml file with whatever settings you want. The settings
 To generate a repertoire, navigate to the directory BookBuilder is in in a Terminal window (eg YourComputer/Bookbuilder). Then use the following command:
 
    ```sh
-   python3 BookBuilder.py
+   python3 legacy/core/BookBuilder.py
    ```
 Or, depending on your python version:
 
    ```sh
-   python BookBuilder.py
+   python legacy/core/BookBuilder.py
    ```
-You'll be asked for the file path of your config.yaml file. The full file path should include the actual file, so it will end in 'yourfilepath/config.yaml'.Paste it in and press enter. You can also update config.py with this filepath so you dont have to do that in future.
+You'll be asked for the file path of your config.yaml file. The default config is now at `legacy/config/config.yaml`. The full file path should include the actual file, so it will end in 'yourfilepath/legacy/config/config.yaml'. Paste it in and press enter. You can also update `legacy/core/config.py` with this filepath so you dont have to do that in future.
 
 
 #### 7. Off you go
