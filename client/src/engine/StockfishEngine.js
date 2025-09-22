@@ -337,6 +337,13 @@ class StockfishEngine {
     this.isReady = false;
     this.pendingCommands.clear();
   }
+
+  /**
+   * Alias for destroy() for compatibility
+   */
+  quit() {
+    this.destroy();
+  }
 }
 
 export default StockfishEngine;

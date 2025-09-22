@@ -83,14 +83,19 @@ export class ChessEngine {
   /**
    * Make a move on the board
    * @param {Object|string} move - Move in object form or SAN
-   * @returns {Object|null} - Move object if successful, null if illegal
+   * @returns {Object} - Result object with success flag and move data or error
    */
   makeMove(move) {
     try {
-      return this.chess.move(move);
+      const moveResult = this.chess.move(move);
+      if (moveResult) {
+        return { success: true, move: moveResult };
+      } else {
+        return { success: false, error: 'Invalid move' };
+      }
     } catch (error) {
       console.error('Illegal move:', move, error);
-      return null;
+      return { success: false, error: error.message };
     }
   }
 
@@ -139,6 +144,39 @@ export class ChessEngine {
    */
   getTurn() {
     return this.chess.turn();
+  }
+
+  /**
+   * Get move history
+   * @returns {Array} - Array of moves in SAN notation
+   */
+  getHistory() {
+    return this.chess.history();
+  }
+
+  /**
+   * Get current FEN string (alias for getFEN)
+   * @returns {string} - Current position in FEN notation
+   */
+  getFen() {
+    return this.chess.fen();
+  }
+
+  /**
+   * Load position from FEN (alias for parsePosition)
+   * @param {string} fen - FEN string representing the position
+   * @returns {boolean} - True if position loaded successfully
+   */
+  loadPosition(fen) {
+    return this.parsePosition(fen);
+  }
+
+  /**
+   * Get current game as PGN string
+   * @returns {string} - PGN representation of the game
+   */
+  getPgn() {
+    return this.chess.pgn();
   }
 }
 
