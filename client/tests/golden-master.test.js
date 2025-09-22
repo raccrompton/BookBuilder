@@ -8,8 +8,8 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-// Import the JavaScript BookBuilder implementation (to be implemented)
-// const { BookBuilder } = require('../src/BookBuilder');
+// Import test utilities and components
+const { TestUtils, TEST_OPENINGS } = require('./testUtils.js');
 
 describe('Golden Master Tests', () => {
   let goldenMasterData;
@@ -40,7 +40,7 @@ describe('Golden Master Tests', () => {
     });
 
     test('Ruy Lopez golden master structure', async () => {
-      const content = await testUtils.loadGoldenMaster('Chapter_1_Ruy_Lopez.pgn');
+      const content = await TestUtils.loadGoldenMaster('Chapter_1_Ruy_Lopez.pgn');
 
       // Verify opening structure
       expect(content).toContain('1. e4 e5 2. Nf3 Nc6 3. Bb5');
@@ -55,7 +55,7 @@ describe('Golden Master Tests', () => {
     });
 
     test('Kings Indian golden master structure', async () => {
-      const content = await testUtils.loadGoldenMaster('Chapter_2_Kings_Indian.pgn');
+      const content = await TestUtils.loadGoldenMaster('Chapter_2_Kings_Indian.pgn');
 
       // Verify opening structure
       expect(content).toContain('1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6');
@@ -171,11 +171,11 @@ describe('Golden Master Tests', () => {
 
     test('test environment is properly configured', () => {
       // Verify test utilities are available
-      expect(testUtils).toBeDefined();
-      expect(testUtils.loadGoldenMaster).toBeDefined();
-      expect(testUtils.createTestPosition).toBeDefined();
-      expect(testUtils.mockLichessResponse).toBeDefined();
-      expect(testUtils.createTestConfig).toBeDefined();
+      expect(TestUtils).toBeDefined();
+      expect(TestUtils.loadGoldenMaster).toBeDefined();
+      expect(TestUtils.createTestPosition).toBeDefined();
+      expect(TestUtils.mockLichessResponse).toBeDefined();
+      expect(TestUtils.createTestConfig).toBeDefined();
 
       // Verify test constants
       expect(TEST_OPENINGS.RUY_LOPEZ).toBeDefined();
@@ -188,7 +188,9 @@ describe('Golden Master Tests', () => {
       expect('').not.toBeValidPgn();
 
       // Test custom matcher properly identifies valid PGN
-      const validPgn = '[Event "Test"]\n1. e4 e5\n{Move playrates: +50.00% e4}';
+      const validPgn = `[Event "Test"]
+1. e4 e5
+{Move playrates: +50.00% e4}`;
       expect(validPgn).toBeValidPgn();
     });
   });

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookBuilder - Chess Opening Repertoire Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #34495e;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        .info { color: #f39c12; }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏰 BookBuilder Step 2 Validation</h1>
+        <p><strong>Testing:</strong> Lichess API + Stockfish Engine Integration</p>
+
+        <div class="test-section">
+            <h3>🌐 Lichess API Tests</h3>
+            <button id="testLichessAPI">Test Lichess API Connection</button>
+            <button id="testMoveStats">Test Move Statistics</button>
+            <button id="testRetryLogic">Test Retry Logic</button>
+            <div id="lichessOutput" class="output"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🤖 Stockfish Engine Tests</h3>
+            <button id="testEngineInit">Initialize Engine</button>
+            <button id="testBestMove">Test Best Move</button>
+            <button id="testEvaluation">Test Position Evaluation</button>
+            <button id="testMoveAnalysis">Test Move Analysis</button>
+            <div id="engineOutput" class="output"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 Integration Tests</h3>
+            <button id="testIntegration">Test API + Engine Integration</button>
+            <button id="runAllTests">Run All Tests</button>
+            <div id="integrationOutput" class="output"></div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="https://unpkg.com/chess.js@1.4.0/chess.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish.js"></script>
+
+    <script type="module">
+        import LichessClient from './src/api/LichessClient.js';
+        import StockfishEngine from './src/engine/StockfishEngine.js';
+
+        // Initialize components
+        const lichessClient = new LichessClient({
+            maxRetries: 3,
+            retryDelay: 1000,
+            timeout: 10000
+        });
+
+        const stockfishEngine = new StockfishEngine({
+            depth: 15,
+            threads: 1,
+            hash: 128
+        });
+
+        // Utility functions
+        function log(elementId, message, type = 'info') {
+            const output = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function setLoading(buttonId, loading) {
+            const button = document.getElementById(buttonId);
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span> Running...';
+            } else {
+                button.disabled = false;
+                button.innerHTML = button.getAttribute('data-original-text');
+            }
+        }
+
+        // Store original button text
+        document.querySelectorAll('button').forEach(btn => {
+            btn.setAttribute('data-original-text', btn.innerHTML);
+        });
+
+        // Lichess API Tests
+        document.getElementById('testLichessAPI').addEventListener('click', async () => {
+            setLoading('testLichessAPI', true);
+            try {
+                log('lichessOutput', 'Testing Lichess API connection...', 'info');
+
+                const startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                const stats = await lichessClient.getPositionStats(startingPosition, {
+                    speeds: 'blitz,rapid,classical',
+                    ratings: '2000,2200,2500',
+                    moves: 5
+                });
+
+                log('lichessOutput', `✅ Success: Retrieved ${stats.moves.length} moves`, 'success');
+                log('lichessOutput', `Top moves: ${stats.moves.slice(0, 3).map(m => m.san).join(', ')}`, 'info');
+
+            } catch (error) {
+                log('lichessOutput', `❌ Error: ${error.message}`, 'error');
+            }
+            setLoading('testLichessAPI', false);
+        });
+
+        document.getElementById('testMoveStats').addEventListener('click', async () => {
+            setLoading('testMoveStats', true);
+            try {
+                log('lichessOutput', 'Testing move-specific statistics...', 'info');
+
+                const startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                const moveStats = await lichessClient.getMoveStats(startingPosition, 'e4');
+
+                const totalGames = moveStats.white + moveStats.black + moveStats.draws;
+                log('lichessOutput', `✅ e4 statistics: ${totalGames} games total`, 'success');
+                log('lichessOutput', `White: ${moveStats.white}, Black: ${moveStats.black}, Draws: ${moveStats.draws}`, 'info');
+
+            } catch (error) {
+                log('lichessOutput', `❌ Error: ${error.message}`, 'error');
+            }
+            setLoading('testMoveStats', false);
+        });
+
+        document.getElementById('testRetryLogic').addEventListener('click', async () => {
+            setLoading('testRetryLogic', true);
+            try {
+                log('lichessOutput', 'Testing retry logic with invalid URL...', 'info');
+
+                const badClient = new LichessClient({
+                    baseUrl: 'https://invalid-domain-test.com',
+                    maxRetries: 2,
+                    retryDelay: 500,
+                    timeout: 1000
+                });
+
+                await badClient.getPositionStats('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+
+            } catch (error) {
+                if (error.message.includes('failed after 2 attempts')) {
+                    log('lichessOutput', '✅ Retry logic working correctly', 'success');
+                } else {
+                    log('lichessOutput', `❌ Unexpected error: ${error.message}`, 'error');
+                }
+            }
+            setLoading('testRetryLogic', false);
+        });
+
+        // Stockfish Engine Tests
+        document.getElementById('testEngineInit').addEventListener('click', async () => {
+            setLoading('testEngineInit', true);
+            try {
+                log('engineOutput', 'Initializing Stockfish engine...', 'info');
+
+                await stockfishEngine.initialize();
+
+                log('engineOutput', '✅ Engine initialized successfully', 'success');
+                log('engineOutput', `Configuration: Depth=${stockfishEngine.depth}, Threads=${stockfishEngine.threads}, Hash=${stockfishEngine.hash}MB`, 'info');
+
+            } catch (error) {
+                log('engineOutput', `❌ Engine initialization failed: ${error.message}`, 'error');
+            }
+            setLoading('testEngineInit', false);
+        });
+
+        document.getElementById('testBestMove').addEventListener('click', async () => {
+            setLoading('testBestMove', true);
+            try {
+                log('engineOutput', 'Testing best move calculation...', 'info');
+
+                const startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                const bestMove = await stockfishEngine.getBestMove(startingPosition, 12);
+
+                log('engineOutput', `✅ Best move: ${bestMove}`, 'success');
+
+            } catch (error) {
+                log('engineOutput', `❌ Best move calculation failed: ${error.message}`, 'error');
+            }
+            setLoading('testBestMove', false);
+        });
+
+        document.getElementById('testEvaluation').addEventListener('click', async () => {
+            setLoading('testEvaluation', true);
+            try {
+                log('engineOutput', 'Testing position evaluation...', 'info');
+
+                const startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                const evaluation = await stockfishEngine.evaluatePosition(startingPosition, 12);
+
+                log('engineOutput', `✅ Position evaluation: ${evaluation} centipawns`, 'success');
+
+            } catch (error) {
+                log('engineOutput', `❌ Position evaluation failed: ${error.message}`, 'error');
+            }
+            setLoading('testEvaluation', false);
+        });
+
+        document.getElementById('testMoveAnalysis').addEventListener('click', async () => {
+            setLoading('testMoveAnalysis', true);
+            try {
+                log('engineOutput', 'Testing move analysis...', 'info');
+
+                const position = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+                const analysis = await stockfishEngine.analyzeMove(position, 'e7e5', 10);
+
+                log('engineOutput', `✅ Move e5 analysis:`, 'success');
+                log('engineOutput', `  Quality: ${analysis.quality}`, 'info');
+                log('engineOutput', `  Evaluation: ${analysis.evaluation}cp`, 'info');
+                log('engineOutput', `  Move loss: ${analysis.moveLoss}cp`, 'info');
+
+            } catch (error) {
+                log('engineOutput', `❌ Move analysis failed: ${error.message}`, 'error');
+            }
+            setLoading('testMoveAnalysis', false);
+        });
+
+        // Integration Tests
+        document.getElementById('testIntegration').addEventListener('click', async () => {
+            setLoading('testIntegration', true);
+            try {
+                log('integrationOutput', 'Testing API + Engine integration...', 'info');
+
+                const position = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+
+                // Get position data from Lichess
+                const positionStats = await lichessClient.getPositionStats(position, {
+                    moves: 3,
+                    speeds: 'classical',
+                    ratings: '2200,2500'
+                });
+
+                // Analyze top move with engine
+                const topMove = positionStats.moves[0];
+                const moveAnalysis = await stockfishEngine.analyzeMove(position, topMove.uci || topMove.san, 10);
+
+                // Calculate statistics
+                const totalGames = LichessClient.getTotalGames(positionStats);
+                const playRate = LichessClient.calculatePlayRate(topMove, totalGames);
+
+                log('integrationOutput', '✅ Integration test successful:', 'success');
+                log('integrationOutput', `  Move: ${topMove.san}`, 'info');
+                log('integrationOutput', `  Games: ${totalGames}`, 'info');
+                log('integrationOutput', `  Play rate: ${(playRate*100).toFixed(1)}%`, 'info');
+                log('integrationOutput', `  Engine quality: ${moveAnalysis.quality}`, 'info');
+
+            } catch (error) {
+                log('integrationOutput', `❌ Integration test failed: ${error.message}`, 'error');
+            }
+            setLoading('testIntegration', false);
+        });
+
+        document.getElementById('runAllTests').addEventListener('click', async () => {
+            setLoading('runAllTests', true);
+            log('integrationOutput', '🚀 Running all tests...', 'info');
+
+            try {
+                // Run all tests sequentially
+                await new Promise(resolve => {
+                    document.getElementById('testLichessAPI').click();
+                    setTimeout(resolve, 2000);
+                });
+
+                await new Promise(resolve => {
+                    document.getElementById('testEngineInit').click();
+                    setTimeout(resolve, 3000);
+                });
+
+                await new Promise(resolve => {
+                    document.getElementById('testBestMove').click();
+                    setTimeout(resolve, 2000);
+                });
+
+                await new Promise(resolve => {
+                    document.getElementById('testIntegration').click();
+                    setTimeout(resolve, 2000);
+                });
+
+                log('integrationOutput', '✅ All tests completed!', 'success');
+
+            } catch (error) {
+                log('integrationOutput', `❌ Test suite failed: ${error.message}`, 'error');
+            }
+
+            setLoading('runAllTests', false);
+        });
+
+        // Initialize display
+        log('lichessOutput', 'Lichess API client ready', 'info');
+        log('engineOutput', 'Stockfish engine ready for initialization', 'info');
+        log('integrationOutput', 'Integration tests ready', 'info');
+    </script>
+</body>
+</html>
