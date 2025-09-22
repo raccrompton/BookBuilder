@@ -1,0 +1,34 @@
+
+
+
+[Event "Ruy_Lopez Line 1"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O
+{Move playrates:
++40.59%	e5
++62.21%	Nc6
++20.28%	Nf6
+Line cumulative playrate: +5.12%
+Line winrate (excluding draws): +54.31% over 9916238 games}
+
+
+[Event "Ruy_Lopez Line 2"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 d6 4. d4
+{Move playrates:
++40.59%	e5
++62.21%	Nc6
++20.84%	d6
+Line cumulative playrate: +5.26%
+Line winrate (excluding draws): +54.22% over 8039492 games}
+
+
+[Event "Ruy_Lopez Line 3"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4
+{Move playrates:
++40.59%	e5
++62.21%	Nc6
++25.83%	a6
+Line cumulative playrate: +6.52%
+Line winrate (excluding draws): +51.71% over 21646942 games}
