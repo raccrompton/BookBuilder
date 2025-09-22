@@ -108,9 +108,10 @@ class PgnGenerator {
   formatMoveAnnotations(line) {
     let annotations = '{Move playrates:\n';
 
-    // Add individual move playrates
-    if (line.moves && line.moves.length > 0) {
-      for (const move of line.moves) {
+    // Add individual move playrates from likelihoodPath or moves
+    const movesData = line.moves || line.likelihoodPath || [];
+    if (movesData.length > 0) {
+      for (const move of movesData) {
         if (move.playrate !== undefined) {
           const playratePercent = (move.playrate * 100).toFixed(2);
           annotations += `+${playratePercent}%\t${move.san}\n`;
@@ -126,16 +127,20 @@ class PgnGenerator {
       if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) {
         const winratePercent = (line.statistics.winrate * 100).toFixed(2);
         const gamesFormatted = line.statistics.totalGames.toLocaleString();
-        
+
         let winrateDescription;
         if (this.config.DRAWSAREHALF === 0) {
           winrateDescription = "Line winrate (excluding draws)";
         } else {
           winrateDescription = "Line winrate (draws as half points)";
         }
-        
+
         annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
       }
+    } else if (line.cumulativeLikelihood) {
+      // Use cumulativeLikelihood from line object if no statistics
+      const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2);
+      annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
     }
 
     annotations += '}';
@@ -234,7 +239,8 @@ class PgnGenerator {
    */
   generateSingleLine(line, eventName) {
     const header = `[Event "${eventName}"]`;
-    const moves = this._formatMovesOnly(line.moves);
+    // Use pgn property if available, otherwise format moves
+    const moves = line.pgn || (line.moves ? this._formatMovesOnly(line.moves) : '');
     const annotations = this.formatMoveAnnotations(line);
 
     return `${header}\n\n${moves}\n${annotations}`;
