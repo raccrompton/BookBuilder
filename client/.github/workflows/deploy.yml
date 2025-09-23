@@ -1,0 +1,105 @@
+name: Deploy BookBuilder to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'client/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'client/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./client
+      run: npm ci
+      
+    - name: Run tests
+      working-directory: ./client
+      run: npm test
+      
+    - name: Build application
+      working-directory: ./client
+      run: |
+        # Create dist directory
+        mkdir -p dist
+        
+        # Copy main application file
+        cp app.html dist/index.html
+        
+        # Copy source files maintaining structure
+        cp -r src dist/
+        
+        # Copy any additional assets
+        if [ -d "public" ]; then
+          cp -r public/* dist/
+        fi
+        
+        # Create a simple manifest
+        echo "BookBuilder v1.0 - Built $(date)" > dist/VERSION.txt
+        
+    - name: Validate build
+      working-directory: ./client
+      run: |
+        # Check that required files exist
+        test -f dist/index.html || exit 1
+        test -d dist/src || exit 1
+        test -f dist/src/BookBuilder.js || exit 1
+        
+        # Basic HTML validation
+        grep -q "BookBuilder" dist/index.html || exit 1
+        grep -q "type=\"module\"" dist/index.html || exit 1
+        
+        echo "Build validation passed"
+        
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./client/dist
+        publish_branch: gh-pages
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Deploy BookBuilder ${{ github.sha }}'
+        
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo, number } = context.issue;
+          const deployUrl = `https://${owner}.github.io/${repo}`;
+          
+          github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: number,
+            body: `🚀 **Preview Build Ready**
+            
+            Your changes have been built successfully and can be previewed at:
+            ${deployUrl}
+            
+            **Build Details:**
+            - Commit: ${context.sha.substring(0, 7)}
+            - Branch: ${context.ref}
+            - Build Time: ${new Date().toISOString()}
+            
+            Note: It may take a few minutes for the deployment to be live.`
+          });
