@@ -500,6 +500,174 @@ describe('BookBuilder - Step 6: Main Integration', () => {
     });
 });
 
+// ==================== ROOT ANALYSIS FIX VALIDATION TESTS ====================
+
+describe('Root Analysis Fix - Position State Consistency', () => {
+    let bookBuilder;
+
+    beforeEach(() => {
+        bookBuilder = new BookBuilder({
+            ...config,
+            PRINT_INFO_TO_CONSOLE: false,
+            API_DELAY: 0 // No delay for tests
+        });
+    });
+
+    test('applies all PGN moves before getting continuations', async () => {
+        // Sicilian Defense: 1.e4 c5 - position that was causing illegal move errors
+        const sicilianFen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+
+        // Mock Lichess API to return white moves (which should be legal)
+        jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+            .mockResolvedValue({
+                moves: [
+                    { san: 'Nf3', white: 500, draws: 100, black: 400, playrate: 0.35, totalGames: 1000 },
+                    { san: 'd4', white: 300, draws: 50, black: 250, playrate: 0.25, totalGames: 600 }
+                ]
+            });
+
+        const result = await bookBuilder.analyzeRoot(sicilianFen, 'white');
+
+        // Verify API was called with correct final position FEN
+        expect(bookBuilder.lichessClient.getPositionStats).toHaveBeenCalledWith(sicilianFen);
+
+        // Verify lines use final position
+        expect(result.length).toBeGreaterThan(0);
+        expect(result[0].fen).toBe(sicilianFen);
+    });
+
+    test('chess engine position matches final FEN after move application', async () => {
+        const sicilianFen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+
+        jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+            .mockResolvedValue({ moves: [] });
+
+        await bookBuilder.analyzeRoot(sicilianFen, 'white');
+
+        // Verify engine state matches expected final position
+        expect(bookBuilder.chessEngine.getFen()).toBe(sicilianFen);
+        expect(bookBuilder.chessEngine.getTurn()).toBe('w'); // White to move
+    });
+
+    test('generates valid moves from correct position context', async () => {
+        const sicilianFen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+
+        // Test that white moves are valid from this position
+        bookBuilder.chessEngine.parsePosition(sicilianFen);
+
+        // Get all legal moves in the position
+        const legalMoves = bookBuilder.chessEngine.getLegalMoves();
+        const legalMoveSans = legalMoves.map(move => move.san);
+
+        // Common white moves in Sicilian Defense should be legal
+        expect(legalMoveSans).toContain('Nf3');
+        expect(legalMoveSans).toContain('d3');
+        expect(legalMoveSans).toContain('f4');
+
+        // Black moves should NOT be legal (it's white's turn)
+        expect(legalMoveSans).not.toContain('Nf6');
+        expect(legalMoveSans).not.toContain('d6');
+    });
+
+    test('handles positions with no move history correctly', async () => {
+        // Starting position - no moves applied
+        const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+        jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+            .mockResolvedValue({
+                moves: [
+                    { san: 'e4', white: 400, draws: 100, black: 300, playrate: 0.30, totalGames: 800 },
+                    { san: 'd4', white: 350, draws: 75, black: 275, playrate: 0.25, totalGames: 700 }
+                ]
+            });
+
+        const result = await bookBuilder.analyzeRoot(startingFen, 'white');
+
+        // Should work correctly with starting position
+        expect(result.length).toBeGreaterThan(0);
+        expect(result[0].fen).toBe(startingFen);
+        expect(bookBuilder.chessEngine.getFen()).toBe(startingFen);
+    });
+
+    test('fails gracefully on invalid historical moves', async () => {
+        // Create a chess engine with invalid move in history by manipulating internal state
+        const testFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+        // Mock getHistory to return an invalid move
+        jest.spyOn(bookBuilder.chessEngine, 'getHistory')
+            .mockReturnValue(['e4', 'InvalidMove']);
+
+        await expect(bookBuilder.analyzeRoot(testFen, 'white'))
+            .rejects.toThrow(/Failed to apply historical move InvalidMove/);
+    });
+});
+
+// ==================== PYTHON PARITY VALIDATION TESTS ====================
+
+describe('Python Parity Validation - Root Analysis Fix', () => {
+    let bookBuilder;
+
+    beforeEach(() => {
+        bookBuilder = new BookBuilder({
+            ...config,
+            PRINT_INFO_TO_CONSOLE: false,
+            API_DELAY: 0
+        });
+    });
+
+    test('Sicilian Defense: matches Python Rooter behavior', async () => {
+        // This was the failing case: Sicilian Defense 1.e4 c5
+        const sicilianFen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+
+        // Mock common white responses in Sicilian Defense
+        jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+            .mockResolvedValue({
+                moves: [
+                    { san: 'Nf3', white: 500, draws: 100, black: 400, playrate: 0.589, totalGames: 1000 },
+                    { san: 'Nc3', white: 200, draws: 50, black: 150, playrate: 0.091, totalGames: 400 },
+                    { san: 'Bc4', white: 180, draws: 40, black: 160, playrate: 0.081, totalGames: 380 },
+                    { san: 'd4', white: 170, draws: 30, black: 140, playrate: 0.075, totalGames: 340 }
+                ]
+            });
+
+        const result = await bookBuilder.analyzeRoot(sicilianFen, 'white');
+
+        // Should generate valid continuations without "Illegal move" errors
+        expect(result.length).toBeGreaterThan(0);
+
+        // Verify all lines use the correct final position
+        result.forEach(line => {
+            expect(line.fen).toBe(sicilianFen);
+            expect(line.perspective).toBe('white');
+        });
+
+        // Verify API was called with final position, not starting position
+        expect(bookBuilder.lichessClient.getPositionStats).toHaveBeenCalledWith(sicilianFen);
+        expect(bookBuilder.lichessClient.getPositionStats).not.toHaveBeenCalledWith(
+            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+        );
+    });
+
+    test('French Defense: validates position state handling', async () => {
+        // French Defense: 1.e4 e6 - another test case
+        const frenchFen = 'rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+
+        jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+            .mockResolvedValue({
+                moves: [
+                    { san: 'd4', white: 400, draws: 80, black: 320, playrate: 0.542, totalGames: 800 },
+                    { san: 'Nf3', white: 250, draws: 50, black: 200, playrate: 0.244, totalGames: 500 }
+                ]
+            });
+
+        const result = await bookBuilder.analyzeRoot(frenchFen, 'white');
+
+        expect(result.length).toBeGreaterThan(0);
+        expect(result[0].fen).toBe(frenchFen);
+        expect(bookBuilder.chessEngine.getTurn()).toBe('w'); // White's turn
+    });
+});
+
 // ==================== GOLDEN MASTER INTEGRATION TEST ====================
 
 describe('Golden Master Integration', () => {

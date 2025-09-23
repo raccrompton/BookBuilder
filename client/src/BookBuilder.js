@@ -123,27 +123,49 @@ class BookBuilder {
             // Parse initial position
             const success = this.chessEngine.parsePosition(fen);
             if (!success) {
-                console.warn(`    Invalid starting position: ${fen} - returning empty lines`);
-                return [];
+                throw new Error(`Invalid starting position: ${fen}`);
             }
 
             const moves = this.chessEngine.getHistory();
 
             console.log(`    Root analysis: ${moves.length} moves played, perspective: ${perspective}`);
 
-            // Get initial continuations from current position
-            const positionStats = await this.lichessClient.getPositionStats(fen);
+            // CRITICAL FIX: Apply ALL moves from the parsed position to reach final position
+            // This matches Python Rooter behavior: board.push(move) for each move
+            if (moves.length > 0) {
+                console.log(`    Applying ${moves.length} historical moves to reach final position`);
+                for (let i = 0; i < moves.length; i++) {
+                    const move = moves[i];
+                    const currentTurn = this.chessEngine.getTurn();
+                    console.log(`    Move ${i + 1}: ${move} (${currentTurn} to move)`);
+
+                    const moveResult = this.chessEngine.makeMove(move);
+                    if (!moveResult) {
+                        const currentFen = this.chessEngine.getFen();
+                        throw new Error(`Failed to apply historical move ${move} at position ${i + 1}. Current FEN: ${currentFen}`);
+                    }
+                }
+                console.log(`    Successfully applied all ${moves.length} moves`);
+            } else {
+                console.log(`    No historical moves to apply - using starting position`);
+            }
+
+            // Get continuations from FINAL position after applying all moves (not starting position)
+            const finalFen = this.chessEngine.getFen();
+            console.log(`    Final position FEN: ${finalFen}`);
+
+            const positionStats = await this.lichessClient.getPositionStats(finalFen);
             const validLines = [];
 
             if (!positionStats || !positionStats.moves) {
-                console.warn('    No position data available for starting position');
+                console.warn('    No position data available for final position');
                 return [];
             }
 
             for (const move of positionStats.moves) {
                 if (this.isValidContinuation(move, 1.0)) {
                     validLines.push({
-                        fen: fen,
+                        fen: finalFen, // FIXED: Use final position FEN, not starting FEN
                         pgn: this.chessEngine.getPgn(),
                         perspective: perspective,
                         cumulativeLikelihood: move.playrate,
