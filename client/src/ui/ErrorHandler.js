@@ -1,6 +1,6 @@
 /**
  * ErrorHandler.js - Comprehensive error handling and debugging support
- * 
+ *
  * Provides detailed error logging, user-friendly error display,
  * and debugging information for BookBuilder client-side application.
  */
@@ -17,7 +17,7 @@ class ErrorHandler {
      * Detect if we're in debug mode
      */
     detectDebugMode() {
-        return window.location.hostname === 'localhost' || 
+        return window.location.hostname === 'localhost' ||
                window.location.search.includes('debug=true') ||
                localStorage.getItem('bookbuilder-debug') === 'true';
     }
@@ -27,16 +27,16 @@ class ErrorHandler {
      */
     showError(title, error, suggestions = []) {
         console.error(title, error);
-        
+
         // Log error to internal log
         this.logToInternalLog(title, error);
-        
+
         // Display user-friendly error
         this.displayError(title, error, suggestions);
-        
+
         // Hide other UI containers
         this.hideOtherContainers();
-        
+
         // Log detailed error to console
         this.logDetailedError(error, title);
     }
@@ -46,7 +46,7 @@ class ErrorHandler {
      */
     showValidationErrors(errors) {
         const errorList = errors.map(error => `• ${error}`).join('<br>');
-        
+
         this.container.style.display = 'block';
         this.message.innerHTML = `
             <div class="error-title">
@@ -62,7 +62,7 @@ class ErrorHandler {
                 </button>
             </div>
         `;
-        
+
         this.hideOtherContainers();
         this.logToInternalLog('Validation Error', { message: errors.join(', ') });
     }
@@ -72,11 +72,11 @@ class ErrorHandler {
      */
     showAPIError(apiName, error, retryable = true) {
         const suggestions = [];
-        
+
         if (retryable) {
             suggestions.push('Try again in a few moments');
         }
-        
+
         if (apiName === 'Lichess') {
             suggestions.push('Check your internet connection');
             suggestions.push('Verify Lichess.org is accessible');
@@ -84,7 +84,7 @@ class ErrorHandler {
                 suggestions.push('Wait for rate limit to reset (usually 1 minute)');
             }
         }
-        
+
         if (apiName === 'Stockfish') {
             suggestions.push('Try reducing engine depth in settings');
             suggestions.push('Check if browser supports Web Workers');
@@ -116,7 +116,7 @@ class ErrorHandler {
      */
     displayError(title, error, suggestions = []) {
         const errorId = `error-${Date.now()}`;
-        
+
         let suggestionHtml = '';
         if (suggestions.length > 0) {
             suggestionHtml = `
@@ -146,7 +146,7 @@ class ErrorHandler {
                 </div>
             `;
         }
-        
+
         this.container.style.display = 'block';
         this.message.innerHTML = `
             <div class="error-header">
@@ -221,18 +221,18 @@ class ErrorHandler {
         console.error('Context:', context);
         console.error('Timestamp:', new Date().toISOString());
         console.error('URL:', window.location.href);
-        
+
         if (error.cause) {
             console.error('Caused by:', error.cause);
         }
-        
+
         // Log any additional error properties
         Object.keys(error).forEach(key => {
             if (!['message', 'stack', 'name'].includes(key)) {
                 console.error(`${key}:`, error[key]);
             }
         });
-        
+
         console.groupEnd();
     }
 
@@ -244,7 +244,7 @@ class ErrorHandler {
             'progress-container',
             'success-container'
         ];
-        
+
         containers.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
@@ -258,7 +258,7 @@ class ErrorHandler {
      */
     sanitizeErrorMessage(message) {
         if (!message) return 'Unknown error occurred';
-        
+
         return message
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -317,7 +317,7 @@ Environment:
         textArea.style.opacity = '0';
         document.body.appendChild(textArea);
         textArea.select();
-        
+
         try {
             document.execCommand('copy');
             this.showTemporaryMessage('Error details copied to clipboard');
@@ -326,7 +326,7 @@ Environment:
             this.showTemporaryMessage('Failed to copy. Please copy manually from console.');
             console.log('Error details to copy:', text);
         }
-        
+
         document.body.removeChild(textArea);
     }
 
@@ -345,8 +345,8 @@ Environment:
             }
         };
 
-        const blob = new Blob([JSON.stringify(logData, null, 2)], { 
-            type: 'application/json' 
+        const blob = new Blob([JSON.stringify(logData, null, 2)], {
+            type: 'application/json'
         });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

@@ -26,12 +26,12 @@ class MockBookBuilderApp {
         if (!this.initialized) {
             throw new Error('App not initialized');
         }
-        
+
         // Validate configuration
         if (!config.openings || !Array.isArray(config.openings)) {
             throw new Error('Invalid openings configuration');
         }
-        
+
         this.config = config;
         return true;
     }
@@ -44,7 +44,7 @@ class MockBookBuilderApp {
         // Simulate the complete generation process
         const phases = [
             'Initializing components',
-            'Validating configuration', 
+            'Validating configuration',
             'Connecting to Lichess API',
             'Analyzing positions',
             'Running engine analysis',
@@ -127,14 +127,14 @@ describe('End-to-End Workflow Tests', () => {
             const beginnerConfig = {
                 openings: [
                     {
-                        name: "Italian Game",
-                        moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+                        name: 'Italian Game',
+                        moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'],
                         priority: 1
                     }
                 ],
                 engineEnabled: false,
                 ratingRange: [1200, 1800],
-                timeControls: ["blitz", "rapid"]
+                timeControls: ['blitz', 'rapid']
             };
 
             // Load configuration
@@ -159,13 +159,13 @@ describe('End-to-End Workflow Tests', () => {
             const advancedConfig = {
                 openings: [
                     {
-                        name: "Najdorf Sicilian",
-                        moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"],
+                        name: 'Najdorf Sicilian',
+                        moves: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'],
                         priority: 1
                     },
                     {
-                        name: "Dragon Variation",
-                        moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6"],
+                        name: 'Dragon Variation',
+                        moves: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'g6'],
                         priority: 2
                     }
                 ],
@@ -183,7 +183,7 @@ describe('End-to-End Workflow Tests', () => {
             expect(Object.keys(results)).toHaveLength(2);
             expect(results['Chapter_1_Najdorf_Sicilian.pgn']).toBeDefined();
             expect(results['Chapter_2_Dragon_Variation.pgn']).toBeDefined();
-            
+
             // Verify PGN quality
             Object.values(results).forEach(pgn => {
                 expect(pgn).toContain('[Event ');
@@ -199,7 +199,7 @@ describe('End-to-End Workflow Tests', () => {
 
             // Test invalid configuration
             const invalidConfig = {
-                openings: "not an array"
+                openings: 'not an array'
             };
 
             await expect(app.loadConfiguration(invalidConfig))
@@ -223,7 +223,7 @@ describe('End-to-End Workflow Tests', () => {
             const largeConfig = {
                 openings: Array.from({ length: 20 }, (_, i) => ({
                     name: `Opening ${i + 1}`,
-                    moves: ["e4", "e5"],
+                    moves: ['e4', 'e5'],
                     priority: i + 1
                 }))
             };
@@ -247,7 +247,7 @@ describe('End-to-End Workflow Tests', () => {
             await app.initialize();
 
             const config = {
-                openings: [{ name: "Test", moves: ["e4"], priority: 1 }]
+                openings: [{ name: 'Test', moves: ['e4'], priority: 1 }]
             };
 
             await app.loadConfiguration(config);
@@ -281,8 +281,8 @@ describe('End-to-End Workflow Tests', () => {
             const config = {
                 openings: [
                     {
-                        name: "Test Opening",
-                        moves: ["e4", "e5", "Nf3"],
+                        name: 'Test Opening',
+                        moves: ['e4', 'e5', 'Nf3'],
                         priority: 1
                     }
                 ]
@@ -318,15 +318,15 @@ describe('End-to-End Workflow Tests', () => {
 
             const originalConfig = {
                 openings: [
-                    { name: "Sicilian", moves: ["e4", "c5"], priority: 1 },
-                    { name: "French", moves: ["e4", "e6"], priority: 2 }
+                    { name: 'Sicilian', moves: ['e4', 'c5'], priority: 1 },
+                    { name: 'French', moves: ['e4', 'e6'], priority: 2 }
                 ],
                 engineEnabled: true,
                 ratingRange: [2000, 2400]
             };
 
             await app.loadConfiguration(originalConfig);
-            
+
             // Verify configuration wasn't modified
             expect(app.config).toEqual(originalConfig);
             expect(app.config.openings).toHaveLength(2);
@@ -345,7 +345,7 @@ describe('Performance and Stress Tests', () => {
 
     it('should handle concurrent operations', async () => {
         const configs = Array.from({ length: 5 }, (_, i) => ({
-            openings: [{ name: `Opening ${i}`, moves: ["e4"], priority: 1 }]
+            openings: [{ name: `Opening ${i}`, moves: ['e4'], priority: 1 }]
         }));
 
         // Run multiple operations concurrently
@@ -379,7 +379,7 @@ describe('Performance and Stress Tests', () => {
         };
 
         const startMemory = process.memoryUsage().heapUsed;
-        
+
         await app.loadConfiguration(largeConfig);
         const results = await app.generateRepertoire();
 

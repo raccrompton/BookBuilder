@@ -86,7 +86,14 @@ class StockfishEngine {
         if (messageStr.includes('uciok')) {
             this.handleEngineReady();
         } else if (messageStr.includes('readyok')) {
-            // Engine is ready for next command
+            // Engine is ready for work
+            this.isReady = true;
+
+            if (this.initResolver) {
+                this.initResolver();
+                this.initResolver = null;
+                this.initRejecter = null;
+            }
         } else if (messageStr.includes('bestmove')) {
             this.handleBestMove(messageStr);
         } else if (messageStr.includes('info')) {
@@ -106,13 +113,8 @@ class StockfishEngine {
             this.sendUCICommand(`setoption name Hash value ${this.hash}`);
         }
 
-        this.isReady = true;
-
-        if (this.initResolver) {
-            this.initResolver();
-            this.initResolver = null;
-            this.initRejecter = null;
-        }
+        // Send isready command to confirm engine is ready for work
+        this.sendUCICommand('isready');
     }
 
     /**

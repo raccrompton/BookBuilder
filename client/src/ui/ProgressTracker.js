@@ -1,6 +1,6 @@
 /**
  * ProgressTracker.js - Visual progress tracking with detailed feedback
- * 
+ *
  * Provides comprehensive progress tracking for the BookBuilder generation process
  * with phase-based updates, estimated time remaining, and cancellation support.
  */
@@ -10,13 +10,13 @@ class ProgressTracker {
         this.container = document.getElementById('progress-container');
         this.fill = document.getElementById('progress-fill');
         this.text = document.getElementById('progress-text');
-        
+
         this.isActive = false;
         this.startTime = null;
         this.currentPhase = null;
         this.phases = [];
         this.cancelCallback = null;
-        
+
         this.setupProgressUI();
     }
 
@@ -76,7 +76,7 @@ class ProgressTracker {
         this.isActive = true;
         this.startTime = Date.now();
         this.currentPhase = null;
-        
+
         if (phases) {
             this.phases = phases;
         } else {
@@ -88,19 +88,19 @@ class ProgressTracker {
                 { name: 'Finalizing', weight: 5 }
             ];
         }
-        
+
         this.container.style.display = 'block';
         this.updatePhase('Starting...', 0);
-        
+
         // Show/hide cancel button
         const cancelButton = this.container.querySelector('.progress-cancel');
         if (cancelButton) {
             cancelButton.style.display = cancellable ? 'inline-block' : 'none';
         }
-        
+
         // Hide other containers
         this.hideOtherContainers();
-        
+
         // Clear previous log
         const logElement = this.container.querySelector('.progress-log');
         if (logElement) {
@@ -114,19 +114,19 @@ class ProgressTracker {
      */
     updatePhase(text, percentage, phaseData = null) {
         if (!this.isActive) return;
-        
+
         const clampedPercentage = Math.max(0, Math.min(100, percentage));
-        
+
         this.fill.style.width = `${clampedPercentage}%`;
         this.text.textContent = text;
-        
+
         if (phaseData) {
             this.currentPhase = phaseData;
         }
-        
+
         // Update ETA
         this.updateETA(clampedPercentage);
-        
+
         // Log progress
         this.logProgress(text, clampedPercentage);
     }
@@ -137,23 +137,23 @@ class ProgressTracker {
     updateETA(percentage) {
         const etaElement = this.container.querySelector('.progress-eta');
         if (!etaElement || !this.startTime || percentage <= 0) return;
-        
+
         const elapsed = Date.now() - this.startTime;
         const estimatedTotal = (elapsed / percentage) * 100;
         const remaining = estimatedTotal - elapsed;
-        
+
         if (remaining > 0 && percentage < 95) {
             const remainingSeconds = Math.ceil(remaining / 1000);
             const minutes = Math.floor(remainingSeconds / 60);
             const seconds = remainingSeconds % 60;
-            
+
             let etaText = '';
             if (minutes > 0) {
                 etaText = `Estimated ${minutes}m ${seconds}s remaining`;
             } else {
                 etaText = `Estimated ${seconds}s remaining`;
             }
-            
+
             etaElement.textContent = etaText;
         } else {
             etaElement.textContent = 'Nearly complete...';
@@ -166,26 +166,26 @@ class ProgressTracker {
     logProgress(message, percentage = null) {
         const logElement = this.container.querySelector('.progress-log');
         if (!logElement) return;
-        
+
         // Show log if it's hidden
         if (logElement.style.display === 'none') {
             logElement.style.display = 'block';
         }
-        
+
         const timestamp = new Date().toLocaleTimeString();
         const percentageText = percentage !== null ? ` (${percentage.toFixed(1)}%)` : '';
-        
+
         const logEntry = document.createElement('div');
         logEntry.innerHTML = `
             <span style="color: var(--text-muted);">[${timestamp}]</span> 
             ${message}${percentageText}
         `;
-        
+
         logElement.appendChild(logEntry);
-        
+
         // Auto-scroll to bottom
         logElement.scrollTop = logElement.scrollHeight;
-        
+
         // Limit log entries
         const entries = logElement.children;
         if (entries.length > 20) {
@@ -198,9 +198,9 @@ class ProgressTracker {
      */
     updateProgress(details, additionalData = null) {
         if (!this.isActive) return;
-        
+
         this.logProgress(details);
-        
+
         // If additional data provided, update display
         if (additionalData) {
             if (additionalData.linesGenerated) {
@@ -220,15 +220,15 @@ class ProgressTracker {
      */
     updateOpeningProgress(openingName, openingIndex, totalOpenings, linesGenerated = 0) {
         if (!this.isActive) return;
-        
+
         const baseProgress = 20; // After initialization
         const processingRange = 70; // 20% to 90%
         const openingProgress = (openingIndex / totalOpenings) * processingRange;
         const totalProgress = baseProgress + openingProgress;
-        
+
         const message = `Processing ${openingName} (${openingIndex + 1}/${totalOpenings})`;
         this.updatePhase(message, totalProgress);
-        
+
         if (linesGenerated > 0) {
             this.logProgress(`${openingName}: ${linesGenerated} lines generated`);
         }
@@ -239,10 +239,10 @@ class ProgressTracker {
      */
     updateBatchProgress(batchIndex, totalBatches, currentOperation) {
         if (!this.isActive) return;
-        
+
         const batchProgress = (batchIndex / totalBatches) * 100;
         this.logProgress(`Batch ${batchIndex + 1}/${totalBatches}: ${currentOperation}`);
-        
+
         // Update fill but don't change main message
         const currentWidth = parseFloat(this.fill.style.width) || 0;
         const batchIncrement = batchProgress * 0.1; // Small increment for batch progress
@@ -256,13 +256,13 @@ class ProgressTracker {
         this.isActive = false;
         this.fill.style.width = '100%';
         this.text.textContent = message;
-        
+
         // Hide cancel button
         const cancelButton = this.container.querySelector('.progress-cancel');
         if (cancelButton) {
             cancelButton.style.display = 'none';
         }
-        
+
         // Update ETA to completion message
         const etaElement = this.container.querySelector('.progress-eta');
         if (etaElement) {
@@ -270,25 +270,25 @@ class ProgressTracker {
             const elapsedSeconds = Math.ceil(elapsed / 1000);
             const minutes = Math.floor(elapsedSeconds / 60);
             const seconds = elapsedSeconds % 60;
-            
+
             let timeText = '';
             if (minutes > 0) {
                 timeText = `Completed in ${minutes}m ${seconds}s`;
             } else {
                 timeText = `Completed in ${seconds}s`;
             }
-            
+
             etaElement.textContent = timeText;
         }
-        
+
         // Log completion
         this.logProgress(message);
-        
+
         if (downloadInfo) {
             this.logProgress(`Generated ${downloadInfo.fileCount} files`);
             this.logProgress(`Total size: ${downloadInfo.totalSize || 'Unknown'}`);
         }
-        
+
         // Show success container after a delay
         setTimeout(() => {
             this.showSuccessContainer(message, downloadInfo);
@@ -300,20 +300,20 @@ class ProgressTracker {
      */
     showSuccessContainer(message, downloadInfo) {
         this.container.style.display = 'none';
-        
+
         const successContainer = document.getElementById('success-container');
         const successMessage = document.getElementById('success-message');
-        
+
         if (successContainer && successMessage) {
             let fullMessage = message;
-            
+
             if (downloadInfo) {
-                fullMessage += `\n\n📊 Generation Summary:`;
+                fullMessage += '\n\n📊 Generation Summary:';
                 fullMessage += `\n• Files generated: ${downloadInfo.fileCount || 'Unknown'}`;
                 fullMessage += `\n• Total lines: ${downloadInfo.totalLines || 'Unknown'}`;
                 fullMessage += `\n• Processing time: ${downloadInfo.processingTime || 'Unknown'}`;
             }
-            
+
             successMessage.textContent = fullMessage;
             successContainer.style.display = 'block';
         }
@@ -324,16 +324,16 @@ class ProgressTracker {
      */
     cancel() {
         if (!this.isActive) return;
-        
+
         this.isActive = false;
-        
+
         if (this.cancelCallback) {
             this.cancelCallback();
         }
-        
+
         this.updatePhase('Cancelling operation...', 0);
         this.logProgress('❌ Operation cancelled by user');
-        
+
         setTimeout(() => {
             this.reset();
         }, 1000);
@@ -354,32 +354,32 @@ class ProgressTracker {
         this.startTime = null;
         this.currentPhase = null;
         this.cancelCallback = null;
-        
+
         if (this.container) {
             this.container.style.display = 'none';
         }
-        
+
         if (this.fill) {
             this.fill.style.width = '0%';
         }
-        
+
         if (this.text) {
             this.text.textContent = 'Initializing...';
         }
-        
+
         // Reset ETA
         const etaElement = this.container?.querySelector('.progress-eta');
         if (etaElement) {
             etaElement.textContent = '';
         }
-        
+
         // Hide log
         const logElement = this.container?.querySelector('.progress-log');
         if (logElement) {
             logElement.style.display = 'none';
             logElement.innerHTML = '';
         }
-        
+
         // Hide cancel button
         const cancelButton = this.container?.querySelector('.progress-cancel');
         if (cancelButton) {
@@ -395,7 +395,7 @@ class ProgressTracker {
             'error-container',
             'success-container'
         ];
-        
+
         containers.forEach(id => {
             const element = document.getElementById(id);
             if (element) {

@@ -17,6 +17,11 @@ global.Worker = jest.fn().mockImplementation(() => {
                         worker.onmessage({ data: 'option name Threads type spin default 1 min 1 max 512' });
                         worker.onmessage({ data: 'option name Hash type spin default 16 min 1 max 33554432' });
                         worker.onmessage({ data: 'uciok' });
+                    } else if (command.startsWith('setoption')) {
+                        // Configuration commands - no response needed
+                    } else if (command === 'isready') {
+                        // Engine ready check - critical for initialization
+                        worker.onmessage({ data: 'readyok' });
                     } else if (command.startsWith('position fen')) {
                         // Position command - no response needed
                     } else if (command.startsWith('go depth')) {
