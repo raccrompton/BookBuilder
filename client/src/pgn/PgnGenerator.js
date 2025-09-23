@@ -161,7 +161,7 @@ class PgnGenerator {
 
         try {
             // Import chess.js for position manipulation
-            const { Chess } = await import('chess.js');
+            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js');
             const chess = new Chess(currentFen);
 
             while (moveCount < maxMoves && !chess.isGameOver()) {
