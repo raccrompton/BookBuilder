@@ -7,11 +7,19 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:golden": "jest --testPathPattern=golden-master",
-    "dev": "webpack serve --mode development",
-    "build": "webpack --mode production",
-    "lint": "eslint src/ tests/",
-    "format": "prettier --write src/ tests/"
+    "test:integration": "jest tests/integration.test.js",
+    "test:ui": "jest tests/ui-automation.test.js",
+    "test:e2e": "jest tests/e2e-headless.test.js",
+    "test:all": "jest --testPathPattern='(integration|ui-automation|e2e-headless)'",
+    "test:quick": "jest --testPathPattern='ui-automation'",
+    "dev": "http-server . -p 3000 -c-1",
+    "build": "npm run test:quick && npm run build:dist",
+    "build:dist": "mkdir -p dist && cp app.html dist/index.html && cp -r src dist/",
+    "lint": "eslint src/ tests/ --ext .js",
+    "format": "prettier --write src/ tests/",
+    "serve": "http-server dist -p 8080 -c-1",
+    "validate": "npm run lint && npm run test:all",
+    "test:manual": "echo 'Open http://localhost:3000/app.html for manual testing' && npm run dev"
   },
   "keywords": [
     "chess",
@@ -34,14 +42,22 @@
     "babel-jest": "^30.1.2",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^8.8.0",
+    "http-server": "^14.1.1",
     "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.5.0",
-    "prettier": "^2.8.8",
-    "webpack": "^5.88.0",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "prettier": "^2.8.8"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/*.test.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"]
   }
 }
