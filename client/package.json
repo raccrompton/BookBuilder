@@ -12,14 +12,17 @@
     "test:e2e": "jest tests/e2e-headless.test.js",
     "test:all": "jest --testPathPattern='(integration|ui-automation|e2e-headless)'",
     "test:quick": "jest --testPathPattern='ui-automation'",
-    "dev": "http-server . -p 3000 -c-1",
+    "dev": "http-server . -p 3000 -c-1 --ext js",
     "build": "npm run test:quick && npm run build:dist",
     "build:dist": "mkdir -p dist && cp app.html dist/index.html && cp -r src dist/",
     "lint": "eslint src/ tests/ --ext .js",
     "format": "prettier --write src/ tests/",
     "serve": "http-server dist -p 8080 -c-1",
     "validate": "npm run lint && npm run test:all",
-    "test:manual": "echo 'Open http://localhost:3000/app.html for manual testing' && npm run dev"
+    "test:manual": "echo 'Open http://localhost:3000/app.html for manual testing' && npm run dev",
+    "test:algorithm": "node tests/run-algorithm-tests.js",
+    "test:algorithm:quick": "node tests/run-algorithm-tests.js --quick",
+    "test:algorithm:full": "node tests/run-algorithm-tests.js --full"
   },
   "keywords": [
     "chess",
@@ -51,8 +54,12 @@
     "testEnvironment": "jsdom",
     "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
     "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1"
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^/node_modules/chess\\.js/dist/esm/chess\\.js$": "<rootDir>/node_modules/chess.js/dist/esm/chess.js"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(chess\\.js)/)"
+    ],
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/**/*.test.js"

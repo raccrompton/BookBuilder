@@ -5,7 +5,7 @@
  * within 0.01% tolerance as specified in fast migration spec.
  */
 
-const Statistics = require('../../src/stats/Statistics.js');
+import Statistics from '../../src/stats/Statistics.js';
 
 describe('Statistics Engine - Critical Python Compatibility Tests', () => {
     let stats;

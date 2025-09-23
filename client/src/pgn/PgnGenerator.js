@@ -161,7 +161,7 @@ class PgnGenerator {
 
         try {
             // Import chess.js for position manipulation
-            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js');
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js');
             const chess = new Chess(currentFen);
 
             while (moveCount < maxMoves && !chess.isGameOver()) {
@@ -239,8 +239,8 @@ class PgnGenerator {
    */
     generateSingleLine(line, eventName) {
         const header = `[Event "${eventName}"]`;
-        // Use pgn property if available, otherwise format moves
-        const moves = line.pgn || (line.moves ? this._formatMovesOnly(line.moves) : '');
+        // Use moves array if available, otherwise fall back to pgn property
+        const moves = line.moves ? this._formatMovesOnly(line.moves) : (line.pgn || '');
         const annotations = this.formatMoveAnnotations(line);
 
         return `${header}\n\n${moves}\n${annotations}`;
