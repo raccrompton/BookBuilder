@@ -22,7 +22,10 @@
     "test:manual": "echo 'Open http://localhost:3000/app.html for manual testing' && npm run dev",
     "test:algorithm": "node tests/run-algorithm-tests.js",
     "test:algorithm:quick": "node tests/run-algorithm-tests.js --quick",
-    "test:algorithm:full": "node tests/run-algorithm-tests.js --full"
+    "test:algorithm:full": "node tests/run-algorithm-tests.js --full",
+    "test:cross-system": "jest tests/cross-system-validation.test.js",
+    "test:cross-system:coverage": "jest tests/cross-system-validation.test.js --coverage",
+    "test:validation": "npm run test:cross-system && npm run test:algorithm:full"
   },
   "keywords": [
     "chess",
