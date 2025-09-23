@@ -9,15 +9,16 @@ import BookBuilder from '../BookBuilder.js';
 import LichessClient from '../api/LichessClient.js';
 import StockfishEngine from '../engine/StockfishEngine.js';
 import FileGenerator from './FileGenerator.js';
+import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 class FormController {
     constructor() {
-        // Initialize components after DOM is ready
-        this.configManager = null;
-        this.progressTracker = null;
-        this.errorHandler = null;
-
         // Initialize components
+        this.configManager = new ConfigManager();
+        this.progressTracker = new ProgressTracker();
+        this.errorHandler = new ErrorHandler();
+
+        // Initialize API components
         this.lichessClient = null;
         this.stockfishEngine = null;
         this.bookBuilder = null;
@@ -30,10 +31,29 @@ class FormController {
         // No tab switching needed - using single page layout
 
         // Form submission
-        document.getElementById('bookbuilder-form').addEventListener('submit', (e) => {
+        console.log('🔗 [DEBUG] Setting up form event listener...');
+        const form = document.getElementById('bookbuilder-form');
+        if (!form) {
+            console.error('❌ [DEBUG] Form not found!');
+            return;
+        }
+        
+        form.addEventListener('submit', (e) => {
+            console.log('📝 [DEBUG] Form submit event triggered');
             e.preventDefault();
             this.handleSubmit();
         });
+        
+        // Also add click listener to button specifically
+        const submitButton = document.querySelector('button[type="submit"]');
+        if (submitButton) {
+            console.log('🔘 [DEBUG] Submit button found, adding click listener');
+            submitButton.addEventListener('click', (e) => {
+                console.log('🖱️ [DEBUG] Submit button clicked');
+            });
+        } else {
+            console.error('❌ [DEBUG] Submit button not found!');
+        }
 
         // Auto-save on input
         document.querySelectorAll('#bookbuilder-form input, #bookbuilder-form select, #bookbuilder-form textarea').forEach(element => {
@@ -60,22 +80,35 @@ class FormController {
     }
 
     async handleSubmit() {
+        console.log('🚀 [DEBUG] Form submission started');
+        
         try {
             // Validate form
+            console.log('🔍 [DEBUG] Starting form validation...');
             const errors = this.configManager.validateConfig();
+            console.log('📊 [DEBUG] Validation errors:', errors);
+            
             if (errors.length > 0) {
+                console.log('❌ [DEBUG] Validation failed, showing errors');
                 this.errorHandler.showValidationErrors(errors);
                 return;
             }
 
             // Get configuration and prepare BookBuilder config
+            console.log('⚙️ [DEBUG] Getting form data...');
             const formConfig = this.configManager.getFormData();
+            console.log('📋 [DEBUG] Form config:', formConfig);
+            
+            console.log('🔧 [DEBUG] Converting to BookBuilder config...');
             const bookBuilderConfig = this.convertToBookBuilderConfig(formConfig);
+            console.log('🏗️ [DEBUG] BookBuilder config:', bookBuilderConfig);
 
             // Start repertoire generation
+            console.log('🎯 [DEBUG] Starting generation process...');
             await this.startGeneration(bookBuilderConfig);
 
         } catch (error) {
+            console.error('💥 [DEBUG] Error in handleSubmit:', error);
             this.errorHandler.showError('Failed to start generation', error);
         }
     }
@@ -329,17 +362,38 @@ class FormController {
     // getSelectedVariants method removed - always use standard chess
 
     convertMovesToFen(moves) {
-        // Convert move sequence to FEN
-        // For now, return starting position - this should be enhanced
-        // to actually play through the moves
+        console.log('🔧 [DEBUG] Converting moves to FEN:', moves);
+        
         if (!moves || moves.length === 0) {
+            console.log('📍 [DEBUG] No moves provided, returning starting position');
             return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         }
 
-        // TODO: Implement actual move sequence conversion
-        // This would require chess.js or similar to play through moves
-        console.warn('Move sequence to FEN conversion not yet implemented');
-        return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        try {
+            // Use chess.js to play through the moves and get resulting FEN
+            const chess = new Chess();
+            
+            // Play each move in sequence
+            for (let i = 0; i < moves.length; i++) {
+                const move = moves[i];
+                console.log(`🎯 [DEBUG] Playing move ${i + 1}: ${move}`);
+                
+                const moveResult = chess.move(move);
+                if (!moveResult) {
+                    console.error(`❌ [DEBUG] Invalid move: ${move} at position ${i + 1}`);
+                    // Return starting position if any move is invalid
+                    return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                }
+            }
+            
+            const resultFen = chess.fen();
+            console.log('✅ [DEBUG] Successfully converted moves to FEN:', resultFen);
+            return resultFen;
+            
+        } catch (error) {
+            console.error('💥 [DEBUG] Error converting moves to FEN:', error);
+            return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        }
     }
 
     updateRangeDisplay(rangeElement) {

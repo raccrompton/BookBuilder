@@ -195,4 +195,4 @@ class Statistics {
     }
 }
 
-module.exports = Statistics;
+export default Statistics;

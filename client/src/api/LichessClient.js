@@ -87,8 +87,14 @@ class LichessClient {
                 // Validate response structure
                 this._validateResponse(data, operation);
 
+                // Transform data for BookBuilder compatibility
+                let transformedData = data;
+                if (operation === 'getPositionStats') {
+                    transformedData = this._transformPositionStats(data);
+                }
+
                 console.log(`Lichess API ${operation}: Success`);
-                return data;
+                return transformedData;
 
             } catch (error) {
                 lastError = error;
@@ -134,6 +140,36 @@ class LichessClient {
    */
     _sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Transform Lichess API response to BookBuilder format
+     * @private
+     */
+    _transformPositionStats(data) {
+        if (!data.moves || !Array.isArray(data.moves)) {
+            return data;
+        }
+
+        // Calculate total games for the position
+        const totalGames = LichessClient.getTotalGames(data);
+
+        // Transform each move to add playrate and totalGames properties
+        const transformedMoves = data.moves.map(move => {
+            const moveGames = move.white + move.black + move.draws;
+            const playrate = LichessClient.calculatePlayRate(move, totalGames);
+            
+            return {
+                ...move,
+                playrate: playrate,
+                totalGames: moveGames
+            };
+        });
+
+        return {
+            ...data,
+            moves: transformedMoves
+        };
     }
 
     /**

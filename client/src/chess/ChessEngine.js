@@ -1,4 +1,4 @@
-import { Chess } from '../../node_modules/chess.js/dist/esm/chess.js';
+import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 /**
  * Chess engine wrapper providing position handling and move validation
@@ -89,13 +89,13 @@ export class ChessEngine {
         try {
             const moveResult = this.chess.move(move);
             if (moveResult) {
-                return { success: true, move: moveResult };
+                return moveResult; // Return the move object directly like python-chess
             } else {
-                return { success: false, error: 'Invalid move' };
+                return null; // Return null for invalid moves like python-chess
             }
         } catch (error) {
             console.error('Illegal move:', move, error);
-            return { success: false, error: error.message };
+            return null; // Return null for exceptions like python-chess
         }
     }
 
