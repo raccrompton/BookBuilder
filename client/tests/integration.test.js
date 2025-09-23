@@ -380,38 +380,38 @@ describe('BookBuilder Integration Tests', () => {
 
     describe('Stockfish Integration', () => {
         it('should initialize Stockfish engine', async () => {
-            // Mock successful initialization
+            // Mock successful UCI initialization
             const mockWorker = {
                 postMessage: jest.fn(),
                 onmessage: null,
                 onerror: null,
                 terminate: jest.fn()
             };
-            
+
             global.Worker = jest.fn(() => mockWorker);
-            
+
             const StockfishEngineModule = await import('../src/engine/StockfishEngine.js');
             const StockfishEngine = StockfishEngineModule.default;
             const engine = new StockfishEngine();
-            
+
             // Simulate successful initialization
             const initPromise = engine.initialize();
-            
-            // Simulate worker response
+
+            // Simulate UCI protocol response
             setTimeout(() => {
                 if (mockWorker.onmessage) {
-                    mockWorker.onmessage({
-                        data: {
-                            type: 'response',
-                            callbackId: 0,
-                            data: { success: true }
-                        }
-                    });
+                    // Simulate UCI initialization sequence
+                    mockWorker.onmessage({ data: 'id name Stockfish 17.1' });
+                    mockWorker.onmessage({ data: 'id author T. Romstad, M. Costalba, J. Kiiski, G. Linscott' });
+                    mockWorker.onmessage({ data: 'option name Threads type spin default 1 min 1 max 512' });
+                    mockWorker.onmessage({ data: 'option name Hash type spin default 16 min 1 max 33554432' });
+                    mockWorker.onmessage({ data: 'uciok' });
                 }
-            }, 100);
-            
-            await expect(initPromise).resolves.toBeDefined();
-            expect(mockWorker.postMessage).toHaveBeenCalled();
+            }, 50);
+
+            await expect(initPromise).resolves.toBeUndefined();
+            expect(mockWorker.postMessage).toHaveBeenCalledWith('uci');
+            expect(engine.isEngineReady()).toBe(true);
         });
     });
 });

@@ -1,6 +1,6 @@
 /**
  * Stockfish Engine wrapper for position analysis and move evaluation
- * Handles engine communication and centipawn evaluation
+ * Uses Lichess WebAssembly pattern with direct UCI communication
  */
 class StockfishEngine {
     constructor(config = {}) {
@@ -10,107 +10,169 @@ class StockfishEngine {
         this.threads = config.threads || 1;
         this.hash = config.hash || 128;
         this.timeout = config.timeout || 30000;
-        
-        this.pendingCallbacks = new Map();
-        this.callbackId = 0;
+
+        this.pendingOperations = new Map();
+        this.operationId = 0;
         this.progressCallback = null;
+        this.initializationPromise = null;
     }
 
     /**
-     * Initialize the Stockfish engine via Web Worker
+     * Initialize the Stockfish engine via WebAssembly Worker
      */
     async initialize() {
         if (this.isReady) {
             return;
         }
 
-        return new Promise((resolve, reject) => {
+        if (this.initializationPromise) {
+            return this.initializationPromise;
+        }
+
+        this.initializationPromise = new Promise((resolve, reject) => {
             try {
-                // Create Web Worker for Stockfish
-                this.worker = new Worker('./src/workers/stockfish-worker.js');
-                
-                // Set up message handling
+                // Create Web Worker using Stockfish WebAssembly build directly
+                this.worker = new Worker('./src/vendor/stockfish-web/sf171-79.js');
+
+                // Set up direct UCI message handling
                 this.worker.onmessage = (event) => {
-                    this.handleWorkerMessage(event.data);
+                    this.handleUCIMessage(event.data);
                 };
-                
+
                 this.worker.onerror = (error) => {
-                    console.error('Stockfish worker error:', error);
-                    reject(new Error(`Worker error: ${error.message}`));
+                    console.error('Stockfish WebAssembly worker error:', error);
+                    reject(new Error(`WebAssembly worker error: ${error.message}`));
                 };
-                
-                // Initialize engine in worker
-                const callbackId = this.callbackId++;
-                this.pendingCallbacks.set(callbackId, { resolve, reject });
-                
-                this.worker.postMessage({
-                    type: 'initialize',
-                    data: {
-                        threads: this.threads,
-                        hash: this.hash
-                    },
-                    callbackId
-                });
-                
+
+                // Store initialization resolver
+                this.initResolver = resolve;
+                this.initRejecter = reject;
+
+                // Initialize UCI protocol
+                this.sendUCICommand('uci');
+
                 // Timeout after 10 seconds
                 setTimeout(() => {
-                    if (this.pendingCallbacks.has(callbackId)) {
-                        this.pendingCallbacks.delete(callbackId);
+                    if (!this.isReady) {
                         reject(new Error('Engine initialization timeout'));
                     }
                 }, 10000);
-                
+
             } catch (error) {
-                reject(new Error(`Failed to create Stockfish worker: ${error.message}`));
+                reject(new Error(`Failed to create Stockfish WebAssembly worker: ${error.message}`));
             }
         });
+
+        return this.initializationPromise;
     }
 
     /**
-     * Handle messages from Web Worker
+     * Send UCI command directly to WebAssembly engine
      */
-    handleWorkerMessage(message) {
-        const { type, callbackId, data } = message;
-        
-        switch (type) {
-            case 'response':
-                this.handleResponse(callbackId, data);
-                break;
-            case 'progress':
-                this.handleProgress(callbackId, data);
-                break;
-            case 'error':
-                this.handleError(callbackId, data);
-                break;
+    sendUCICommand(command) {
+        if (this.worker) {
+            this.worker.postMessage(command);
         }
     }
 
-    handleResponse(callbackId, data) {
-        const callback = this.pendingCallbacks.get(callbackId);
-        if (callback) {
-            this.pendingCallbacks.delete(callbackId);
-            
-            if (data.success !== undefined) {
-                this.isReady = data.success;
+    /**
+     * Handle UCI messages from WebAssembly engine
+     */
+    handleUCIMessage(message) {
+        // Ensure message is a string
+        const messageStr = typeof message === 'string' ? message : String(message);
+
+        // Handle UCI protocol responses
+        if (messageStr.includes('uciok')) {
+            this.handleEngineReady();
+        } else if (messageStr.includes('readyok')) {
+            // Engine is ready for next command
+        } else if (messageStr.includes('bestmove')) {
+            this.handleBestMove(messageStr);
+        } else if (messageStr.includes('info')) {
+            this.handleEngineInfo(messageStr);
+        }
+    }
+
+    /**
+     * Handle engine initialization completion
+     */
+    handleEngineReady() {
+        // Configure engine settings
+        if (this.threads > 1) {
+            this.sendUCICommand(`setoption name Threads value ${this.threads}`);
+        }
+        if (this.hash !== 128) {
+            this.sendUCICommand(`setoption name Hash value ${this.hash}`);
+        }
+
+        this.isReady = true;
+
+        if (this.initResolver) {
+            this.initResolver();
+            this.initResolver = null;
+            this.initRejecter = null;
+        }
+    }
+
+    /**
+     * Handle best move response from engine
+     */
+    handleBestMove(message) {
+        const match = message.match(/bestmove\s+(\S+)/);
+        if (match) {
+            const bestMove = match[1];
+
+            // Find pending operation waiting for best move
+            for (const [id, operation] of this.pendingOperations.entries()) {
+                if (operation.type === 'bestmove') {
+                    operation.resolve(bestMove);
+                    this.pendingOperations.delete(id);
+                    break;
+                }
             }
-            
-            callback.resolve(data);
         }
     }
 
-    handleProgress(callbackId, data) {
-        if (this.progressCallback) {
-            this.progressCallback(data.message, data.percentage, data.details);
-        }
-    }
+    /**
+     * Handle engine analysis info
+     */
+    handleEngineInfo(message) {
+        // Parse UCI info for depth, score, and principal variation
+        const depthMatch = message.match(/depth\s+(\d+)/);
+        const scoreMatch = message.match(/score\s+cp\s+(-?\d+)/);
+        const mateMatch = message.match(/score\s+mate\s+(-?\d+)/);
+        const pvMatch = message.match(/pv\s+(.+)/);
 
-    handleError(callbackId, data) {
-        console.error('Stockfish worker error:', data);
-        
-        const callback = this.pendingCallbacks.get(callbackId);
-        if (callback) {
-            this.pendingCallbacks.delete(callbackId);
-            callback.reject(new Error(data.message || 'Unknown engine error'));
+        if (depthMatch) {
+            const depth = parseInt(depthMatch[1]);
+            let evaluation = null;
+
+            if (scoreMatch) {
+                evaluation = parseInt(scoreMatch[1]);
+            } else if (mateMatch) {
+                const mateIn = parseInt(mateMatch[1]);
+                evaluation = mateIn > 0 ? 10000 - mateIn : -10000 - mateIn;
+            }
+
+            // Report progress for ongoing operations
+            for (const [id, operation] of this.pendingOperations.entries()) {
+                if (operation.type === 'evaluation' && evaluation !== null) {
+                    if (this.progressCallback) {
+                        this.progressCallback(`Analyzing depth ${depth}`, (depth / operation.targetDepth) * 100, {
+                            depth,
+                            evaluation,
+                            pv: pvMatch ? pvMatch[1] : null
+                        });
+                    }
+
+                    // Complete evaluation when target depth reached
+                    if (depth >= operation.targetDepth) {
+                        operation.resolve(evaluation);
+                        this.pendingOperations.delete(id);
+                    }
+                }
+            }
         }
     }
 
@@ -130,24 +192,26 @@ class StockfishEngine {
         }
 
         const targetDepth = depth || this.depth;
-        
+
         return new Promise((resolve, reject) => {
-            const callbackId = this.callbackId++;
-            this.pendingCallbacks.set(callbackId, { 
-                resolve: (data) => resolve(data.bestMove),
-                reject 
+            const operationId = this.operationId++;
+
+            // Store operation details
+            this.pendingOperations.set(operationId, {
+                type: 'bestmove',
+                targetDepth,
+                resolve,
+                reject
             });
-            
-            this.worker.postMessage({
-                type: 'getBestMove',
-                data: { fen, depth: targetDepth },
-                callbackId
-            });
-            
-            // Timeout
+
+            // Set position and request best move
+            this.sendUCICommand(`position fen ${fen}`);
+            this.sendUCICommand(`go depth ${targetDepth}`);
+
+            // Timeout handling
             setTimeout(() => {
-                if (this.pendingCallbacks.has(callbackId)) {
-                    this.pendingCallbacks.delete(callbackId);
+                if (this.pendingOperations.has(operationId)) {
+                    this.pendingOperations.delete(operationId);
                     reject(new Error('Best move calculation timeout'));
                 }
             }, this.timeout);
@@ -163,24 +227,26 @@ class StockfishEngine {
         }
 
         const targetDepth = depth || this.depth;
-        
+
         return new Promise((resolve, reject) => {
-            const callbackId = this.callbackId++;
-            this.pendingCallbacks.set(callbackId, { 
-                resolve: (data) => resolve(data.evaluation),
-                reject 
+            const operationId = this.operationId++;
+
+            // Store operation details
+            this.pendingOperations.set(operationId, {
+                type: 'evaluation',
+                targetDepth,
+                resolve,
+                reject
             });
-            
-            this.worker.postMessage({
-                type: 'evaluatePosition',
-                data: { fen, depth: targetDepth },
-                callbackId
-            });
-            
-            // Timeout
+
+            // Set position and start evaluation
+            this.sendUCICommand(`position fen ${fen}`);
+            this.sendUCICommand(`go depth ${targetDepth}`);
+
+            // Timeout handling
             setTimeout(() => {
-                if (this.pendingCallbacks.has(callbackId)) {
-                    this.pendingCallbacks.delete(callbackId);
+                if (this.pendingOperations.has(operationId)) {
+                    this.pendingOperations.delete(operationId);
                     reject(new Error('Position evaluation timeout'));
                 }
             }, this.timeout);
@@ -196,25 +262,67 @@ class StockfishEngine {
         }
 
         const targetDepth = depth || Math.min(this.depth, 15);
-        
+
+        try {
+            // Evaluate position before move
+            const beforeEval = await this.evaluatePosition(fen, targetDepth);
+
+            // Evaluate position after move
+            const afterEval = await this.evaluatePositionAfterMove(fen, move, targetDepth);
+
+            // Calculate move quality
+            const moveLoss = Math.abs(beforeEval - afterEval);
+            const quality = this.calculateMoveQuality(moveLoss);
+
+            return {
+                evaluation: afterEval,
+                moveLoss,
+                quality,
+                beforeEval,
+                afterEval
+            };
+
+        } catch (error) {
+            throw new Error(`Move analysis failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Evaluate position after a specific move
+     */
+    async evaluatePositionAfterMove(fen, move, depth) {
         return new Promise((resolve, reject) => {
-            const callbackId = this.callbackId++;
-            this.pendingCallbacks.set(callbackId, { resolve, reject });
-            
-            this.worker.postMessage({
-                type: 'analyzeMove',
-                data: { fen, move, depth: targetDepth },
-                callbackId
+            const operationId = this.operationId++;
+
+            this.pendingOperations.set(operationId, {
+                type: 'evaluation',
+                targetDepth: depth,
+                resolve,
+                reject
             });
-            
-            // Timeout
+
+            // Set position with move and evaluate
+            this.sendUCICommand(`position fen ${fen} moves ${move}`);
+            this.sendUCICommand(`go depth ${depth}`);
+
             setTimeout(() => {
-                if (this.pendingCallbacks.has(callbackId)) {
-                    this.pendingCallbacks.delete(callbackId);
-                    reject(new Error('Move analysis timeout'));
+                if (this.pendingOperations.has(operationId)) {
+                    this.pendingOperations.delete(operationId);
+                    reject(new Error('Position evaluation timeout'));
                 }
             }, this.timeout);
         });
+    }
+
+    /**
+     * Calculate move quality based on centipawn loss
+     */
+    calculateMoveQuality(moveLoss) {
+        if (moveLoss <= 10) return 'excellent';
+        if (moveLoss <= 25) return 'good';
+        if (moveLoss <= 50) return 'inaccuracy';
+        if (moveLoss <= 100) return 'mistake';
+        return 'blunder';
     }
 
     /**
@@ -222,14 +330,14 @@ class StockfishEngine {
      */
     stopAnalysis() {
         if (this.worker) {
-            this.worker.postMessage({ type: 'stopAnalysis' });
+            this.sendUCICommand('stop');
         }
-        
-        // Reject all pending callbacks
-        for (const [id, callback] of this.pendingCallbacks.entries()) {
-            callback.reject(new Error('Analysis stopped'));
+
+        // Reject all pending operations
+        for (const [, operation] of this.pendingOperations.entries()) {
+            operation.reject(new Error('Analysis stopped'));
         }
-        this.pendingCallbacks.clear();
+        this.pendingOperations.clear();
     }
 
     /**
@@ -237,15 +345,32 @@ class StockfishEngine {
      */
     shutdown() {
         this.stopAnalysis();
-        
+
         if (this.worker) {
-            this.worker.postMessage({ type: 'shutdown' });
+            this.sendUCICommand('quit');
             this.worker.terminate();
             this.worker = null;
         }
-        
+
         this.isReady = false;
         this.progressCallback = null;
+        this.initializationPromise = null;
+        this.initResolver = null;
+        this.initRejecter = null;
+    }
+
+    /**
+     * Alias for shutdown() method (for test compatibility)
+     */
+    async quit() {
+        return this.shutdown();
+    }
+
+    /**
+     * Another alias for shutdown() method (for test compatibility)
+     */
+    destroy() {
+        return this.shutdown();
     }
 
     /**
