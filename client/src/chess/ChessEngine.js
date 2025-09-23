@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess } from '../../node_modules/chess.js/dist/esm/chess.js';
 
 /**
  * Chess engine wrapper providing position handling and move validation

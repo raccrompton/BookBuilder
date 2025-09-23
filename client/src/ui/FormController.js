@@ -12,9 +12,10 @@ import FileGenerator from './FileGenerator.js';
 
 class FormController {
     constructor() {
-        this.configManager = new ConfigManager();
-        this.progressTracker = new ProgressTracker();
-        this.errorHandler = new ErrorHandler();
+        // Initialize components after DOM is ready
+        this.configManager = null;
+        this.progressTracker = null;
+        this.errorHandler = null;
 
         // Initialize components
         this.lichessClient = null;
@@ -26,10 +27,7 @@ class FormController {
     }
 
     setupEventListeners() {
-        // Tab switching
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', () => this.switchTab(button.dataset.tab));
-        });
+        // No tab switching needed - using single page layout
 
         // Form submission
         document.getElementById('bookbuilder-form').addEventListener('submit', (e) => {
@@ -54,15 +52,7 @@ class FormController {
         });
     }
 
-    switchTab(tabId) {
-        // Update tab buttons
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-
-        // Update tab content
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-    }
+    // switchTab method removed - using single page layout
 
     autoSave() {
         const config = this.configManager.getFormData();
@@ -299,7 +289,7 @@ class FormController {
 
             // Lichess API settings
             speeds: this.getSelectedSpeeds(formConfig),
-            variants: this.getSelectedVariants(formConfig),
+            variants: ['standard'], // Always use standard chess
             ratingRange: [
                 parseInt(formConfig['rating-min']) || 1600,
                 parseInt(formConfig['rating-max']) || 2500
@@ -321,7 +311,7 @@ class FormController {
             MOVELOSSLIMIT: parseInt(formConfig['move-loss-limit']) || 30,
 
             // Processing settings
-            LONGTOSHORT: formConfig['line-ordering'] === 'depth',
+            LONGTOSHORT: false, // Default: priority order
             BATCH_SIZE: 5,
             API_DELAY: 150
         };
@@ -336,13 +326,7 @@ class FormController {
         return speeds.length > 0 ? speeds : ['blitz', 'rapid', 'classical'];
     }
 
-    getSelectedVariants(formConfig) {
-        const variants = [];
-        if (formConfig['variant-standard']) variants.push('standard');
-        if (formConfig['variant-chess960']) variants.push('chess960');
-        if (formConfig['variant-antichess']) variants.push('antichess');
-        return variants.length > 0 ? variants : ['standard'];
-    }
+    // getSelectedVariants method removed - always use standard chess
 
     convertMovesToFen(moves) {
         // Convert move sequence to FEN
@@ -469,12 +453,7 @@ class ConfigManager {
             errors.push('At least one time control must be selected');
         }
 
-        // Validate at least one variant is selected
-        const variants = ['variant-standard', 'variant-chess960', 'variant-antichess'];
-        const selectedVariants = variants.filter(id => document.getElementById(id).checked);
-        if (selectedVariants.length === 0) {
-            errors.push('At least one chess variant must be selected');
-        }
+        // Chess variant validation removed - always using standard chess
 
         return errors;
     }
