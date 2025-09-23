@@ -94,14 +94,14 @@ class BookBuilder {
             console.log(`  Found ${rootResults.length} initial continuations`);
 
             // Phase 2: Iterative expansion (replaces Python's Leafer loop)
-            console.log(`  Phase 2: Iterative line expansion`);
+            console.log('  Phase 2: Iterative line expansion');
             await this.expandAllLines();
             console.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
 
             // Phase 3: Output generation (replaces Python's Printer class)
-            console.log(`  Phase 3: Generating PGN output`);
+            console.log('  Phase 3: Generating PGN output');
             const output = await this.generateOutput(opening.name, chapterNumber);
-            console.log(`  PGN generation complete`);
+            console.log('  PGN generation complete');
 
             return output;
 
@@ -135,7 +135,7 @@ class BookBuilder {
             const validLines = [];
 
             if (!positionStats || !positionStats.moves) {
-                console.warn(`    No position data available for starting position`);
+                console.warn('    No position data available for starting position');
                 return [];
             }
 
@@ -374,7 +374,7 @@ class BookBuilder {
         // Finalize line without good response
         await this.finalizeLine({
             ...lineData,
-            pgn: lineData.pgn + " " + opponentMove.san,
+            pgn: lineData.pgn + ' ' + opponentMove.san,
             cumulativeLikelihood: opponentMove.playrate * lineData.cumulativeLikelihood,
             likelihoodPath: [...lineData.likelihoodPath, {
                 san: opponentMove.san,
@@ -441,7 +441,7 @@ class BookBuilder {
      * @param {number} chapterNumber - Chapter number
      * @returns {string} - Complete PGN content
      */
-    async generateOutput(openingName, chapterNumber) {
+    async generateOutput(openingName, _chapterNumber) {
         // Remove duplicates and subsets (matches Python logic exactly)
         const uniqueLines = this.removeDuplicateLines(this.finalLines);
 
@@ -586,8 +586,8 @@ class BookBuilder {
      */
     getFallbackGameCount(lineData) {
         return lineData.likelihoodPath.length > 0 ?
-               this.config.MINGAMES :
-               this.config.CONTINUATIONGAMES;
+            this.config.MINGAMES :
+            this.config.CONTINUATIONGAMES;
     }
 
     /**

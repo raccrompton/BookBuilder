@@ -80,7 +80,7 @@ const simulateUserClick = (selector) => {
     if (element) {
         element.click();
         element.dispatchEvent(new Event('click', { bubbles: true }));
-        
+
         // Simulate tab switching logic manually for tests
         if (element.dataset && element.dataset.tab) {
             // Hide all tab contents
@@ -124,7 +124,7 @@ const simulateFormSubmit = () => {
 describe('UI Automation Tests', () => {
     beforeEach(() => {
         setupUIEnvironment();
-        
+
         // Mock global functions
         window.updateRangeDisplay = (element) => {
             const valueElement = document.getElementById(element.id + '-value');
@@ -132,10 +132,10 @@ describe('UI Automation Tests', () => {
                 valueElement.textContent = element.value;
             }
         };
-        
+
         window.loadSampleConfiguration = () => {
             document.getElementById('opening-books-json').value = JSON.stringify([
-                { name: "Sicilian Defense", moves: ["e4", "c5"], priority: 1 }
+                { name: 'Sicilian Defense', moves: ['e4', 'c5'], priority: 1 }
             ]);
             document.getElementById('variant-standard').checked = true;
             document.getElementById('time-blitz').checked = true;
@@ -147,39 +147,39 @@ describe('UI Automation Tests', () => {
             // Step 1: User loads sample configuration
             const loadButton = simulateUserClick('button[onclick="loadSampleConfiguration()"]');
             expect(loadButton).toBeTruthy();
-            
+
             // Verify sample data loaded
             const openingBooksField = document.getElementById('opening-books-json');
             expect(openingBooksField.value).toContain('Sicilian Defense');
-            
+
             // Step 2: User navigates through tabs
             const lichessTab = simulateUserClick('[data-tab="lichess-settings"]');
             expect(lichessTab).toBeTruthy();
-            
+
             // Verify tab switching
             expect(document.getElementById('lichess-settings').classList.contains('active')).toBe(true);
             expect(document.getElementById('opening-books').classList.contains('active')).toBe(false);
-            
+
             // Step 3: User adjusts rating ranges
             const ratingMin = simulateUserInput('#rating-min', '1800');
             window.updateRangeDisplay(ratingMin);
             expect(document.getElementById('rating-min-value').textContent).toBe('1800');
-            
+
             // Step 4: User goes to move selection tab
             simulateUserClick('[data-tab="move-selection"]');
             expect(document.getElementById('move-selection').classList.contains('active')).toBe(true);
-            
+
             // Step 5: User adjusts move selection parameters
             const depthThreshold = simulateUserInput('#depth-threshold', '0.03');
             window.updateRangeDisplay(depthThreshold);
             expect(document.getElementById('depth-threshold-value').textContent).toBe('0.03');
-            
+
             // Step 6: User configures engine settings
             simulateUserClick('[data-tab="engine-settings"]');
             const engineDepth = simulateUserInput('#engine-depth', '25');
             window.updateRangeDisplay(engineDepth);
             expect(document.getElementById('engine-depth-value').textContent).toBe('25');
-            
+
             // Step 7: User submits form
             const form = simulateFormSubmit();
             expect(form).toBeTruthy();
@@ -188,10 +188,10 @@ describe('UI Automation Tests', () => {
         it('should handle validation errors correctly', () => {
             // User enters invalid JSON
             simulateUserInput('#opening-books-json', 'invalid json');
-            
+
             // User tries to submit
             simulateFormSubmit();
-            
+
             // Should trigger validation (would be caught by FormController)
             const openingBooksField = document.getElementById('opening-books-json');
             expect(openingBooksField.value).toBe('invalid json');
@@ -204,17 +204,17 @@ describe('UI Automation Tests', () => {
                 mockStorage[key] = value;
             });
             Storage.prototype.getItem = jest.fn((key) => mockStorage[key]);
-            
+
             // User makes changes
             simulateUserInput('#opening-books-json', '{"test": "data"}');
             simulateUserInput('#rating-min', '2000');
-            
+
             // Simulate auto-save (would be triggered by FormController)
             sessionStorage.setItem('bookbuilder-config', JSON.stringify({
                 'opening-books-json': '{"test": "data"}',
                 'rating-min': 2000
             }));
-            
+
             // Verify save occurred
             expect(sessionStorage.setItem).toHaveBeenCalled();
         });
@@ -229,7 +229,7 @@ describe('UI Automation Tests', () => {
                 { id: 'min-games', value: '20' },
                 { id: 'engine-depth', value: '30' }
             ];
-            
+
             ranges.forEach(({ id, value }) => {
                 const element = simulateUserInput(`#${id}`, value);
                 window.updateRangeDisplay(element);
@@ -240,20 +240,20 @@ describe('UI Automation Tests', () => {
         it('should handle checkbox interactions', () => {
             const checkboxes = [
                 'variant-standard',
-                'time-blitz', 
+                'time-blitz',
                 'validate-pgn',
                 'engine-enabled'
             ];
-            
+
             checkboxes.forEach(id => {
                 const checkbox = document.getElementById(id);
                 const initialState = checkbox.checked;
-                
+
                 // Toggle checkbox
                 simulateUserClick(`#${id}`);
                 // Note: In real DOM, this would toggle. In jsdom, we need to manually toggle
                 checkbox.checked = !initialState;
-                
+
                 expect(checkbox.checked).toBe(!initialState);
             });
         });
@@ -261,17 +261,17 @@ describe('UI Automation Tests', () => {
         it('should navigate through all tabs', () => {
             const tabs = [
                 'opening-books',
-                'lichess-settings', 
+                'lichess-settings',
                 'move-selection',
                 'engine-settings'
             ];
-            
+
             tabs.forEach(tabId => {
                 simulateUserClick(`[data-tab="${tabId}"]`);
-                
+
                 // Verify correct tab is active
                 expect(document.getElementById(tabId).classList.contains('active')).toBe(true);
-                
+
                 // Verify other tabs are not active
                 tabs.filter(id => id !== tabId).forEach(otherId => {
                     expect(document.getElementById(otherId).classList.contains('active')).toBe(false);
@@ -285,37 +285,37 @@ describe('UI Automation Tests', () => {
             const progressContainer = document.getElementById('progress-container');
             const progressFill = document.getElementById('progress-fill');
             const progressText = document.getElementById('progress-text');
-            
+
             // Simulate progress start
             progressContainer.style.display = 'block';
             progressText.textContent = 'Starting analysis...';
             progressFill.style.width = '0%';
-            
+
             expect(progressContainer.style.display).toBe('block');
             expect(progressText.textContent).toBe('Starting analysis...');
-            
+
             // Simulate progress update
             progressFill.style.width = '50%';
             progressText.textContent = 'Analyzing positions...';
-            
+
             expect(progressFill.style.width).toBe('50%');
             expect(progressText.textContent).toBe('Analyzing positions...');
-            
+
             // Simulate completion
             progressFill.style.width = '100%';
             progressText.textContent = 'Complete!';
-            
+
             expect(progressFill.style.width).toBe('100%');
         });
 
         it('should display error messages correctly', () => {
             const errorContainer = document.getElementById('error-container');
             const errorMessage = document.getElementById('error-message');
-            
+
             // Simulate error display
             errorContainer.style.display = 'block';
             errorMessage.textContent = 'Test error message';
-            
+
             expect(errorContainer.style.display).toBe('block');
             expect(errorMessage.textContent).toBe('Test error message');
         });
@@ -329,36 +329,36 @@ describe('Performance Simulation Tests', () => {
 
     it('should handle rapid user interactions', () => {
         const startTime = performance.now();
-        
+
         // Simulate rapid tab switching
         for (let i = 0; i < 100; i++) {
             const tabs = ['opening-books', 'lichess-settings', 'move-selection', 'engine-settings'];
             const randomTab = tabs[i % tabs.length];
             simulateUserClick(`[data-tab="${randomTab}"]`);
         }
-        
+
         const endTime = performance.now();
         const duration = endTime - startTime;
-        
+
         // Should handle rapid interactions efficiently
         expect(duration).toBeLessThan(1000); // Less than 1 second
     });
 
     it('should handle large form data efficiently', () => {
         const startTime = performance.now();
-        
+
         // Simulate large opening configuration
         const largeConfig = Array.from({ length: 100 }, (_, i) => ({
             name: `Opening ${i}`,
             moves: ['e4', 'e5'],
             priority: i
         }));
-        
+
         simulateUserInput('#opening-books-json', JSON.stringify(largeConfig));
-        
+
         const endTime = performance.now();
         const duration = endTime - startTime;
-        
+
         expect(duration).toBeLessThan(500); // Should handle large data quickly
         expect(document.getElementById('opening-books-json').value).toContain('Opening 50');
     });

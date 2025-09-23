@@ -1,6 +1,6 @@
 /**
  * FileGenerator.js - Client-side file generation and download functionality
- * 
+ *
  * Handles PGN file creation and browser download functionality for the
  * BookBuilder client-side application.
  */
@@ -15,7 +15,7 @@ class FileGenerator {
      * Generate PGN content from analysis results
      */
     generatePGN(results, metadata = {}) {
-        const { 
+        const {
             chapterName = 'Opening Analysis',
             author = 'BookBuilder',
             date = new Date().toISOString().split('T')[0]
@@ -25,23 +25,23 @@ class FileGenerator {
 
         // Add header information
         pgnContent += `[Event "${chapterName}"]\n`;
-        pgnContent += `[Site "BookBuilder Generated"]\n`;
+        pgnContent += '[Site "BookBuilder Generated"]\n';
         pgnContent += `[Date "${date}"]\n`;
-        pgnContent += `[Round "1"]\n`;
-        pgnContent += `[White "Analysis"]\n`;
-        pgnContent += `[Black "Analysis"]\n`;
-        pgnContent += `[Result "*"]\n`;
+        pgnContent += '[Round "1"]\n';
+        pgnContent += '[White "Analysis"]\n';
+        pgnContent += '[Black "Analysis"]\n';
+        pgnContent += '[Result "*"]\n';
         pgnContent += `[Annotator "${author}"]\n`;
-        pgnContent += `[Generator "BookBuilder v1.0"]\n`;
-        
+        pgnContent += '[Generator "BookBuilder v1.0"]\n';
+
         if (metadata.opening) {
             pgnContent += `[Opening "${metadata.opening}"]\n`;
         }
-        
+
         if (metadata.totalLines) {
             pgnContent += `[TotalLines "${metadata.totalLines}"]\n`;
         }
-        
+
         pgnContent += '\n';
 
         // Add lines with analysis
@@ -65,35 +65,35 @@ class FileGenerator {
      */
     formatPGNLine(line, lineNumber) {
         let formatted = `{ Line ${lineNumber} }\n`;
-        
+
         // Add statistical information
         if (line.cumulativeLikelihood) {
             formatted += `{ Cumulative Likelihood: ${(line.cumulativeLikelihood * 100).toFixed(2)}% }\n`;
         }
-        
+
         if (line.totalGames) {
             formatted += `{ Total Games: ${line.totalGames} }\n`;
         }
-        
+
         if (line.winRate !== undefined) {
             formatted += `{ Win Rate: ${(line.winRate * 100).toFixed(1)}% }\n`;
         }
-        
+
         // Format the moves
         let moves = line.pgn || '';
-        
+
         // Add move quality annotations if available
         if (line.moveQualities) {
             moves = this.addMoveQualityAnnotations(moves, line.moveQualities);
         }
-        
+
         formatted += moves;
-        
+
         // Add final evaluation if available
         if (line.finalEvaluation) {
             formatted += ` { Final: ${line.finalEvaluation > 0 ? '+' : ''}${(line.finalEvaluation / 100).toFixed(2)} }`;
         }
-        
+
         return formatted;
     }
 
@@ -107,13 +107,13 @@ class FileGenerator {
 
         const moves = pgnMoves.split(' ').filter(move => move.trim());
         const annotated = [];
-        
+
         let qualityIndex = 0;
-        
+
         for (let i = 0; i < moves.length; i++) {
             const move = moves[i];
             annotated.push(move);
-            
+
             // Add quality annotation after the move
             if (qualityIndex < qualities.length) {
                 const quality = qualities[qualityIndex];
@@ -124,7 +124,7 @@ class FileGenerator {
                 qualityIndex++;
             }
         }
-        
+
         return annotated.join(' ');
     }
 
@@ -134,15 +134,15 @@ class FileGenerator {
     getQualityAnnotation(quality) {
         if (typeof quality === 'string') {
             switch (quality.toLowerCase()) {
-                case 'excellent': return '!!';
-                case 'good': return '!';
-                case 'inaccuracy': return '?!';
-                case 'mistake': return '?';
-                case 'blunder': return '??';
-                default: return '';
+            case 'excellent': return '!!';
+            case 'good': return '!';
+            case 'inaccuracy': return '?!';
+            case 'mistake': return '?';
+            case 'blunder': return '??';
+            default: return '';
             }
         }
-        
+
         // Handle numeric centipawn loss
         if (typeof quality === 'number') {
             if (quality <= 10) return '!';
@@ -151,7 +151,7 @@ class FileGenerator {
             if (quality <= 100) return '?';
             return '??';
         }
-        
+
         return '';
     }
 
@@ -160,26 +160,26 @@ class FileGenerator {
      */
     generateCombinedPGN(chapters) {
         let combinedContent = '';
-        
+
         // Add overall header
-        combinedContent += `[Event "Complete Opening Repertoire"]\n`;
-        combinedContent += `[Site "BookBuilder Generated"]\n`;
+        combinedContent += '[Event "Complete Opening Repertoire"]\n';
+        combinedContent += '[Site "BookBuilder Generated"]\n';
         combinedContent += `[Date "${new Date().toISOString().split('T')[0]}"]\n`;
-        combinedContent += `[Round "1"]\n`;
-        combinedContent += `[White "Repertoire"]\n`;
-        combinedContent += `[Black "Analysis"]\n`;
-        combinedContent += `[Result "*"]\n`;
-        combinedContent += `[Annotator "BookBuilder"]\n`;
+        combinedContent += '[Round "1"]\n';
+        combinedContent += '[White "Repertoire"]\n';
+        combinedContent += '[Black "Analysis"]\n';
+        combinedContent += '[Result "*"]\n';
+        combinedContent += '[Annotator "BookBuilder"]\n';
         combinedContent += `[TotalChapters "${chapters.length}"]\n`;
         combinedContent += '\n';
-        
+
         // Add each chapter
         chapters.forEach((chapter, index) => {
             combinedContent += `{ ========== CHAPTER ${index + 1}: ${chapter.name} ========== }\n\n`;
             combinedContent += chapter.content;
             combinedContent += '\n\n';
         });
-        
+
         return combinedContent;
     }
 
@@ -198,25 +198,25 @@ class FileGenerator {
                     mimeType = 'text/plain';
                 }
             }
-            
+
             // Create blob
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
-            
+
             // Create download link
             const downloadLink = document.createElement('a');
             downloadLink.href = url;
             downloadLink.download = filename;
             downloadLink.style.display = 'none';
-            
+
             // Add to DOM, click, and remove
             document.body.appendChild(downloadLink);
             downloadLink.click();
             document.body.removeChild(downloadLink);
-            
+
             // Clean up object URL
             URL.revokeObjectURL(url);
-            
+
             // Track download
             this.downloadHistory.push({
                 filename,
@@ -224,11 +224,11 @@ class FileGenerator {
                 size: content.length,
                 mimeType
             });
-            
+
             console.log(`Downloaded: ${filename} (${this.formatFileSize(content.length)})`);
-            
+
             return { success: true, filename, size: content.length };
-            
+
         } catch (error) {
             console.error('Download failed:', error);
             throw new Error(`Failed to download ${filename}: ${error.message}`);
@@ -240,25 +240,25 @@ class FileGenerator {
      */
     async downloadMultipleFiles(files) {
         const results = [];
-        
+
         for (const file of files) {
             try {
                 const result = this.downloadFile(file.content, file.filename, file.mimeType);
                 results.push(result);
-                
+
                 // Add small delay between downloads
                 await this.sleep(500);
-                
+
             } catch (error) {
                 console.error(`Failed to download ${file.filename}:`, error);
-                results.push({ 
-                    success: false, 
-                    filename: file.filename, 
-                    error: error.message 
+                results.push({
+                    success: false,
+                    filename: file.filename,
+                    error: error.message
                 });
             }
         }
-        
+
         return results;
     }
 
@@ -272,7 +272,7 @@ class FileGenerator {
             totalFiles: Array.isArray(results) ? results.length : Object.keys(results).length,
             files: []
         };
-        
+
         if (Array.isArray(results)) {
             results.forEach((result, index) => {
                 summary.files.push({
@@ -294,7 +294,7 @@ class FileGenerator {
                 });
             });
         }
-        
+
         return JSON.stringify(summary, null, 2);
     }
 
@@ -303,7 +303,7 @@ class FileGenerator {
      */
     countPGNLines(pgnContent) {
         if (!pgnContent) return 0;
-        
+
         // Count occurrences of "{ Line N }" patterns
         const lineMatches = pgnContent.match(/\{\s*Line\s+\d+\s*\}/g);
         return lineMatches ? lineMatches.length : 0;
@@ -314,11 +314,11 @@ class FileGenerator {
      */
     formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
-        
+
         const k = 1024;
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
+
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
@@ -341,12 +341,12 @@ class FileGenerator {
      */
     validatePGN(pgnContent) {
         const errors = [];
-        
+
         if (!pgnContent || typeof pgnContent !== 'string') {
             errors.push('PGN content is empty or invalid');
             return { isValid: false, errors };
         }
-        
+
         // Check for required headers
         const requiredHeaders = ['Event', 'Site', 'Date', 'Round', 'White', 'Black', 'Result'];
         for (const header of requiredHeaders) {
@@ -354,13 +354,13 @@ class FileGenerator {
                 errors.push(`Missing required header: ${header}`);
             }
         }
-        
+
         // Check for basic move notation
         const movePattern = /\b[NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]?/;
         if (!movePattern.test(pgnContent)) {
             errors.push('No valid chess moves found');
         }
-        
+
         return {
             isValid: errors.length === 0,
             errors

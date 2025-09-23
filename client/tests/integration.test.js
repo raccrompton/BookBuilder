@@ -62,7 +62,7 @@ describe('BookBuilder Integration Tests', () => {
 
     beforeEach(() => {
         mockDOM();
-        
+
         // Initialize components
         errorHandler = new ErrorHandler();
         progressTracker = new ProgressTracker();
@@ -110,7 +110,7 @@ describe('BookBuilder Integration Tests', () => {
                 };
             }
         };
-        
+
         // Mock Web Workers and external dependencies
         global.Worker = class MockWorker {
             constructor() {
@@ -120,7 +120,7 @@ describe('BookBuilder Integration Tests', () => {
             postMessage() {}
             terminate() {}
         };
-        
+
         // Mock Stockfish
         global.Stockfish = () => ({
             onmessage: null,
@@ -131,7 +131,7 @@ describe('BookBuilder Integration Tests', () => {
     afterEach(() => {
         // Cleanup
         document.body.innerHTML = '';
-        
+
         if (formController && formController.stockfishEngine) {
             formController.stockfishEngine.shutdown();
         }
@@ -177,7 +177,7 @@ describe('BookBuilder Integration Tests', () => {
         it('should save and load configuration', () => {
             const testConfig = { 'test-key': 'test-value' };
             formController.configManager.saveConfig(testConfig);
-            
+
             const saved = JSON.parse(sessionStorage.getItem('bookbuilder-config'));
             expect(saved['test-key']).toBe('test-value');
         });
@@ -187,7 +187,7 @@ describe('BookBuilder Integration Tests', () => {
         it('should display validation errors', () => {
             const errors = ['Test error 1', 'Test error 2'];
             errorHandler.showValidationErrors(errors);
-            
+
             const container = document.getElementById('error-container');
             expect(container.style.display).toBe('block');
             expect(container.innerHTML).toContain('Test error 1');
@@ -197,9 +197,9 @@ describe('BookBuilder Integration Tests', () => {
         it('should log errors with context', () => {
             const consoleSpy = jest.spyOn(console, 'group').mockImplementation();
             const error = new Error('Test error');
-            
+
             errorHandler.logDetailedError(error, 'Test context');
-            
+
             expect(consoleSpy).toHaveBeenCalledWith('🐛 Error in Test context');
             consoleSpy.mockRestore();
         });
@@ -207,7 +207,7 @@ describe('BookBuilder Integration Tests', () => {
         it('should handle API errors with suggestions', () => {
             const error = new Error('Network timeout');
             errorHandler.showAPIError('Lichess', error, true);
-            
+
             const container = document.getElementById('error-container');
             expect(container.style.display).toBe('block');
             expect(container.innerHTML).toContain('Lichess API Error');
@@ -218,12 +218,12 @@ describe('BookBuilder Integration Tests', () => {
     describe('Progress Tracking', () => {
         it('should start and update progress', () => {
             progressTracker.start();
-            
+
             const container = document.getElementById('progress-container');
             expect(container.style.display).toBe('block');
-            
+
             progressTracker.updatePhase('Testing...', 50);
-            
+
             const fill = document.getElementById('progress-fill');
             const text = document.getElementById('progress-text');
             expect(fill.style.width).toBe('50%');
@@ -233,7 +233,7 @@ describe('BookBuilder Integration Tests', () => {
         it('should complete progress tracking', () => {
             progressTracker.start();
             progressTracker.complete('Test completed');
-            
+
             const fill = document.getElementById('progress-fill');
             const text = document.getElementById('progress-text');
             expect(fill.style.width).toBe('100%');
@@ -243,10 +243,10 @@ describe('BookBuilder Integration Tests', () => {
         it('should handle cancellation', () => {
             let cancelled = false;
             progressTracker.setCancelCallback(() => { cancelled = true; });
-            
+
             progressTracker.start();
             progressTracker.cancel();
-            
+
             expect(cancelled).toBe(true);
         });
     });
@@ -256,11 +256,11 @@ describe('BookBuilder Integration Tests', () => {
 
         beforeEach(() => {
             fileGenerator = new FileGenerator();
-            
+
             // Mock URL.createObjectURL and related APIs
             global.URL.createObjectURL = jest.fn(() => 'mock-url');
             global.URL.revokeObjectURL = jest.fn();
-            
+
             // Mock Blob
             global.Blob = jest.fn(() => ({}));
         });
@@ -305,7 +305,7 @@ describe('BookBuilder Integration Tests', () => {
 
         it('should detect invalid PGN', () => {
             const invalidPGN = 'Not a valid PGN file';
-            
+
             const validation = fileGenerator.validatePGN(invalidPGN);
             expect(validation.isValid).toBe(false);
             expect(validation.errors.length).toBeGreaterThan(0);
@@ -459,18 +459,18 @@ describe('Performance Tests', () => {
     it('should efficiently generate multiple PGN files', () => {
         const fileGenerator = new FileGenerator();
         const startTime = performance.now();
-        
+
         // Mock large results
         const largeResults = {};
         for (let i = 0; i < 50; i++) {
             largeResults[`Chapter_${i}.pgn`] = `[Event "Test ${i}"] 1. e4 e5 *`;
         }
-        
+
         const summary = fileGenerator.generateSummaryFile(largeResults);
-        
+
         const endTime = performance.now();
         const duration = endTime - startTime;
-        
+
         expect(JSON.parse(summary).totalFiles).toBe(50);
         expect(duration).toBeLessThan(500); // Should complete within 500ms
     });
