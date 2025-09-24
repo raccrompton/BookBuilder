@@ -94,7 +94,7 @@ class FormController {
         try {
             // Validate form
             console.log('🔍 [DEBUG] Starting form validation...');
-            const errors = this.configManager.validateConfig();
+            const errors = await this.configManager.validateConfig();
             console.log('📊 [DEBUG] Validation errors:', errors);
             
             if (errors.length > 0) {
@@ -419,7 +419,7 @@ class FormController {
     }
 
     // PGN Input Handling Methods
-    handlePgnInput() {
+    async handlePgnInput() {
         const pgnInput = document.getElementById('pgn-input-text');
         const pgnPreview = document.getElementById('pgn-preview');
         const pgnPreviewText = document.getElementById('pgn-preview-text');
@@ -435,11 +435,11 @@ class FormController {
 
         try {
             // Quick validation and preview generation
-            const validation = PgnProcessor.validatePgn(pgnValue);
+            const validation = await PgnProcessor.validatePgn(pgnValue);
 
             if (validation.isValid) {
                 // Generate preview
-                const processed = PgnProcessor.processPgn(pgnValue);
+                const processed = await PgnProcessor.processPgn(pgnValue);
                 const movesPreview = processed.moves.slice(0, 8).join(' ');
                 const movesSuffix = processed.moves.length > 8 ? '...' : '';
 
@@ -456,7 +456,7 @@ class FormController {
         }
     }
 
-    validatePgnInput() {
+    async validatePgnInput() {
         const pgnInput = document.getElementById('pgn-input-text');
         const errorElement = document.getElementById('pgn-input-error');
 
@@ -471,7 +471,7 @@ class FormController {
         }
 
         try {
-            const validation = PgnProcessor.validatePgn(pgnValue);
+            const validation = await PgnProcessor.validatePgn(pgnValue);
 
             if (validation.isValid) {
                 errorElement.textContent = '';
@@ -533,7 +533,7 @@ class ConfigManager {
         });
     }
 
-    validateConfig() {
+    async validateConfig() {
         const errors = [];
 
         // Validate PGN input (with security limits)
@@ -547,13 +547,13 @@ class ConfigManager {
                 }
 
                 // Validate PGN format and content
-                const validation = PgnProcessor.validatePgn(pgnInput);
+                const validation = await PgnProcessor.validatePgn(pgnInput);
                 if (!validation.isValid) {
                     errors.push(`Invalid PGN: ${validation.error}`);
                 } else {
                     // Process PGN to check for valid moves
                     try {
-                        const processed = PgnProcessor.processPgn(pgnInput);
+                        const processed = await PgnProcessor.processPgn(pgnInput);
 
                         // Security: Basic structure validation
                         if (processed.name && processed.name.length > 200) {
