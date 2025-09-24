@@ -108,11 +108,10 @@ class PgnGenerator {
     formatMoveAnnotations(line) {
         let annotations = '{Move playrates:\n';
 
-        // Add individual move playrates from likelihoodPath or moves
-        const movesData = line.moves || line.likelihoodPath || [];
-        if (movesData.length > 0) {
-            for (const move of movesData) {
-                if (move.playrate !== undefined) {
+        // Add individual move playrates from likelihoodPath (contains {san, playrate} objects)
+        if (line.likelihoodPath && line.likelihoodPath.length > 0) {
+            for (const move of line.likelihoodPath) {
+                if (move.playrate !== undefined && move.san) {
                     const playratePercent = (move.playrate * 100).toFixed(2);
                     annotations += `+${playratePercent}%\t${move.san}\n`;
                 }
@@ -239,8 +238,8 @@ class PgnGenerator {
    */
     generateSingleLine(line, eventName) {
         const header = `[Event "${eventName}"]`;
-        // Use moves array if available, otherwise fall back to pgn property
-        const moves = line.moves ? this._formatMovesOnly(line.moves) : (line.pgn || '');
+        // Use the pgn string directly - it contains the actual move sequence
+        const moves = line.pgn || '';
         const annotations = this.formatMoveAnnotations(line);
 
         return `${header}\n\n${moves}\n${annotations}`;
