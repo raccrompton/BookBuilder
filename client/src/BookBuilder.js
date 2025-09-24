@@ -813,7 +813,7 @@ class BookBuilder {
 
         console.log(`🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
         console.log(`      Raw playrate: ${move.playrate?.toFixed(4)} (${(move.playrate * 100)?.toFixed(2)}%)`);
-        console.log(`      Cumulative likelihood to reach position: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
+        console.log(`      Cumulative likelihood to reach position prior to continuation: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
         console.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
         console.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
         console.log(`      Playrate check: ${move.playrate?.toFixed(4)} >= ${this.config.MINPLAYRATE} = ${playrateCheck ? '✅' : '❌'}`);
