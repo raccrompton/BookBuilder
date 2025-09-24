@@ -128,6 +128,14 @@ class PgnProcessor {
      * @returns {string} Generated opening name
      */
     static generateOpeningName(game, moves) {
+        console.log('🔍 [DEBUG] generateOpeningName called with:', {
+            hasGame: !!game,
+            hasTags: !!(game && game.tags),
+            movesLength: moves ? moves.length : 0,
+            moves: moves ? moves.slice(0, 4) : [],
+            tags: game && game.tags ? Object.keys(game.tags) : []
+        });
+
         // Try to use headers first
         if (game.tags) {
             // Look for common opening-related headers
@@ -135,6 +143,8 @@ class PgnProcessor {
 
             for (const header of openingHeaders) {
                 const value = game.tags[header];
+                console.log(`🏷️ [DEBUG] Checking header '${header}': "${value}"`);
+
                 if (value && value !== '?' && value !== '-' && value.length > 0) {
                     // Clean up the header value
                     let name = value.replace(/['"]/g, '').trim();
@@ -150,20 +160,32 @@ class PgnProcessor {
                     }
 
                     if (name.length > 3) { // Avoid very short names
+                        console.log(`✅ [DEBUG] Using header-based name: "${name}" from header '${header}'`);
                         return name;
+                    } else {
+                        console.log(`⚠️ [DEBUG] Header '${header}' name too short: "${name}"`);
                     }
+                } else {
+                    console.log(`⚠️ [DEBUG] Header '${header}' skipped: empty/placeholder value`);
                 }
             }
+        } else {
+            console.log('⚠️ [DEBUG] No game.tags available for header-based naming');
         }
 
         // Fallback: Generate name from first few moves
         if (moves && moves.length > 0) {
             const moveCount = Math.min(4, moves.length);
             const firstMoves = moves.slice(0, moveCount).join(' ');
-            return `Opening: ${firstMoves}${moves.length > moveCount ? '...' : ''}`;
+            const moveBased = `Opening: ${firstMoves}${moves.length > moveCount ? '...' : ''}`;
+            console.log(`✅ [DEBUG] Using move-based name: "${moveBased}"`);
+            return moveBased;
+        } else {
+            console.log('⚠️ [DEBUG] No moves available for move-based naming');
         }
 
         // Ultimate fallback
+        console.log('🚨 [DEBUG] Using ultimate fallback: "Chess Opening"');
         return 'Chess Opening';
     }
 

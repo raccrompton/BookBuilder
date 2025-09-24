@@ -109,7 +109,7 @@ class FormController {
             console.log('📋 [DEBUG] Form config:', formConfig);
             
             console.log('🔧 [DEBUG] Converting to BookBuilder config...');
-            const bookBuilderConfig = this.convertToBookBuilderConfig(formConfig);
+            const bookBuilderConfig = await this.convertToBookBuilderConfig(formConfig);
             console.log('🏗️ [DEBUG] BookBuilder config:', bookBuilderConfig);
 
             // Start repertoire generation
@@ -214,7 +214,8 @@ class FormController {
 
             try {
                 const chapterContent = await this.bookBuilder.generateChapter(opening, i + 1);
-                const fileName = `Chapter_${i + 1}_${opening.name.replace(/\s+/g, '_')}.pgn`;
+                const safeName = opening.name.replace(/\s+/g, '_');
+                const fileName = `Chapter_${i + 1}_${safeName}.pgn`;
                 results[fileName] = chapterContent;
 
                 // Update progress with intermediate results
@@ -310,13 +311,31 @@ class FormController {
         }
     }
 
-    convertToBookBuilderConfig(formConfig) {
+    async convertToBookBuilderConfig(formConfig) {
         // Process PGN input
         let openings = [];
         try {
             const pgnInput = formConfig['pgn-input-text'] || '';
             if (pgnInput.trim()) {
-                const processedOpening = PgnProcessor.processPgn(pgnInput);
+                const processedOpening = await PgnProcessor.processPgn(pgnInput);
+
+                // Validate processed opening - PgnProcessor should always return valid data
+                if (!processedOpening || typeof processedOpening !== 'object') {
+                    throw new Error('PGN processing returned invalid result (not an object)');
+                }
+                if (!processedOpening.name || typeof processedOpening.name !== 'string') {
+                    throw new Error(`PGN processing failed to generate opening name. Result: ${JSON.stringify(processedOpening)}`);
+                }
+                if (!Array.isArray(processedOpening.moves)) {
+                    throw new Error(`PGN processing failed to extract moves. Result: ${JSON.stringify(processedOpening)}`);
+                }
+
+                console.log('✅ [DEBUG] PGN processing validation passed:', {
+                    name: processedOpening.name,
+                    moveCount: processedOpening.moves.length,
+                    moves: processedOpening.moves.slice(0, 4) // First 4 moves for debugging
+                });
+
                 openings = [processedOpening]; // Single opening from PGN
             } else {
                 throw new Error('PGN input is required');
