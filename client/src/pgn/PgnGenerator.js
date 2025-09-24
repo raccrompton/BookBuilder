@@ -106,26 +106,39 @@ class PgnGenerator {
    * @returns {string} Formatted annotations block
    */
     formatMoveAnnotations(line) {
+        console.log(`   📈 [PgnGenerator] formatMoveAnnotations called`);
         let annotations = '{Move playrates:\n';
 
         // Add individual move playrates from likelihoodPath (contains {san, playrate} objects)
         if (line.likelihoodPath && line.likelihoodPath.length > 0) {
-            for (const move of line.likelihoodPath) {
+            console.log(`      Processing ${line.likelihoodPath.length} moves from likelihood path:`);
+            for (let i = 0; i < line.likelihoodPath.length; i++) {
+                const move = line.likelihoodPath[i];
+                console.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`);
                 if (move.playrate !== undefined && move.san) {
                     const playratePercent = (move.playrate * 100).toFixed(2);
-                    annotations += `+${playratePercent}%\t${move.san}\n`;
+                    const annotation = `+${playratePercent}%\t${move.san}\n`;
+                    console.log(`            Adding annotation: "${annotation.trim()}"`);
+                    annotations += annotation;
                 }
             }
+        } else {
+            console.log(`      No likelihood path available (${line.likelihoodPath?.length || 0} moves)`);
         }
 
         // Add line statistics
+        console.log(`      Adding line statistics...`);
         if (line.statistics) {
+            console.log(`         Using line.statistics:`, line.statistics);
             const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2);
-            annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`);
+            annotations += cumulativeAnnotation;
 
             if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) {
                 const winratePercent = (line.statistics.winrate * 100).toFixed(2);
                 const gamesFormatted = line.statistics.totalGames.toLocaleString();
+                console.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`);
 
                 let winrateDescription;
                 if (this.config.DRAWSAREHALF === 0) {
@@ -134,15 +147,25 @@ class PgnGenerator {
                     winrateDescription = 'Line winrate (draws as half points)';
                 }
 
-                annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+                const winrateAnnotation = `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+                console.log(`         Win rate annotation: "${winrateAnnotation}"`);
+                annotations += winrateAnnotation;
+            } else {
+                console.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`);
             }
         } else if (line.cumulativeLikelihood) {
+            console.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`);
             // Use cumulativeLikelihood from line object if no statistics
             const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2);
-            annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`);
+            annotations += cumulativeAnnotation;
+        } else {
+            console.log(`         No statistics or cumulative likelihood available`);
         }
 
         annotations += '}';
+        console.log(`      Final annotations block: ${annotations.split('\n').length} lines`);
         return annotations;
     }
 
@@ -237,12 +260,30 @@ class PgnGenerator {
    * @returns {string} Single PGN line
    */
     generateSingleLine(line, eventName) {
+        console.log(`📋 [PgnGenerator] generateSingleLine called:`);
+        console.log(`   Event name: ${eventName}`);
+        console.log(`   Line PGN: "${line.pgn || 'EMPTY'}"`);
+        console.log(`   Line data:`, {
+            cumulativeLikelihood: line.cumulativeLikelihood?.toFixed(6),
+            likelihoodPathLength: line.likelihoodPath?.length || 0,
+            hasStatistics: !!line.statistics
+        });
+
         const header = `[Event "${eventName}"]`;
+        console.log(`   Generated header: ${header}`);
+
         // Use the pgn string directly - it contains the actual move sequence
         const moves = line.pgn || '';
-        const annotations = this.formatMoveAnnotations(line);
+        console.log(`   Moves section: "${moves}"`);
 
-        return `${header}\n\n${moves}\n${annotations}`;
+        console.log(`   Generating move annotations...`);
+        const annotations = this.formatMoveAnnotations(line);
+        console.log(`   Generated annotations: ${annotations.split('\n')[0]}... (${annotations.split('\n').length} lines)`);
+
+        const result = `${header}\n\n${moves}\n${annotations}`;
+        console.log(`✅ [PgnGenerator] Single line generated (${result.length} characters)`);
+
+        return result;
     }
 
     /**

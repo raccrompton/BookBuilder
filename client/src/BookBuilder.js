@@ -321,35 +321,60 @@ class BookBuilder {
                         continue;
                     }
 
+                    console.log(`[BookBuilder] Position after opponent move has ${positionData.moves.length} candidate responses`);
+                    console.log(`   Top 3 candidates:`, positionData.moves.slice(0, 3).map(m => ({
+                        san: m.san,
+                        games: m.white + m.black + m.draws,
+                        playrate: m.playrate?.toFixed(4)
+                    })));
+
+                    console.log(`[BookBuilder] Calling MoveSelector to find our best response...`);
                     const bestResponse = await this.moveSelector.selectBestMove(
-                        newFen,
+                        { fen: newFen },
                         positionData.moves,
                         this.lichessClient,
                         this.statisticsEngine
                     );
 
-                    if (bestResponse && this.isValidResponse(bestResponse, move)) {
+                    if (bestResponse?.selectedMove) {
+                        console.log(`[BookBuilder] MoveSelector returned: ${bestResponse.selectedMove.san || bestResponse.selectedMove.uci}`);
+                        console.log(`   Selection details:`, {
+                            reason: bestResponse.selectionReason,
+                            candidateCount: bestResponse.candidateCount,
+                            qualityFiltered: bestResponse.qualityFiltered,
+                            engineFiltered: bestResponse.engineFiltered
+                        });
+                    } else {
+                        console.log(`[BookBuilder] MoveSelector returned no valid response`);
+                    }
+
+                    const selectedMove = bestResponse?.selectedMove;
+                    console.log(`[BookBuilder] Validating selected response: ${selectedMove?.san || selectedMove?.uci || 'NONE'}`);
+
+                    if (selectedMove && this.isValidResponse(selectedMove, move)) {
+                        console.log(`[BookBuilder] ✅ Response validation passed`);
                         // **VALIDATE OUR RESPONSE MOVE**
-                        console.log(`[BookBuilder] Processing our response move: ${bestResponse.san}`);
+                        console.log(`[BookBuilder] Processing our response move: ${selectedMove.san}`);
                         console.log(`[BookBuilder] Position before our move:`, isolatedEngine.debugPosition());
 
                         // Validate our response move
-                        if (!isolatedEngine.validateMoveBeforeExecution(bestResponse.san)) {
-                            console.warn(`[BookBuilder] Skipping invalid response move: ${bestResponse.san}`);
+                        if (!isolatedEngine.validateMoveBeforeExecution(selectedMove.san)) {
+                            console.warn(`[BookBuilder] Skipping invalid response move: ${selectedMove.san}`);
                             console.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
                             isolatedEngine.undoMove(); // Undo opponent's move
                             continue;
                         }
 
                         // Make our response
-                        const ourMoveResult = isolatedEngine.makeMove(bestResponse.san);
+                        const ourMoveResult = isolatedEngine.makeMove(selectedMove.san);
                         if (!ourMoveResult) {
-                            console.warn(`[BookBuilder] Our move execution failed: ${bestResponse.san}`);
+                            console.warn(`[BookBuilder] Our move execution failed: ${selectedMove.san}`);
                             isolatedEngine.undoMove(); // Undo opponent's move
                             continue;
                         }
 
-                        console.log(`[BookBuilder] Our response move ${bestResponse.san} executed successfully:`, ourMoveResult);
+                        console.log(`[BookBuilder] Our response move ${selectedMove.san} executed successfully:`, ourMoveResult);
+                        console.log(`[BookBuilder] Final position after both moves:`, isolatedEngine.debugPosition());
 
                         const finalFen = isolatedEngine.getFen();
 
@@ -358,26 +383,50 @@ class BookBuilder {
                             playrate: move.playrate
                         }];
 
-                        const newPgn = this.updatePgn(pgn, move.san, bestResponse.san, perspective);
+                        const newPgn = this.updatePgn(pgn, move.san, selectedMove.san, perspective);
+                        console.log(`[BookBuilder] PGN updated: "${pgn}" -> "${newPgn}"`);
 
-                        newLines.push({
+                        const newLine = {
                             fen: finalFen,
                             pgn: newPgn,
                             perspective: perspective === 'white' ? 'black' : 'white',
                             cumulativeLikelihood: move.playrate * cumulativeLikelihood,
                             likelihoodPath: newLikelihoodPath
+                        };
+
+                        console.log(`[BookBuilder] ➕ Created new line:`, {
+                            pgn: newLine.pgn,
+                            perspective: newLine.perspective,
+                            cumulativeLikelihood: newLine.cumulativeLikelihood?.toFixed(6),
+                            likelihoodPathLength: newLine.likelihoodPath.length
                         });
+
+                        newLines.push(newLine);
 
                         // Undo both moves to restore original position
                         isolatedEngine.undoMove(); // Undo our move
                         isolatedEngine.undoMove(); // Undo opponent's move
 
                     } else {
+                        console.log(`[BookBuilder] ❌ No valid response found for opponent move: ${move.san}`);
+                        if (selectedMove) {
+                            console.log(`   Selected move failed validation:`, {
+                                move: selectedMove.san || selectedMove.uci,
+                                reason: 'Failed isValidResponse check'
+                            });
+                        } else {
+                            console.log(`   No move was selected by MoveSelector`);
+                        }
+
                         // No good response - try engine completion or finalize
                         isolatedEngine.undoMove(); // Undo opponent's move
+                        console.log(`[BookBuilder] Trying engine completion or line finalization...`);
                         const completed = await this.handleNoGoodResponse(lineData, move, newFen, isolatedEngine);
                         if (completed) {
+                            console.log(`[BookBuilder] ➕ Engine completion created new line: ${completed.pgn}`);
                             newLines.push(completed);
+                        } else {
+                            console.log(`[BookBuilder] Line finalized without extension`);
                         }
                     }
 
@@ -385,6 +434,14 @@ class BookBuilder {
                     console.warn(`Error processing move ${move.san}: ${moveError.message}`);
                     continue;
                 }
+            }
+
+            console.log(`[BookBuilder] Line expansion completed: Generated ${newLines.length} new lines`);
+            if (newLines.length > 0) {
+                console.log(`   New lines summary:`, newLines.map(line => ({
+                    pgn: line.pgn,
+                    likelihood: line.cumulativeLikelihood?.toFixed(6)
+                })));
             }
 
             return newLines;
@@ -474,12 +531,32 @@ class BookBuilder {
      * @param {ChessEngine} engine - Optional isolated engine instance
      */
     async finalizeLine(lineData, engine = null) {
+        console.log(`🏁 [BookBuilder] Finalizing line: "${lineData.pgn}"`);
+        console.log(`   FEN: ${lineData.fen}`);
+        console.log(`   Perspective: ${lineData.perspective}`);
+        console.log(`   Cumulative likelihood: ${lineData.cumulativeLikelihood?.toFixed(6)}`);
+        console.log(`   Likelihood path length: ${lineData.likelihoodPath?.length || 0}`);
+
         // Use provided engine or fall back to main engine
         const chessEngine = engine || this.chessEngine;
         try {
             // Load the position into the chess engine
+            console.log(`   Loading position into chess engine...`);
             chessEngine.loadPosition(lineData.fen);
+
+            console.log(`   Getting position statistics from Lichess...`);
             const stats = await this.lichessClient.getPositionStats(lineData.fen);
+
+            if (stats) {
+                console.log(`   Position stats:`, {
+                    white: stats.white,
+                    black: stats.black,
+                    draws: stats.draws,
+                    total: stats.white + stats.draws + stats.black
+                });
+            } else {
+                console.log(`   No position stats available`);
+            }
 
             let winRate = 0;
             let totalGames = 0;
@@ -510,10 +587,15 @@ class BookBuilder {
             }
 
             // Validate winRate is a proper number (should not be NaN after proper extraction)
+            console.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
+            console.log(`   Total games: ${totalGames}`);
+
             if (isNaN(winRate) || !isFinite(winRate)) {
+                console.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
                 throw new Error(`Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
             }
 
+            console.log(`   ✅ Adding line to finalLines collection`);
             this.finalLines.push({
                 pgn: lineData.pgn,
                 moves: this.extractMovesFromPgn(lineData.pgn),
@@ -527,7 +609,8 @@ class BookBuilder {
             });
 
         } catch (error) {
-            console.warn(`Error finalizing line: ${error.message}`);
+            console.warn(`⚠️ [BookBuilder] Error finalizing line: ${error.message}`);
+            console.log(`   Adding line with default values instead`);
             // Add line anyway with default values
             this.finalLines.push({
                 pgn: lineData.pgn,
@@ -541,6 +624,8 @@ class BookBuilder {
                 }
             });
         }
+
+        console.log(`🏁 [BookBuilder] Line finalization completed. Total final lines: ${this.finalLines.length}`);
     }
 
     /**
@@ -551,11 +636,21 @@ class BookBuilder {
      * @returns {string} - Complete PGN content
      */
     async generateOutput(openingName, _chapterNumber) {
+        console.log(`📋 [BookBuilder] Generating output for ${openingName}`);
+        console.log(`   Starting with ${this.finalLines.length} final lines`);
+
         // Remove duplicates and subsets (matches Python logic exactly)
+        console.log(`   Removing duplicates and subsets...`);
         const uniqueLines = this.removeDuplicateLines(this.finalLines);
+        console.log(`   After deduplication: ${uniqueLines.length} unique lines`);
 
         // Sort by consecutive move probabilities (matches Python sorting)
+        console.log(`   Sorting lines by probability...`);
         const sortedLines = this.sortLinesByProbability(uniqueLines);
+        console.log(`   Top 3 lines by probability:`, sortedLines.slice(0, 3).map(line => ({
+            pgn: line.pgn,
+            likelihood: line.cumulativeLikelihood?.toFixed(6)
+        })));
 
         // Reverse if LONGTOSHORT is enabled (matches Python behavior)
         if (this.config.LONGTOSHORT) {
@@ -620,6 +715,13 @@ class BookBuilder {
         const gamesCheck = move.totalGames > this.config.CONTINUATIONGAMES;
         const playrateCheck = move.playrate >= this.config.MINPLAYRATE;
         const isValid = depthCheck && gamesCheck && playrateCheck;
+
+        console.log(`   🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
+        console.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
+        console.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
+        console.log(`      Playrate check: ${move.playrate?.toFixed(4)} >= ${this.config.MINPLAYRATE} = ${playrateCheck ? '✅' : '❌'}`);
+        console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+
         return isValid;
     }
 
@@ -627,10 +729,22 @@ class BookBuilder {
      * Check if our response meets the quality thresholds
      */
     isValidResponse(response, opponentMove) {
-        return response &&
-               opponentMove.playrate > this.config.MINPLAYRATE &&
-               response.totalGames > this.config.MINGAMES &&
-               response.winRate > 0;
+        console.log(`   🔍 [BookBuilder] Response validation for ${response?.san || response?.uci}:`);
+
+        const hasResponse = !!response;
+        const opponentPlayrateCheck = opponentMove.playrate > this.config.MINPLAYRATE;
+        const responseGamesCheck = response?.totalGames > this.config.MINGAMES;
+        const responseWinRateCheck = response?.winRate > 0;
+
+        console.log(`      Has response: ${hasResponse ? '✅' : '❌'}`);
+        console.log(`      Opponent playrate: ${opponentMove.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${opponentPlayrateCheck ? '✅' : '❌'}`);
+        console.log(`      Response games: ${response?.totalGames} > ${this.config.MINGAMES} = ${responseGamesCheck ? '✅' : '❌'}`);
+        console.log(`      Response win rate: ${response?.winRate?.toFixed(3)} > 0 = ${responseWinRateCheck ? '✅' : '❌'}`);
+
+        const isValid = hasResponse && opponentPlayrateCheck && responseGamesCheck && responseWinRateCheck;
+        console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+
+        return isValid;
     }
 
     /**
