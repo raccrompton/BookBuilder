@@ -6,6 +6,39 @@
  */
 
 export const LICHESS_FIXTURES = {
+    // Standard starting position
+    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': {
+        moves: [
+            {
+                uci: 'e2e4',
+                san: 'e4',
+                white: 2500000,
+                draws: 400000,
+                black: 1900000,
+                playrate: 0.25,
+                totalGames: 4800000
+            },
+            {
+                uci: 'd2d4',
+                san: 'd4',
+                white: 2200000,
+                draws: 380000,
+                black: 1800000,
+                playrate: 0.22,
+                totalGames: 4380000
+            },
+            {
+                uci: 'g1f3',
+                san: 'Nf3',
+                white: 1800000,
+                draws: 320000,
+                black: 1400000,
+                playrate: 0.18,
+                totalGames: 3520000
+            }
+        ]
+    },
+
     // Starting position after 1.e4 (Ruy Lopez path)
     'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1': {
         moves: [
@@ -44,6 +77,30 @@ export const LICHESS_FIXTURES = {
                 black: 98234,
                 playrate: 0.0275,
                 totalGames: 263910
+            }
+        ]
+    },
+
+    // Starting position after 1.e4 (alternative without en passant)
+    'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1': {
+        moves: [
+            {
+                uci: 'e7e5',
+                san: 'e5',
+                white: 1842286,
+                draws: 518644,
+                black: 1537888,
+                playrate: 0.4059,
+                totalGames: 3898818
+            },
+            {
+                uci: 'c7c5',
+                san: 'c5',
+                white: 944823,
+                draws: 179843,
+                black: 728294,
+                playrate: 0.1935,
+                totalGames: 1852960
             }
         ]
     },

@@ -9,7 +9,7 @@ class StockfishEngine {
         this.depth = config.depth || 20;
         this.threads = config.threads || 1;
         this.hash = config.hash || 128;
-        this.timeout = config.timeout || 30000;
+        this.timeout = config.timeout || 120000; // Increased to 2 minutes for reliability
 
         this.pendingOperations = new Map();
         this.operationId = 0;
