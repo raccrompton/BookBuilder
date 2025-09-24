@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stockfish Engine Performance Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .loading { background-color: #fff3cd; color: #856404; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .results {
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .timing {
+            padding: 5px 10px;
+            margin: 2px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Stockfish Engine Performance Test</h1>
+        <p>This page tests the actual Stockfish WebAssembly engine performance in your browser.</p>
+
+        <div id="status" class="status loading">Initializing engine...</div>
+        <div id="results" class="results"></div>
+
+        <button id="startTest" disabled onclick="runPerformanceTest()">Run Performance Test</button>
+        <button id="resetTest" onclick="resetTest()">Reset</button>
+    </div>
+
+    <!-- Load the actual Stockfish WebAssembly -->
+    <script type="module">
+        // Import and expose Stockfish WebAssembly
+        import('../../src/vendor/stockfish-web/sf171-79.js').then(module => {
+            // Make the Stockfish function globally available
+            window.Sf17179Web = module.default || module.Sf17179Web;
+
+            // Dispatch ready event
+            window.dispatchEvent(new Event('stockfish-loaded'));
+        }).catch(err => {
+            console.error('Failed to load Stockfish WebAssembly:', err);
+            window.dispatchEvent(new Event('stockfish-error'));
+        });
+    </script>
+
+    <script>
+        let stockfishEngine = null;
+        let testResults = [];
+
+        // Test configuration
+        const TEST_DEPTHS = [5, 10, 15, 20];
+        const TEST_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        const TIMEOUT_MS = 60000; // 60 seconds
+
+        // Initialize Stockfish engine
+        async function initializeEngine() {
+            const statusEl = document.getElementById('status');
+            const startButton = document.getElementById('startTest');
+
+            try {
+                statusEl.textContent = 'Loading Stockfish WebAssembly...';
+                statusEl.className = 'status loading';
+
+                // Create Stockfish instance using the WebAssembly build
+                stockfishEngine = await Sf17179Web();
+
+                // Set up message handling
+                let engineReady = false;
+                let initResolver = null;
+
+                const initPromise = new Promise((resolve, reject) => {
+                    initResolver = resolve;
+
+                    stockfishEngine.listen = (message) => {
+                        console.log('Engine:', message);
+
+                        if (message.includes('uciok')) {
+                            stockfishEngine.uci('isready');
+                        } else if (message.includes('readyok')) {
+                            engineReady = true;
+                            resolve();
+                        }
+                    };
+
+                    stockfishEngine.onError = (error) => {
+                        console.error('Engine error:', error);
+                        reject(new Error('Engine initialization failed'));
+                    };
+
+                    // Timeout after 30 seconds
+                    setTimeout(() => {
+                        if (!engineReady) {
+                            reject(new Error('Engine initialization timeout'));
+                        }
+                    }, 30000);
+                });
+
+                // Start UCI initialization
+                stockfishEngine.uci('uci');
+
+                // Wait for engine to be ready
+                await initPromise;
+
+                statusEl.textContent = '✅ Engine ready for performance testing';
+                statusEl.className = 'status success';
+                startButton.disabled = false;
+
+                return true;
+
+            } catch (error) {
+                console.error('Engine initialization failed:', error);
+                statusEl.textContent = `❌ Engine initialization failed: ${error.message}`;
+                statusEl.className = 'status error';
+                return false;
+            }
+        }
+
+        // Run performance test at all depths
+        async function runPerformanceTest() {
+            const statusEl = document.getElementById('status');
+            const resultsEl = document.getElementById('results');
+            const startButton = document.getElementById('startTest');
+
+            if (!stockfishEngine) {
+                statusEl.textContent = '❌ Engine not initialized';
+                statusEl.className = 'status error';
+                return;
+            }
+
+            startButton.disabled = true;
+            testResults = [];
+            resultsEl.innerHTML = '';
+
+            statusEl.textContent = '⏱️ Running performance tests...';
+            statusEl.className = 'status loading';
+
+            try {
+                for (const depth of TEST_DEPTHS) {
+                    const result = await testEngineAtDepth(depth);
+                    testResults.push(result);
+
+                    // Update results display
+                    const timingEl = document.createElement('div');
+                    timingEl.className = 'timing';
+                    timingEl.textContent = `Depth ${depth}: ${result.duration}ms → ${result.bestMove} ${result.passed ? '✅' : '❌'}`;
+                    resultsEl.appendChild(timingEl);
+                }
+
+                // Final status
+                const allPassed = testResults.every(r => r.passed);
+                const totalTime = testResults.reduce((sum, r) => sum + r.duration, 0);
+
+                statusEl.textContent = allPassed
+                    ? `✅ All tests passed! Total time: ${totalTime}ms`
+                    : '❌ Some tests exceeded 60 second limit';
+                statusEl.className = allPassed ? 'status success' : 'status error';
+
+                // Expose results for Playwright
+                window.performanceTestResults = {
+                    results: testResults,
+                    passed: allPassed,
+                    totalTime: totalTime
+                };
+
+            } catch (error) {
+                console.error('Performance test failed:', error);
+                statusEl.textContent = `❌ Test failed: ${error.message}`;
+                statusEl.className = 'status error';
+
+                window.performanceTestResults = {
+                    results: testResults,
+                    passed: false,
+                    error: error.message
+                };
+            }
+
+            startButton.disabled = false;
+        }
+
+        // Test engine performance at specific depth
+        async function testEngineAtDepth(depth) {
+            return new Promise((resolve, reject) => {
+                const startTime = performance.now();
+                let bestMove = null;
+                let resolved = false;
+
+                // Set up message listener for this specific test
+                const originalListen = stockfishEngine.listen;
+                stockfishEngine.listen = (message) => {
+                    console.log(`Depth ${depth}:`, message);
+
+                    if (message.startsWith('bestmove ') && !resolved) {
+                        resolved = true;
+                        const endTime = performance.now();
+                        const duration = Math.round(endTime - startTime);
+
+                        bestMove = message.split(' ')[1];
+
+                        // Restore original listener
+                        stockfishEngine.listen = originalListen;
+
+                        resolve({
+                            depth,
+                            duration,
+                            bestMove,
+                            passed: duration <= TIMEOUT_MS,
+                            position: TEST_POSITION
+                        });
+                    }
+                };
+
+                // Set timeout
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        stockfishEngine.listen = originalListen;
+                        reject(new Error(`Timeout: Depth ${depth} exceeded ${TIMEOUT_MS}ms`));
+                    }
+                }, TIMEOUT_MS + 5000); // Extra 5 seconds for cleanup
+
+                // Start analysis
+                stockfishEngine.uci(`position fen ${TEST_POSITION}`);
+                stockfishEngine.uci(`go depth ${depth}`);
+            });
+        }
+
+        // Reset test state
+        function resetTest() {
+            const statusEl = document.getElementById('status');
+            const resultsEl = document.getElementById('results');
+
+            testResults = [];
+            resultsEl.innerHTML = '';
+            window.performanceTestResults = null;
+
+            statusEl.textContent = '✅ Engine ready for performance testing';
+            statusEl.className = 'status success';
+
+            document.getElementById('startTest').disabled = false;
+        }
+
+        // Initialize engine when Stockfish is loaded
+        window.addEventListener('stockfish-loaded', initializeEngine);
+        window.addEventListener('stockfish-error', () => {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = '❌ Failed to load Stockfish WebAssembly';
+            statusEl.className = 'status error';
+        });
+
+        // Expose functions for Playwright automation
+        window.runPerformanceTest = runPerformanceTest;
+        window.resetTest = resetTest;
+    </script>
+</body>
+</html>
