@@ -148,6 +148,83 @@ class BookBuilder {
             const finalFen = this.chessEngine.getFen();
             console.log(`    Using FEN position directly: ${finalFen}`);
 
+            // IMPLEMENTATION: Calculate cumulative likelihood like Python Rooter
+            // We need to analyze the moves that led to this position to calculate the 
+            // cumulative probability of opponent moves reaching this position
+            let cumulativeLikelihood = 1.0;
+            let likelihoodPath = [];
+
+            // If we have move history, calculate cumulative likelihood from opponent moves
+            if (moves && moves.length > 0) {
+                console.log(`    Calculating cumulative likelihood from ${moves.length} moves in history`);
+                
+                // Create a temporary engine to replay moves and calculate opponent probabilities
+                const tempEngine = this.createIsolatedEngine();
+                tempEngine.reset(); // Start from initial position
+
+                for (let i = 0; i < moves.length; i++) {
+                    const move = moves[i];
+                    const currentPerspective = this.determinePerspective(i + 1); // +1 because determinePerspective expects move count
+                    
+                    // If this is an opponent's move (not our perspective), calculate its probability
+                    if (currentPerspective !== perspective) {
+                        console.log(`    Analyzing opponent move ${i + 1}: ${move.san} (from ${currentPerspective} perspective)`);
+                        
+                        try {
+                            // Get position stats before this opponent move
+                            const beforeMoveFen = tempEngine.getFen();
+                            const positionStats = await this.lichessClient.getPositionStats(beforeMoveFen);
+                            
+                            if (positionStats && positionStats.moves) {
+                                // Find this move in the position stats to get its playrate
+                                const moveStats = positionStats.moves.find(m => 
+                                    m.san === move.san || m.uci === move.uci
+                                );
+                                
+                                if (moveStats) {
+                                    const chance = moveStats.playrate;
+                                    cumulativeLikelihood *= chance;
+                                    likelihoodPath.push({
+                                        san: move.san,
+                                        playrate: chance
+                                    });
+                                    console.log(`      Move probability: ${chance?.toFixed(6)}, cumulative: ${cumulativeLikelihood?.toFixed(6)}`);
+                                } else {
+                                    console.warn(`      Move ${move.san} not found in position stats, using default probability 0.01`);
+                                    cumulativeLikelihood *= 0.01; // Default low probability for unknown moves
+                                    likelihoodPath.push({
+                                        san: move.san,
+                                        playrate: 0.01
+                                    });
+                                }
+                            } else {
+                                console.warn(`      No position stats available for move ${move.san}, using default probability 0.01`);
+                                cumulativeLikelihood *= 0.01;
+                                likelihoodPath.push({
+                                    san: move.san,
+                                    playrate: 0.01
+                                });
+                            }
+                        } catch (error) {
+                            console.warn(`      Error analyzing opponent move ${move.san}: ${error.message}`);
+                            cumulativeLikelihood *= 0.01; // Fallback probability
+                            likelihoodPath.push({
+                                san: move.san,
+                                playrate: 0.01
+                            });
+                        }
+                    }
+                    
+                    // Make the move to advance to next position
+                    tempEngine.makeMove(move.san);
+                }
+                
+                console.log(`    Final cumulative likelihood: ${cumulativeLikelihood?.toFixed(6)}`);
+                console.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate?.toFixed(3)})`).join(' '));
+            } else {
+                console.log(`    No move history available, using default cumulative likelihood: 1.0`);
+            }
+
             const positionStats = await this.lichessClient.getPositionStats(finalFen);
             const validLines = [];
 
@@ -162,13 +239,14 @@ class BookBuilder {
             }
 
             for (const move of positionStats.moves) {
-                if (this.isValidContinuation(move, 1.0)) {
+                // FIXED: Use calculated cumulative likelihood instead of raw playrate
+                if (this.isValidContinuation(move, cumulativeLikelihood)) {
                     validLines.push({
                         fen: finalFen, // FIXED: Use final position FEN, not starting FEN
                         pgn: this.chessEngine.getPgn(),
                         perspective: perspective,
-                        cumulativeLikelihood: move.playrate,
-                        likelihoodPath: []
+                        cumulativeLikelihood: cumulativeLikelihood, // FIXED: Use proper cumulative likelihood
+                        likelihoodPath: likelihoodPath // FIXED: Use calculated likelihood path
                     });
                 }
             }
@@ -734,7 +812,9 @@ class BookBuilder {
         const playrateCheck = move.playrate >= this.config.MINPLAYRATE;
         const isValid = depthCheck && gamesCheck && playrateCheck;
 
-        console.log(`   🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
+        console.log(`🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
+        console.log(`      Raw playrate: ${move.playrate?.toFixed(4)} (${(move.playrate * 100)?.toFixed(2)}%)`);
+        console.log(`      Cumulative likelihood to reach position: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
         console.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
         console.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
         console.log(`      Playrate check: ${move.playrate?.toFixed(4)} >= ${this.config.MINPLAYRATE} = ${playrateCheck ? '✅' : '❌'}`);
