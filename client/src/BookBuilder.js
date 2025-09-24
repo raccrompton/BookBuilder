@@ -8,9 +8,9 @@
  * Based on comprehensive Python analysis and refactoring strategy from:
  * - @client/claudedocs/step6-analysis/python-bookbuilder-analysis.md
  * - @client/claudedocs/step6-analysis/javascript-refactoring-strategy.md
- * - @client/claudedocs/step6-analysis/bookbuilder-js-implementation-plan.md
  */
 
+import { DeterministicMode } from './config/DeterministicMode.js';
 import ChessEngine from './chess/ChessEngine.js';
 import LichessClient from './api/LichessClient.js';
 import StockfishEngine from './engine/StockfishEngine.js';
@@ -258,7 +258,11 @@ class BookBuilder {
             const continuations = await this.lichessClient.getPositionStats(fen);
 
             if (!continuations || !continuations.moves) {
-                // No data available - finalize line
+                DeterministicMode.throwOnFailure(
+                    false,
+                    `Failed to get position continuations for FEN: ${fen}`
+                );
+                // Unreachable in deterministic mode, but kept for completeness
                 await this.finalizeLine(lineData);
                 return [];
             }
@@ -268,11 +272,12 @@ class BookBuilder {
             );
 
             if (validContinuations.length === 0) {
-                // No valid continuations - finalize line
                 console.log(`    [DEBUG] No valid continuations found. Original moves: ${continuations.moves?.length || 0}, filtered to: 0`);
                 if (continuations.moves) {
                     console.log(`    [DEBUG] First move analysis:`, continuations.moves[0]);
                 }
+                // Empty results after filtering are valid - moves may not meet quality thresholds
+                // This is expected behavior for maintaining repertoire quality
                 await this.finalizeLine(lineData);
                 return [];
             }
