@@ -98,16 +98,28 @@ class LichessClient {
 
             } catch (error) {
                 lastError = error;
-                console.warn(`Lichess API ${operation}: Attempt ${attempt} failed:`, error.message);
+                console.warn(`❌ [LichessClient] ${operation}: Attempt ${attempt}/${this.maxRetries} failed:`, error.message);
+                console.warn(`   Error details:`, {
+                    url: url,
+                    status: error.status || 'unknown',
+                    statusText: error.statusText || 'unknown',
+                    errorType: error.name || 'unknown',
+                    stack: error.stack?.split('\n')[0] || 'no stack'
+                });
 
                 if (attempt < this.maxRetries) {
                     const delay = this.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
-                    console.log(`Retrying in ${delay}ms...`);
+                    console.log(`   🔄 Retrying in ${delay}ms... (exponential backoff, attempt ${attempt + 1}/${this.maxRetries})`);
                     await this._sleep(delay);
+                } else {
+                    console.error(`❌ [LichessClient] ${operation}: All ${this.maxRetries} attempts exhausted!`);
                 }
             }
         }
 
+        console.error(`❌ [LichessClient] ${operation}: Final failure after ${this.maxRetries} attempts`);
+        console.error(`   Last error:`, lastError.message);
+        console.error(`   Request details:`, { url, operation });
         throw new Error(`Lichess API ${operation} failed after ${this.maxRetries} attempts: ${lastError.message}`);
     }
 

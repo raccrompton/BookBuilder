@@ -117,7 +117,17 @@ class FormController {
             await this.startGeneration(bookBuilderConfig);
 
         } catch (error) {
-            console.error('💥 [DEBUG] Error in handleSubmit:', error);
+            console.error(`❌ [FormController] Error in handleSubmit:`, error);
+            console.error(`   Submit error details:`, {
+                message: error.message,
+                stack: error.stack?.split('\n')[0] || 'no stack',
+                timestamp: new Date().toISOString(),
+                formData: {
+                    pgn: document.getElementById('pgn-input-text')?.value?.substring(0, 50) || 'none',
+                    hasTimeControls: !!document.querySelector('input[name^="time-"]:checked'),
+                    hasVariants: !!document.querySelector('input[name^="variant-"]:checked')
+                }
+            });
             this.errorHandler.showError('Failed to start generation', error);
         }
     }
@@ -149,6 +159,14 @@ class FormController {
             this.progressTracker.complete('Repertoire generated successfully!');
 
         } catch (error) {
+            console.error(`❌ [FormController] Generation failed in startGeneration:`, error);
+            console.error(`   Error details:`, {
+                message: error.message,
+                stack: error.stack?.split('\n').slice(0, 3) || 'no stack',
+                timestamp: new Date().toISOString(),
+                phase: this.progressTracker?.currentPhase || 'unknown'
+            });
+            console.error(`   Config at time of error:`, config);
             this.errorHandler.showError('Generation failed', error);
             this.progressTracker.reset();
         }

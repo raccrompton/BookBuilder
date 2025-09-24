@@ -15,12 +15,21 @@ export class ChessEngine {
    * @returns {boolean} - True if position loaded successfully
    */
     parsePosition(fen) {
+        console.log(`📋 [ChessEngine] parsePosition called with FEN: ${fen}`);
         try {
-            if (!fen) return false;
+            if (!fen) {
+                console.error(`[ChessEngine] No FEN provided`);
+                return false;
+            }
+
+            console.log(`   Loading FEN into chess.js engine...`);
             this.chess.load(fen);
+            console.log(`✅ [ChessEngine] FEN loaded successfully`);
+            console.log(`   Resulting position: ${this.chess.fen()}`);
+            console.log(`   Turn: ${this.chess.turn()}, Legal moves: ${this.chess.moves().length}`);
             return true; // chess.js load() throws on error, success is silent
         } catch (error) {
-            console.error('Failed to parse FEN:', fen, error);
+            console.error(`❌ [ChessEngine] Failed to parse FEN: ${fen}`, error);
             return false;
         }
     }
@@ -77,7 +86,10 @@ export class ChessEngine {
    * @returns {Array} - Array of legal move objects
    */
     getLegalMoves() {
-        return this.chess.moves({ verbose: true });
+        const moves = this.chess.moves({ verbose: true });
+        console.log(`📋 [ChessEngine] getLegalMoves: Found ${moves.length} legal moves`);
+        console.log(`   Moves: [${this.chess.moves().join(', ')}]`);
+        return moves;
     }
 
     /**
@@ -86,11 +98,17 @@ export class ChessEngine {
    * @returns {boolean} - True if move is legal in current position
    */
     validateMoveBeforeExecution(moveString) {
+        console.log(`🔍 [ChessEngine] Validating move: ${moveString}`);
         try {
             const legalMoves = this.chess.moves();
+            console.log(`   Available legal moves: [${legalMoves.join(', ')}]`);
             const isLegal = legalMoves.includes(moveString);
+            console.log(`   Move ${moveString} is ${isLegal ? '✅ LEGAL' : '❌ ILLEGAL'}`);
+
             if (!isLegal) {
-                console.error(`[ChessEngine] Move validation failed: ${moveString} not in legal moves:`, legalMoves);
+                console.error(`[ChessEngine] Move validation failed: ${moveString} not in legal moves`);
+                console.error(`   Position: ${this.chess.fen()}`);
+                console.error(`   Turn: ${this.chess.turn()}`);
             }
             return isLegal;
         } catch (error) {
@@ -105,23 +123,40 @@ export class ChessEngine {
    * @returns {Object} - Result object with success flag and move data or error
    */
     makeMove(move) {
+        console.log(`🏁 [ChessEngine] makeMove called with: ${JSON.stringify(move)}`);
+        console.log(`   Position before move: ${this.chess.fen()}`);
+        console.log(`   Turn: ${this.chess.turn()}, Move number: ${this.chess.moveNumber ? this.chess.moveNumber() : 'N/A'}`);
+
         try {
             // For string moves, validate before attempting
             if (typeof move === 'string') {
+                console.log(`   Validating string move: ${move}`);
                 if (!this.validateMoveBeforeExecution(move)) {
                     console.error(`[ChessEngine] Pre-validation failed for move: ${move}`);
                     return null;
                 }
+                console.log(`   ✅ String move validation passed`);
             }
 
+            console.log(`   Attempting to execute move...`);
             const moveResult = this.chess.move(move);
             if (moveResult) {
+                console.log(`✅ [ChessEngine] Move executed successfully:`, {
+                    from: moveResult.from,
+                    to: moveResult.to,
+                    san: moveResult.san,
+                    piece: moveResult.piece,
+                    captured: moveResult.captured,
+                    promotion: moveResult.promotion
+                });
+                console.log(`   Position after move: ${this.chess.fen()}`);
                 return moveResult; // Return the move object directly like python-chess
             } else {
+                console.error(`❌ [ChessEngine] Move failed to execute: ${JSON.stringify(move)}`);
                 return null; // Return null for invalid moves like python-chess
             }
         } catch (error) {
-            console.error('Illegal move:', move, error);
+            console.error(`❌ [ChessEngine] Exception during move execution:`, move, error);
             return null; // Return null for exceptions like python-chess
         }
     }
@@ -131,7 +166,20 @@ export class ChessEngine {
    * @returns {Object|null} - Undone move object or null if no moves to undo
    */
     undoMove() {
-        return this.chess.undo();
+        console.log(`⏪ [ChessEngine] undoMove called`);
+        console.log(`   Position before undo: ${this.chess.fen()}`);
+        const undoneMove = this.chess.undo();
+        if (undoneMove) {
+            console.log(`✅ [ChessEngine] Move undone successfully:`, {
+                san: undoneMove.san,
+                from: undoneMove.from,
+                to: undoneMove.to
+            });
+            console.log(`   Position after undo: ${this.chess.fen()}`);
+        } else {
+            console.log(`⚠️ [ChessEngine] No move to undo`);
+        }
+        return undoneMove;
     }
 
     /**
@@ -195,6 +243,7 @@ export class ChessEngine {
    * @returns {boolean} - True if position loaded successfully
    */
     loadPosition(fen) {
+        console.log(`🔄 [ChessEngine] loadPosition (alias for parsePosition)`);
         return this.parsePosition(fen);
     }
 

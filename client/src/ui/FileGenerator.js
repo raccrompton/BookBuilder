@@ -187,6 +187,11 @@ class FileGenerator {
      * Download file to browser
      */
     downloadFile(content, filename, mimeType = null) {
+        console.log(`💾 [FileGenerator] downloadFile called:`);
+        console.log(`   Filename: ${filename}`);
+        console.log(`   Content size: ${content.length} characters`);
+        console.log(`   Requested MIME type: ${mimeType || 'auto-detect'}`);
+
         try {
             // Determine MIME type if not provided
             if (!mimeType) {
@@ -197,25 +202,32 @@ class FileGenerator {
                 } else {
                     mimeType = 'text/plain';
                 }
+                console.log(`   Auto-detected MIME type: ${mimeType}`);
             }
 
             // Create blob
+            console.log(`   Creating blob with MIME type: ${mimeType}`);
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
+            console.log(`   Blob URL created: ${url.substring(0, 50)}...`);
 
             // Create download link
+            console.log(`   Creating download link element`);
             const downloadLink = document.createElement('a');
             downloadLink.href = url;
             downloadLink.download = filename;
             downloadLink.style.display = 'none';
 
             // Add to DOM, click, and remove
+            console.log(`   Triggering download...`);
             document.body.appendChild(downloadLink);
             downloadLink.click();
             document.body.removeChild(downloadLink);
+            console.log(`   Download link cleaned up`);
 
             // Clean up object URL
             URL.revokeObjectURL(url);
+            console.log(`   Blob URL revoked`);
 
             // Track download
             this.downloadHistory.push({
@@ -225,12 +237,13 @@ class FileGenerator {
                 mimeType
             });
 
-            console.log(`Downloaded: ${filename} (${this.formatFileSize(content.length)})`);
+            const formattedSize = this.formatFileSize(content.length);
+            console.log(`✅ [FileGenerator] Downloaded: ${filename} (${formattedSize})`);
 
             return { success: true, filename, size: content.length };
 
         } catch (error) {
-            console.error('Download failed:', error);
+            console.error(`❌ [FileGenerator] Download failed for ${filename}:`, error);
             throw new Error(`Failed to download ${filename}: ${error.message}`);
         }
     }
