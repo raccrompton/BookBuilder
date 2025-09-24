@@ -25,7 +25,11 @@
     "test:algorithm:full": "node tests/run-algorithm-tests.js --full",
     "test:cross-system": "jest tests/cross-system-validation.test.js",
     "test:cross-system:coverage": "jest tests/cross-system-validation.test.js --coverage",
-    "test:validation": "npm run test:cross-system && npm run test:algorithm:full"
+    "test:validation": "npm run test:cross-system && npm run test:algorithm:full",
+    "test:performance": "jest tests/engine-performance.test.js",
+    "test:performance:quick": "jest tests/engine-performance.test.js --testNamePattern='measures engine timing at configured depths'",
+    "test:performance:browser": "jest --config jest.browser.config.js tests/browser/engine-browser-performance.test.js",
+    "test:performance:real": "jest --config jest.browser.config.js tests/browser/engine-browser-performance.test.js --testNamePattern='real engine performance'"
   },
   "keywords": [
     "chess",
@@ -51,6 +55,7 @@
     "http-server": "^14.1.1",
     "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.5.0",
+    "playwright": "^1.40.0",
     "prettier": "^2.8.8"
   },
   "jest": {
