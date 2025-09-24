@@ -394,7 +394,7 @@ class BookBuilder {
 
                     console.log(`[BookBuilder] Calling MoveSelector to find our best response...`);
                     const bestResponse = await this.moveSelector.selectBestMove(
-                        { fen: newFen },
+                        { fen: newFen, perspective: lineData.perspective },
                         positionData.moves,
                         this.lichessClient,
                         this.statisticsEngine
@@ -832,13 +832,15 @@ class BookBuilder {
         const opponentPlayrateCheck = opponentMove.playrate > this.config.MINPLAYRATE;
         const responseGamesCheck = response?.totalGames > this.config.MINGAMES;
         const responseWinRateCheck = response?.winRate > 0;
+        const responsePlayrateCheck = response?.playrate > this.config.MINPLAYRATE;
 
         console.log(`      Has response: ${hasResponse ? '✅' : '❌'}`);
         console.log(`      Opponent playrate: ${opponentMove.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${opponentPlayrateCheck ? '✅' : '❌'}`);
         console.log(`      Response games: ${response?.totalGames} > ${this.config.MINGAMES} = ${responseGamesCheck ? '✅' : '❌'}`);
         console.log(`      Response win rate: ${response?.winRate?.toFixed(3)} > 0 = ${responseWinRateCheck ? '✅' : '❌'}`);
+        console.log(`      Response playrate: ${response?.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${responsePlayrateCheck ? '✅' : '❌'}`);
 
-        const isValid = hasResponse && opponentPlayrateCheck && responseGamesCheck && responseWinRateCheck;
+        const isValid = hasResponse && opponentPlayrateCheck && responseGamesCheck && responseWinRateCheck && responsePlayrateCheck;
         console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
 
         return isValid;

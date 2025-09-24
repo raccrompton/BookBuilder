@@ -99,14 +99,11 @@ class MoveSelector {
         }
 
         if (viableCandidates.length === 0) {
-            // When CAREABOUTENGINE=1 and no moves pass engine validation, this is problematic
+            // When CAREABOUTENGINE=1 and no moves pass engine validation, fall back to statistical selection
             if (this.config.CAREABOUTENGINE === 1 && engineAnalysis) {
-                DeterministicMode.throwOnFailure(
-                    false,
-                    `No moves passed engine validation despite CAREABOUTENGINE=1. Engine rejected all ${qualityCandidates.length} candidate moves.`
-                );
+                console.log(`⚠️ [MoveSelector] Engine rejected all ${qualityCandidates.length} candidate moves, falling back to statistical selection`);
             }
-            // Fall back to statistical selection only if engine analysis wasn't required
+            // Fall back to statistical selection (non-blocking approach matching Python behavior)
             viableCandidates = qualityCandidates;
         }
 
@@ -341,7 +338,7 @@ class MoveSelector {
    */
     _selectByStatistics(candidates, statisticsEngine) {
         console.log(`📈 [MoveSelector] Statistical selection from ${candidates.length} candidates:`);
-        console.log(`   Perspective: ${this.config.perspective}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
+        console.log(`   Perspective: ${position.perspective}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
 
         let bestMove = null;
         let bestLowerBound = -1;
@@ -355,7 +352,7 @@ class MoveSelector {
             console.log(`   📋 [MoveSelector] Analyzing candidate ${i + 1}: ${candidate.san || candidate.uci}`);
             console.log(`      Games: W:${candidate.white} B:${candidate.black} D:${candidate.draws} (Total: ${totalGames})`);
 
-            if (this.config.perspective === 'white') {
+            if (position.perspective === 'white') {
                 winRate = statisticsEngine.calculateWinRate(
                     candidate.white,
                     candidate.black,
@@ -371,7 +368,7 @@ class MoveSelector {
                 ).blackPerc;
             }
 
-            console.log(`      Win rate (${this.config.perspective}): ${winRate?.toFixed(4)}`);
+            console.log(`      Win rate (${position.perspective}): ${winRate?.toFixed(4)}`);
 
             // Calculate confidence interval
             const confidence = statisticsEngine.calculateConfidenceInterval(
