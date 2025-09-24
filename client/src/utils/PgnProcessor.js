@@ -73,9 +73,13 @@ class PgnProcessor {
             // Generate opening name from headers or moves
             const name = this.generateOpeningName(game, moves);
 
+            // Use original move count from preprocessing if available (for simple sequences like "e4 e5")
+            const moveCount = this._originalMoveCount || moves.length;
+
             return {
                 name: name,
                 moves: moves,
+                moveCount: moveCount, // Track original move sequence length
                 priority: 1 // Default priority for single PGN input
             };
 
@@ -253,6 +257,9 @@ class PgnProcessor {
             const moves = pgn.split(/\s+/).filter(move => move.trim() !== '');
 
             if (moves.length > 0) {
+                // Store original move count for perspective calculation
+                this._originalMoveCount = moves.length;
+
                 // Convert simple moves like "e4 e5 Nf3 Nc6" to proper PGN
                 let formattedMoves = '';
                 for (let i = 0; i < moves.length; i++) {

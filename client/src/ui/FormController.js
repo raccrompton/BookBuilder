@@ -350,7 +350,7 @@ class FormController {
 
                 console.log('✅ [DEBUG] PGN processing validation passed:', {
                     name: processedOpening.name,
-                    moveCount: processedOpening.moves.length,
+                    moveCount: processedOpening.moveCount || processedOpening.moves.length,
                     moves: processedOpening.moves.slice(0, 4) // First 4 moves for debugging
                 });
 
@@ -365,12 +365,21 @@ class FormController {
         // Build comprehensive configuration object
         return {
             // Opening configuration
-            openings: openings.map(opening => ({
-                name: opening.name,
-                fen: this.convertMovesToFen(opening.moves || []),
-                perspective: 'white', // Default perspective for PGN input
-                priority: opening.priority || 1
-            })),
+            openings: openings.map(opening => {
+                // Calculate perspective based on move count (matches Python logic)
+                const moveCount = opening.moveCount || opening.moves.length;
+                const perspective = moveCount % 2 === 0 ? 'black' : 'white';
+
+                console.log(`    🎯 [FormController] Calculated perspective: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
+
+                return {
+                    name: opening.name,
+                    fen: this.convertMovesToFen(opening.moves || []),
+                    perspective: perspective, // Calculated perspective based on move count
+                    moveCount: moveCount, // Original move count for accurate display
+                    priority: opening.priority || 1
+                };
+            }),
 
             // Lichess API settings
             speeds: this.getSelectedSpeeds(formConfig),

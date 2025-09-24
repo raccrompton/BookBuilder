@@ -101,7 +101,7 @@ class BookBuilder {
         try {
             // Phase 1: Root analysis (replaces Python's Rooter class)
             console.log(`  Phase 1: Root analysis for ${opening.name}`);
-            const rootResults = await this.analyzeRoot(opening.fen, opening.perspective);
+            const rootResults = await this.analyzeRoot(opening.fen, opening.perspective, opening.moveCount);
             this.processingQueue.push(...rootResults);
             console.log(`  Found ${rootResults.length} initial continuations`);
 
@@ -128,9 +128,10 @@ class BookBuilder {
      *
      * @param {string} fen - Starting position in FEN notation
      * @param {string} perspective - Opening perspective ('white' or 'black')
+     * @param {number} moveCount - Number of moves in the original sequence
      * @returns {Array} - Array of initial line objects for processing
      */
-    async analyzeRoot(fen, perspective) {
+    async analyzeRoot(fen, perspective, moveCount) {
         try {
             // Parse initial position
             const success = this.chessEngine.parsePosition(fen);
@@ -140,7 +141,7 @@ class BookBuilder {
 
             const moves = this.chessEngine.getHistory();
 
-            console.log(`    Root analysis: ${moves.length} moves played, perspective: ${perspective}`);
+            console.log(`    Root analysis: ${moveCount} moves played, perspective: ${perspective}`);
 
             // FEN position is already at the final state after all moves - no replay needed
             // The loaded FEN represents the position AFTER all moves have been played
@@ -702,6 +703,23 @@ class BookBuilder {
             console.error(`[BookBuilder] Actual: ${currentFen}`);
         }
         return isConsistent;
+    }
+
+    // ==================== PERSPECTIVE DETERMINATION ====================
+
+    /**
+     * Determine perspective based on move count (matches Python logic exactly)
+     * Python logic: if len(moves) % 2 == 0: perspective = chess.BLACK (black)
+     *              if len(moves) % 2 == 1: perspective = chess.WHITE (white)
+     *
+     * @param {number} moveCount - Number of moves (plies) in the sequence
+     * @returns {string} - 'white' or 'black'
+     */
+    determinePerspective(moveCount) {
+        // Python: even moves = black, odd moves = white
+        const perspective = moveCount % 2 === 0 ? 'black' : 'white';
+        console.log(`    📋 [BookBuilder] Perspective calculation: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
+        return perspective;
     }
 
     // ==================== UTILITY METHODS ====================
