@@ -9,6 +9,7 @@ import BookBuilder from '../BookBuilder.js';
 import LichessClient from '../api/LichessClient.js';
 import StockfishEngine from '../engine/StockfishEngine.js';
 import FileGenerator from './FileGenerator.js';
+import PgnProcessor from '../utils/PgnProcessor.js';
 import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 class FormController {
@@ -64,6 +65,14 @@ class FormController {
         document.querySelectorAll('.form-range').forEach(range => {
             range.addEventListener('input', () => this.updateRangeDisplay(range));
         });
+
+        // PGN input real-time validation and preview
+        const pgnInput = document.getElementById('pgn-input-text');
+        if (pgnInput) {
+            console.log('📝 [DEBUG] PGN input found, adding event listeners');
+            pgnInput.addEventListener('input', () => this.handlePgnInput());
+            pgnInput.addEventListener('blur', () => this.validatePgnInput());
+        }
     }
 
     setupRangeDisplays() {
@@ -302,12 +311,18 @@ class FormController {
     }
 
     convertToBookBuilderConfig(formConfig) {
-        // Parse opening books JSON
+        // Process PGN input
         let openings = [];
         try {
-            openings = JSON.parse(formConfig['opening-books-json'] || '[]');
+            const pgnInput = formConfig['pgn-input-text'] || '';
+            if (pgnInput.trim()) {
+                const processedOpening = PgnProcessor.processPgn(pgnInput);
+                openings = [processedOpening]; // Single opening from PGN
+            } else {
+                throw new Error('PGN input is required');
+            }
         } catch (error) {
-            throw new Error('Invalid opening books JSON format');
+            throw new Error(`PGN processing failed: ${error.message}`);
         }
 
         // Build comprehensive configuration object
@@ -316,7 +331,7 @@ class FormController {
             openings: openings.map(opening => ({
                 name: opening.name,
                 fen: this.convertMovesToFen(opening.moves || []),
-                perspective: opening.perspective || 'white',
+                perspective: 'white', // Default perspective for PGN input
                 priority: opening.priority || 1
             })),
 
@@ -402,6 +417,74 @@ class FormController {
             valueElement.textContent = rangeElement.value;
         }
     }
+
+    // PGN Input Handling Methods
+    handlePgnInput() {
+        const pgnInput = document.getElementById('pgn-input-text');
+        const pgnPreview = document.getElementById('pgn-preview');
+        const pgnPreviewText = document.getElementById('pgn-preview-text');
+
+        if (!pgnInput || !pgnPreview || !pgnPreviewText) return;
+
+        const pgnValue = pgnInput.value.trim();
+
+        if (pgnValue === '') {
+            pgnPreview.style.display = 'none';
+            return;
+        }
+
+        try {
+            // Quick validation and preview generation
+            const validation = PgnProcessor.validatePgn(pgnValue);
+
+            if (validation.isValid) {
+                // Generate preview
+                const processed = PgnProcessor.processPgn(pgnValue);
+                const movesPreview = processed.moves.slice(0, 8).join(' ');
+                const movesSuffix = processed.moves.length > 8 ? '...' : '';
+
+                pgnPreviewText.textContent = `${processed.name}: ${movesPreview}${movesSuffix} (${processed.moves.length} moves)`;
+                pgnPreview.style.display = 'block';
+
+                // Clear any error styling
+                pgnInput.classList.remove('error');
+            } else {
+                pgnPreview.style.display = 'none';
+            }
+        } catch (error) {
+            pgnPreview.style.display = 'none';
+        }
+    }
+
+    validatePgnInput() {
+        const pgnInput = document.getElementById('pgn-input-text');
+        const errorElement = document.getElementById('pgn-input-error');
+
+        if (!pgnInput || !errorElement) return;
+
+        const pgnValue = pgnInput.value.trim();
+
+        if (pgnValue === '') {
+            errorElement.textContent = '';
+            pgnInput.classList.remove('error');
+            return;
+        }
+
+        try {
+            const validation = PgnProcessor.validatePgn(pgnValue);
+
+            if (validation.isValid) {
+                errorElement.textContent = '';
+                pgnInput.classList.remove('error');
+            } else {
+                errorElement.textContent = validation.error;
+                pgnInput.classList.add('error');
+            }
+        } catch (error) {
+            errorElement.textContent = `Validation error: ${error.message}`;
+            pgnInput.classList.add('error');
+        }
+    }
 }
 
 /**
@@ -453,44 +536,44 @@ class ConfigManager {
     validateConfig() {
         const errors = [];
 
-        // Validate opening books JSON (with security limits)
-        const openingBooksJson = document.getElementById('opening-books-json').value;
-        if (openingBooksJson.trim()) {
+        // Validate PGN input (with security limits)
+        const pgnInput = document.getElementById('pgn-input-text').value;
+        if (pgnInput.trim()) {
             try {
-                // Security: Size limit check (100KB for chess openings)
-                if (openingBooksJson.length > 100000) {
-                    errors.push('Opening books JSON too large (max 100KB)');
+                // Security: Size limit check (100KB for PGN)
+                if (pgnInput.length > 100000) {
+                    errors.push('PGN input too large (max 100KB)');
                     return errors; // Don't process further if too large
                 }
 
-                const books = JSON.parse(openingBooksJson);
-                if (!Array.isArray(books)) {
-                    errors.push('Opening books must be an array');
-                } else if (books.length === 0) {
-                    errors.push('At least one opening book is required');
+                // Validate PGN format and content
+                const validation = PgnProcessor.validatePgn(pgnInput);
+                if (!validation.isValid) {
+                    errors.push(`Invalid PGN: ${validation.error}`);
                 } else {
-                    // Validate each opening
-                    books.forEach((book, index) => {
-                        if (!book.name || typeof book.name !== 'string') {
-                            errors.push(`Opening ${index + 1}: name is required`);
-                        }
-                        if (!book.moves || !Array.isArray(book.moves)) {
-                            errors.push(`Opening ${index + 1}: moves array is required`);
-                        }
+                    // Process PGN to check for valid moves
+                    try {
+                        const processed = PgnProcessor.processPgn(pgnInput);
+
                         // Security: Basic structure validation
-                        if (book.name && book.name.length > 100) {
-                            errors.push(`Opening ${index + 1}: name too long (max 100 chars)`);
+                        if (processed.name && processed.name.length > 200) {
+                            errors.push('Opening name too long (max 200 chars)');
                         }
-                        if (book.moves && book.moves.length > 50) {
-                            errors.push(`Opening ${index + 1}: too many moves (max 50)`);
+                        if (processed.moves && processed.moves.length > 100) {
+                            errors.push('Too many moves in PGN (max 100)');
                         }
-                    });
+                        if (processed.moves && processed.moves.length === 0) {
+                            errors.push('PGN must contain at least one move');
+                        }
+                    } catch (processError) {
+                        errors.push(`PGN processing failed: ${processError.message}`);
+                    }
                 }
             } catch (e) {
-                errors.push('Invalid JSON format in opening books');
+                errors.push(`PGN validation error: ${e.message}`);
             }
         } else {
-            errors.push('Opening books configuration is required');
+            errors.push('PGN input is required');
         }
 
         // Validate rating ranges
