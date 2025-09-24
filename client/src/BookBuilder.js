@@ -480,17 +480,33 @@ class BookBuilder {
             let totalGames = 0;
 
             if (stats && stats.white + stats.draws + stats.black > 0) {
-                winRate = this.statisticsEngine.calculateWinRate(
+                const winRateResult = this.statisticsEngine.calculateWinRate(
                     stats.white,
                     stats.draws,
                     stats.black,
                     this.config.DRAWSAREHALF
                 );
                 totalGames = stats.white + stats.draws + stats.black;
+
+                // Extract the correct percentage based on perspective (like MoveSelector does)
+                winRate = lineData.perspective === 'white' ?
+                    winRateResult.whitePerc :
+                    winRateResult.blackPerc;
+
+                // Handle legitimate null results (no games played from position)
+                if (winRate === null || winRate === undefined) {
+                    // This matches Python logic: check for mate or insufficient data
+                    winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
+                }
             } else {
                 // Handle mate positions or insufficient data
                 winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
                 totalGames = this.getFallbackGameCount(lineData);
+            }
+
+            // Validate winRate is a proper number (should not be NaN after proper extraction)
+            if (isNaN(winRate) || !isFinite(winRate)) {
+                throw new Error(`Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
             }
 
             this.finalLines.push({
