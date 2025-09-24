@@ -26,7 +26,7 @@ class BookBuilder {
     constructor(config) {
         // Dependency injection instead of Python's global variables
         this.config = config;
-        this.chessEngine = new ChessEngine();
+        this.chessEngine = new ChessEngine(); // Main engine for root analysis
         this.lichessClient = new LichessClient();
         this.moveSelector = new MoveSelector(config);
         this.statisticsEngine = new Statistics();
@@ -52,8 +52,11 @@ class BookBuilder {
     async processOpening(config) {
         const results = {};
 
-        console.log(`[BOOKBUILDER DEBUG] Starting BookBuilder processing for ${config.openings.length} opening(s)`);
-        console.log(`[BOOKBUILDER DEBUG] Config:`, JSON.stringify(config, null, 2));
+        console.log(`[BookBuilder] ========================================`);
+        console.log(`[BookBuilder] STARTING CHESS ENGINE STATE FIXED VERSION`);
+        console.log(`[BookBuilder] Processing ${config.openings.length} opening(s)`);
+        console.log(`[BookBuilder] Enhanced with move validation & isolated engines`);
+        console.log(`[BookBuilder] ========================================`);
 
         for (let chapter = 1; chapter <= config.openings.length; chapter++) {
             const opening = config.openings[chapter - 1];
@@ -64,12 +67,20 @@ class BookBuilder {
                 const fileName = `Chapter_${chapter}_${opening.name.replace(/\s+/g, '_')}.pgn`;
                 results[fileName] = chapterContent;
 
-                console.log(`Completed Chapter ${chapter}: ${opening.name} - ${this.finalLines.length} lines generated`);
+                console.log(`✅ Completed Chapter ${chapter}: ${opening.name} - ${this.finalLines.length} lines generated`);
             } catch (error) {
-                console.error(`Failed to generate Chapter ${chapter}: ${error.message}`);
+                console.error(`❌ Failed to generate Chapter ${chapter}: ${error.message}`);
                 throw new Error(`Chapter ${chapter} generation failed: ${error.message}`);
             }
         }
+
+        console.log(`[BookBuilder] ========================================`);
+        console.log(`[BookBuilder] 🎉 ALL CHAPTERS COMPLETED SUCCESSFULLY!`);
+        console.log(`[BookBuilder] ✅ Chess engine state fixes implemented`);
+        console.log(`[BookBuilder] ✅ Move validation pipeline active`);
+        console.log(`[BookBuilder] ✅ Engine isolation preventing contamination`);
+        console.log(`[BookBuilder] Generated ${Object.keys(results).length} chapter files`);
+        console.log(`[BookBuilder] ========================================`);
 
         return results;
     }
@@ -188,10 +199,12 @@ class BookBuilder {
 
             console.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
 
-            // Process batch in parallel to optimize performance
+            // Process batch in parallel with isolated engines for each line
+            console.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines with isolated engines`);
             const batchResults = await Promise.all(
                 currentBatch.map(line => this.expandLine(line))
             );
+            console.log(`[BookBuilder] Batch processing completed, engines cleaned up`);
 
             // Add new lines to queue (flattened and filtered)
             const newLines = batchResults.flat().filter(Boolean);
@@ -220,12 +233,26 @@ class BookBuilder {
     async expandLine(lineData) {
         const { fen, pgn, cumulativeLikelihood, likelihoodPath, perspective } = lineData;
 
+        // **CREATE ISOLATED ENGINE INSTANCE**
+        const isolatedEngine = this.createIsolatedEngine();
+        console.log(`[BookBuilder] Created isolated engine for line expansion`);
+
         try {
-            // Parse position and get continuations
-            const success = this.chessEngine.parsePosition(fen);
+            // Parse position with enhanced debugging using isolated engine
+            console.log(`[BookBuilder] Expanding line with FEN: ${fen}`);
+            const success = isolatedEngine.parsePositionWithDebug(fen);
             if (!success) {
                 throw new Error(`Invalid FEN: ${fen}`);
             }
+
+            // Validate engine state consistency
+            if (!this.validateEngineState(isolatedEngine, fen)) {
+                throw new Error(`Engine state inconsistency after loading FEN: ${fen}`);
+            }
+
+            // Get initial position debug info
+            const initialPosition = isolatedEngine.debugPosition();
+            console.log(`[BookBuilder] Initial position state:`, initialPosition);
 
             // Find opponent continuations
             const continuations = await this.lichessClient.getPositionStats(fen);
@@ -254,22 +281,35 @@ class BookBuilder {
 
             for (const move of validContinuations) {
                 try {
-                    // Make opponent's move
-                    const moveResult = this.chessEngine.makeMove(move.san);
-                    if (!moveResult) {
-                        console.warn(`Invalid opponent move: ${move.san}`);
+                    // **ENHANCED MOVE VALIDATION PIPELINE**
+                    console.log(`[BookBuilder] Processing opponent move: ${move.san}`);
+                    console.log(`[BookBuilder] Position before move:`, isolatedEngine.debugPosition());
+
+                    // Validate move against current legal moves
+                    if (!isolatedEngine.validateMoveBeforeExecution(move.san)) {
+                        console.warn(`[BookBuilder] Skipping invalid opponent move: ${move.san}`);
+                        console.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
                         continue;
                     }
 
-                    const newFen = this.chessEngine.getFen();
+                    // Make opponent's move with enhanced validation
+                    const moveResult = isolatedEngine.makeMove(move.san);
+                    if (!moveResult) {
+                        console.warn(`[BookBuilder] Move execution failed for: ${move.san}`);
+                        continue;
+                    }
+
+                    console.log(`[BookBuilder] Opponent move ${move.san} executed successfully:`, moveResult);
+
+                    const newFen = isolatedEngine.getFen();
 
                     // Find our best response
                     const positionData = await this.lichessClient.getPositionStats(newFen);
 
                     if (!positionData || !positionData.moves || positionData.moves.length === 0) {
                         // No candidate moves available - try engine completion or finalize
-                        this.chessEngine.undoMove(); // Undo opponent's move
-                        const completed = await this.handleNoGoodResponse(lineData, move, newFen);
+                        isolatedEngine.undoMove(); // Undo opponent's move
+                        const completed = await this.handleNoGoodResponse(lineData, move, newFen, isolatedEngine);
                         if (completed) {
                             newLines.push(completed);
                         }
@@ -284,15 +324,29 @@ class BookBuilder {
                     );
 
                     if (bestResponse && this.isValidResponse(bestResponse, move)) {
-                        // Make our response
-                        const ourMoveResult = this.chessEngine.makeMove(bestResponse.san);
-                        if (!ourMoveResult) {
-                            console.warn(`Invalid our move: ${bestResponse.san}`);
-                            this.chessEngine.undoMove(); // Undo opponent's move
+                        // **VALIDATE OUR RESPONSE MOVE**
+                        console.log(`[BookBuilder] Processing our response move: ${bestResponse.san}`);
+                        console.log(`[BookBuilder] Position before our move:`, isolatedEngine.debugPosition());
+
+                        // Validate our response move
+                        if (!isolatedEngine.validateMoveBeforeExecution(bestResponse.san)) {
+                            console.warn(`[BookBuilder] Skipping invalid response move: ${bestResponse.san}`);
+                            console.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
+                            isolatedEngine.undoMove(); // Undo opponent's move
                             continue;
                         }
 
-                        const finalFen = this.chessEngine.getFen();
+                        // Make our response
+                        const ourMoveResult = isolatedEngine.makeMove(bestResponse.san);
+                        if (!ourMoveResult) {
+                            console.warn(`[BookBuilder] Our move execution failed: ${bestResponse.san}`);
+                            isolatedEngine.undoMove(); // Undo opponent's move
+                            continue;
+                        }
+
+                        console.log(`[BookBuilder] Our response move ${bestResponse.san} executed successfully:`, ourMoveResult);
+
+                        const finalFen = isolatedEngine.getFen();
 
                         const newLikelihoodPath = [...likelihoodPath, {
                             san: move.san,
@@ -310,13 +364,13 @@ class BookBuilder {
                         });
 
                         // Undo both moves to restore original position
-                        this.chessEngine.undoMove(); // Undo our move
-                        this.chessEngine.undoMove(); // Undo opponent's move
+                        isolatedEngine.undoMove(); // Undo our move
+                        isolatedEngine.undoMove(); // Undo opponent's move
 
                     } else {
                         // No good response - try engine completion or finalize
-                        this.chessEngine.undoMove(); // Undo opponent's move
-                        const completed = await this.handleNoGoodResponse(lineData, move, newFen);
+                        isolatedEngine.undoMove(); // Undo opponent's move
+                        const completed = await this.handleNoGoodResponse(lineData, move, newFen, isolatedEngine);
                         if (completed) {
                             newLines.push(completed);
                         }
@@ -332,8 +386,11 @@ class BookBuilder {
 
         } catch (error) {
             console.warn(`Error expanding line: ${error.message}`);
-            await this.finalizeLine(lineData);
+            await this.finalizeLine(lineData, isolatedEngine);
             return [];
+        } finally {
+            // Engine cleanup logging
+            console.log(`[BookBuilder] Completed line expansion, isolated engine discarded`);
         }
     }
 
@@ -343,10 +400,11 @@ class BookBuilder {
      *
      * @param {Object} lineData - Current line data
      * @param {Object} opponentMove - Opponent's move object
-     * @param {Object} position - Chess position after opponent's move
+     * @param {string} positionFen - FEN of chess position after opponent's move
+     * @param {ChessEngine} engine - Isolated chess engine instance
      * @returns {Object|null} - New line object or null if line should be finalized
      */
-    async handleNoGoodResponse(lineData, opponentMove, positionFen) {
+    async handleNoGoodResponse(lineData, opponentMove, positionFen, engine = null) {
         if (this.config.ENGINEFINISH && this.stockfishEngine) {
             try {
                 const engineMove = await this.stockfishEngine.getBestMove(
@@ -408,11 +466,14 @@ class BookBuilder {
      * Finalize a line and add it to the final lines collection
      *
      * @param {Object} lineData - Line data to finalize
+     * @param {ChessEngine} engine - Optional isolated engine instance
      */
-    async finalizeLine(lineData) {
+    async finalizeLine(lineData, engine = null) {
+        // Use provided engine or fall back to main engine
+        const chessEngine = engine || this.chessEngine;
         try {
             // Load the position into the chess engine
-            this.chessEngine.loadPosition(lineData.fen);
+            chessEngine.loadPosition(lineData.fen);
             const stats = await this.lichessClient.getPositionStats(lineData.fen);
 
             let winRate = 0;
@@ -497,6 +558,34 @@ class BookBuilder {
         }
 
         return pgnContent.join('\n\n');
+    }
+
+    // ==================== ENGINE MANAGEMENT METHODS ====================
+
+    /**
+     * Create an isolated chess engine instance for line expansion
+     * Prevents state contamination between parallel processing
+     * @returns {ChessEngine} - Fresh chess engine instance
+     */
+    createIsolatedEngine() {
+        return new ChessEngine();
+    }
+
+    /**
+     * Validate engine state consistency
+     * @param {ChessEngine} engine - Engine to validate
+     * @param {string} expectedFen - Expected FEN position
+     * @returns {boolean} - True if state is consistent
+     */
+    validateEngineState(engine, expectedFen) {
+        const currentFen = engine.getFen();
+        const isConsistent = currentFen === expectedFen;
+        if (!isConsistent) {
+            console.error(`[BookBuilder] Engine state inconsistency!`);
+            console.error(`[BookBuilder] Expected: ${expectedFen}`);
+            console.error(`[BookBuilder] Actual: ${currentFen}`);
+        }
+        return isConsistent;
     }
 
     // ==================== UTILITY METHODS ====================

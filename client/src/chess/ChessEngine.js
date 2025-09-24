@@ -81,12 +81,39 @@ export class ChessEngine {
     }
 
     /**
-   * Make a move on the board
+   * Validate if a move is legal before execution
+   * @param {string} moveString - Move in SAN notation (e.g., 'Nf3', 'e4')
+   * @returns {boolean} - True if move is legal in current position
+   */
+    validateMoveBeforeExecution(moveString) {
+        try {
+            const legalMoves = this.chess.moves();
+            const isLegal = legalMoves.includes(moveString);
+            if (!isLegal) {
+                console.error(`[ChessEngine] Move validation failed: ${moveString} not in legal moves:`, legalMoves);
+            }
+            return isLegal;
+        } catch (error) {
+            console.error(`[ChessEngine] Error validating move ${moveString}:`, error);
+            return false;
+        }
+    }
+
+    /**
+   * Make a move on the board with enhanced validation
    * @param {Object|string} move - Move in object form or SAN
    * @returns {Object} - Result object with success flag and move data or error
    */
     makeMove(move) {
         try {
+            // For string moves, validate before attempting
+            if (typeof move === 'string') {
+                if (!this.validateMoveBeforeExecution(move)) {
+                    console.error(`[ChessEngine] Pre-validation failed for move: ${move}`);
+                    return null;
+                }
+            }
+
             const moveResult = this.chess.move(move);
             if (moveResult) {
                 return moveResult; // Return the move object directly like python-chess
@@ -177,6 +204,50 @@ export class ChessEngine {
    */
     getPgn() {
         return this.chess.pgn();
+    }
+
+    /**
+   * Debug method to get comprehensive position information
+   * @returns {Object} - Complete position state for debugging
+   */
+    debugPosition() {
+        try {
+            return {
+                fen: this.chess.fen(),
+                legalMoves: this.chess.moves(),
+                turn: this.chess.turn(),
+                inCheck: this.chess.inCheck(),
+                isCheckmate: this.chess.isCheckmate(),
+                isStalemate: this.chess.isStalemate(),
+                isDraw: this.chess.isDraw(),
+                moveHistory: this.chess.history(),
+                moveNumber: this.chess.moveNumber ? this.chess.moveNumber() : 'N/A'
+            };
+        } catch (error) {
+            console.error('[ChessEngine] Error getting debug position:', error);
+            return {
+                error: error.message,
+                fen: 'ERROR',
+                legalMoves: []
+            };
+        }
+    }
+
+    /**
+   * Enhanced position parsing with debugging
+   * @param {string} fen - FEN string representing the position
+   * @returns {boolean} - True if position loaded successfully
+   */
+    parsePositionWithDebug(fen) {
+        console.log(`[ChessEngine] Loading position: ${fen}`);
+        const success = this.parsePosition(fen);
+        if (success) {
+            const debug = this.debugPosition();
+            console.log(`[ChessEngine] Position loaded successfully:`, debug);
+        } else {
+            console.error(`[ChessEngine] Failed to load position: ${fen}`);
+        }
+        return success;
     }
 }
 
