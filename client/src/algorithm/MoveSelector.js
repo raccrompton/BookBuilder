@@ -5,6 +5,8 @@
  * matching the Python legacy system's move selection logic.
  */
 
+import { DeterministicMode } from '../config/DeterministicMode.js';
+
 class MoveSelector {
     constructor(config = {}) {
         this.config = {
@@ -58,7 +60,14 @@ class MoveSelector {
         }
 
         if (viableCandidates.length === 0) {
-            // If no moves pass engine filtering, fall back to statistical selection
+            // When CAREABOUTENGINE=1 and no moves pass engine validation, this is problematic
+            if (this.config.CAREABOUTENGINE === 1 && engineAnalysis) {
+                DeterministicMode.throwOnFailure(
+                    false,
+                    `No moves passed engine validation despite CAREABOUTENGINE=1. Engine rejected all ${qualityCandidates.length} candidate moves.`
+                );
+            }
+            // Fall back to statistical selection only if engine analysis wasn't required
             viableCandidates = qualityCandidates;
         }
 
