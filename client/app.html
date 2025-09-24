@@ -286,6 +286,20 @@
             border-color: var(--danger-color);
         }
 
+        .pgn-preview {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 0.5rem;
+            color: #166534;
+            font-size: 0.875rem;
+        }
+
+        .pgn-preview strong {
+            color: #15803d;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 1rem;
@@ -315,41 +329,40 @@
         </div>
 
         <form id="bookbuilder-form" class="form-container">
-            <!-- Opening Books Section -->
-            <div class="form-section-container" id="opening-books">
+            <!-- PGN Input Section -->
+            <div class="form-section-container" id="pgn-input">
                 <div class="form-section">
-                    <h2 class="section-title">📚 Opening Books Configuration</h2>
-                    
+                    <h2 class="section-title">♟️ Chess Game (PGN Format)</h2>
+
                     <div class="form-group">
-                        <label class="form-label" for="opening-books-json">
-                            Opening Books (JSON Format)
+                        <label class="form-label" for="pgn-input-text">
+                            Paste Your Chess Game (PGN)
                         </label>
-                        <textarea 
-                            id="opening-books-json" 
-                            class="form-textarea" 
-                            placeholder='[
-  {
-    "name": "Sicilian Defense",
-    "moves": ["e4", "c5"],
-    "priority": 1
-  },
-  {
-    "name": "French Defense", 
-    "moves": ["e4", "e6"],
-    "priority": 2
-  }
-]'
-                            rows="10"
+                        <textarea
+                            id="pgn-input-text"
+                            class="form-textarea"
+                            placeholder='[Event "Rated Blitz game"]
+[Site "https://lichess.org/"]
+[Date "2023.12.01"]
+[White "Player1"]
+[Black "Player2"]
+[Result "1-0"]
+[WhiteElo "1850"]
+[BlackElo "1820"]
+[Opening "Sicilian Defense: Accelerated Dragon"]
+
+1. e4 c5 2. Nf3 g6 3. d4 cxd4 4. Nxd4 Bg7 5. Be3 Nc6 6. c4 f5
+7. Nc3 Nf6 8. exf5 gxf5 9. Be2 O-O 10. O-O e5 *'
+                            rows="12"
                         ></textarea>
                         <div class="form-help">
-                            Define your opening repertoire in JSON format. Each opening should have a name, sequence of moves, and priority.
+                            Paste a single PGN game. The system will automatically extract the mainline moves for repertoire generation.
                         </div>
-                        <div class="validation-error" id="opening-books-error"></div>
+                        <div class="validation-error" id="pgn-input-error"></div>
+                        <div class="pgn-preview" id="pgn-preview" style="display: none;">
+                            <strong>Preview:</strong> <span id="pgn-preview-text"></span>
+                        </div>
                     </div>
-
-
-
-
                 </div>
             </div>
 
