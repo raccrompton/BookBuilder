@@ -10,7 +10,6 @@ import LichessClient from '../api/LichessClient.js';
 import StockfishEngine from '../engine/StockfishEngine.js';
 import FileGenerator from './FileGenerator.js';
 import PgnProcessor from '../utils/PgnProcessor.js';
-import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 class FormController {
     constructor() {
@@ -374,7 +373,7 @@ class FormController {
 
                 return {
                     name: opening.name,
-                    fen: this.convertMovesToFen(opening.moves || []),
+                    moves: opening.moves || [], // Original move sequence for iterative approach
                     perspective: perspective, // Calculated perspective based on move count
                     moveCount: moveCount, // Original move count for accurate display
                     priority: opening.priority || 1
@@ -422,40 +421,6 @@ class FormController {
 
     // getSelectedVariants method removed - always use standard chess
 
-    convertMovesToFen(moves) {
-        console.log('🔧 [DEBUG] Converting moves to FEN:', moves);
-        
-        if (!moves || moves.length === 0) {
-            console.log('📍 [DEBUG] No moves provided, returning starting position');
-            return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-        }
-
-        try {
-            // Use chess.js to play through the moves and get resulting FEN
-            const chess = new Chess();
-            
-            // Play each move in sequence
-            for (let i = 0; i < moves.length; i++) {
-                const move = moves[i];
-                console.log(`🎯 [DEBUG] Playing move ${i + 1}: ${move}`);
-                
-                const moveResult = chess.move(move);
-                if (!moveResult) {
-                    console.error(`❌ [DEBUG] Invalid move: ${move} at position ${i + 1}`);
-                    // Return starting position if any move is invalid
-                    return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-                }
-            }
-            
-            const resultFen = chess.fen();
-            console.log('✅ [DEBUG] Successfully converted moves to FEN:', resultFen);
-            return resultFen;
-            
-        } catch (error) {
-            console.error('💥 [DEBUG] Error converting moves to FEN:', error);
-            return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-        }
-    }
 
     updateRangeDisplay(rangeElement) {
         const valueElement = document.getElementById(rangeElement.id + '-value');

@@ -101,7 +101,7 @@ class BookBuilder {
         try {
             // Phase 1: Root analysis (replaces Python's Rooter class)
             console.log(`  Phase 1: Root analysis for ${opening.name}`);
-            const rootResults = await this.analyzeRoot(opening.fen, opening.perspective, opening.moveCount);
+            const rootResults = await this.analyzeRoot(opening.moves || [], opening.perspective);
             this.processingQueue.push(...rootResults);
             console.log(`  Found ${rootResults.length} initial continuations`);
 
@@ -124,111 +124,92 @@ class BookBuilder {
 
     /**
      * Root analysis method (replaces Python's Rooter class)
-     * Analyzes the starting position and determines initial valid continuations
+     * Analyzes the move sequence and determines initial valid continuations
      *
-     * @param {string} fen - Starting position in FEN notation
+     * This method now implements the Python iterative approach, calculating
+     * cumulative likelihood by tracking opponent move probabilities only.
+     *
+     * @param {Array} moveSequence - Array of moves in SAN notation (e.g., ['e4', 'e5', 'Nf3'])
      * @param {string} perspective - Opening perspective ('white' or 'black')
-     * @param {number} moveCount - Number of moves in the original sequence
      * @returns {Array} - Array of initial line objects for processing
      */
-    async analyzeRoot(fen, perspective, moveCount) {
+    async analyzeRoot(moveSequence, perspective) {
         try {
-            // Parse initial position
-            const success = this.chessEngine.parsePosition(fen);
+            // Start from the initial chess position
+            const success = this.chessEngine.parsePosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
             if (!success) {
-                throw new Error(`Invalid starting position: ${fen}`);
+                throw new Error(`Failed to initialize starting position`);
             }
 
-            console.log(`    Root analysis: ${moveCount} moves played, perspective: ${perspective}`);
-            console.log(`    Using FEN position directly: ${fen}`);
+            console.log(`    Root analysis: ${moveSequence.length} moves in sequence, perspective: ${perspective}`);
+            console.log(`    Move sequence:`, moveSequence);
 
-            // CRITICAL FIX: Calculate cumulative likelihood from actual move sequence
-            // The original PGN sequence needs to be reconstructed for opponent move probability calculation
+            // Initialize probability tracking
             let cumulativeLikelihood = 1.0;
             let likelihoodPath = [];
 
-            // For positions that are not the starting position, we need to calculate 
-            // the probability path that led to this position
-            if (moveCount > 0) {
-                console.log(`    Calculating cumulative likelihood from reconstructed move sequence`);
-                
-                // IMPLEMENTATION: We need to reconstruct or obtain the move sequence
-                // For the test case "e4 e5", we know this FEN represents that position
-                // This is the critical missing piece - we need the actual move sequence
-                
-                // TEMPORARY FIX: For testing purposes, handle known test scenarios
-                if (fen === 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2') {
-                    // This is the FEN after 1.e4 e5 - calculate e5 playrate
-                    console.log(`    Recognized e4 e5 position, calculating e5 playrate`);
-                    
-                    try {
-                        // Get stats for position after 1.e4
-                        const e4PositionFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
-                        const positionStats = await this.lichessClient.getPositionStats(e4PositionFen);
-                        
-                        if (positionStats && positionStats.moves) {
-                            // Find e5 move in the response
-                            const e5Move = positionStats.moves.find(m => m.san === 'e5' || m.uci === 'e7e5');
-                            
-                            if (e5Move) {
-                                const chance = e5Move.playrate;
-                                cumulativeLikelihood = chance; // Only one opponent move (e5)
-                                likelihoodPath.push({
-                                    san: 'e5',
-                                    playrate: chance
-                                });
-                                console.log(`    e5 probability: ${chance?.toFixed(6)}, cumulative: ${cumulativeLikelihood?.toFixed(6)}`);
-                            } else {
-                                console.warn(`    e5 move not found in position stats, using default probability 0.4`);
-                                cumulativeLikelihood = 0.4; // Reasonable default for e5 response
-                                likelihoodPath.push({
-                                    san: 'e5', 
-                                    playrate: 0.4
-                                });
-                            }
-                        } else {
-                            console.warn(`    No position stats available for e4 position, using default probability 0.4`);
-                            cumulativeLikelihood = 0.4;
-                            likelihoodPath.push({
-                                san: 'e5',
-                                playrate: 0.4
-                            });
+            // Convert perspective to engine format for comparison
+            const ourPerspectiveColor = perspective === 'white' ? 'w' : 'b';
+
+            console.log(`    Calculating cumulative likelihood using Python iterative approach`);
+            console.log(`    Our perspective: ${perspective} (${ourPerspectiveColor}), tracking opponent moves only`);
+
+            // Iterate through each move in the sequence (Python Rooter approach)
+            if (moveSequence.length > 0) {
+                // Iterate through each move in the sequence (exact Python logic)
+                for (let i = 0; i < moveSequence.length; i++) {
+                    const move = moveSequence[i];
+                    const currentTurn = this.chessEngine.getTurn();
+
+                    console.log(`    Move ${i + 1}: ${move}, current turn: ${currentTurn}, our perspective: ${ourPerspectiveColor}`);
+
+                    // Check if this is an opponent's move (matches Python: if board.turn != perspective)
+                    if (currentTurn !== ourPerspectiveColor) {
+                        console.log(`      → This is opponent's move, calculating probability`);
+
+                        // Get position stats for current position (only for opponent moves)
+                        const currentFen = this.chessEngine.getFen();
+                        const positionStats = await this.lichessClient.getPositionStats(currentFen);
+
+                        if (!positionStats || !positionStats.moves) {
+                            throw new Error(`Failed to get position stats for opponent move ${move} at FEN: ${currentFen}`);
                         }
-                    } catch (error) {
-                        console.warn(`    Error calculating e5 playrate: ${error.message}, using default 0.4`);
-                        cumulativeLikelihood = 0.4;
+
+                        // Find this move in the stats (equivalent to Python's find_opponent_move)
+                        const moveProb = this.findMoveInStats(move, positionStats.moves);
+
+                        if (moveProb === null) {
+                            throw new Error(`Opponent move ${move} not found in Lichess database at position: ${currentFen}`);
+                        }
+
+                        cumulativeLikelihood *= moveProb;
                         likelihoodPath.push({
-                            san: 'e5',
-                            playrate: 0.4
+                            san: move,
+                            playrate: moveProb
                         });
+                        console.log(`      → Move probability: ${moveProb}, cumulative: ${cumulativeLikelihood}`);
+                    } else {
+                        console.log(`      → This is our move, skipping probability calculation (100%)`);
                     }
-                } else {
-                    // For other positions, we need a more general solution
-                    // TODO: Implement full move sequence reconstruction
-                    console.warn(`    Move sequence reconstruction not implemented for FEN: ${fen}`);
-                    console.warn(`    Using estimated probability based on moveCount: ${moveCount}`);
-                    
-                    // Rough estimate based on typical opening move probabilities
-                    const estimatedProbability = Math.pow(0.3, Math.floor(moveCount / 2)); // Each opponent move ~30% likely
-                    cumulativeLikelihood = estimatedProbability;
-                    
-                    // Create placeholder likelihood path
-                    for (let i = 1; i <= Math.floor(moveCount / 2); i++) {
-                        likelihoodPath.push({
-                            san: `move${i}`,
-                            playrate: 0.3
-                        });
+
+                    // Make the move on the board (equivalent to Python's board.push(move))
+                    const moveResult = this.chessEngine.makeMove(move);
+                    if (!moveResult) {
+                        throw new Error(`Failed to make move: ${move} at position ${i + 1}`);
                     }
+
+                    console.log(`      → Move ${move} executed successfully`);
                 }
-                
-                console.log(`    Final cumulative likelihood: ${cumulativeLikelihood?.toFixed(6)}`);
-                console.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate?.toFixed(3)})`).join(' '));
             } else {
-                console.log(`    Starting position (moveCount=0), using cumulative likelihood: 1.0`);
+                console.log(`    Starting position (no moves), using cumulative likelihood: 1.0`);
             }
 
-            // Use the loaded FEN as the final position for analysis
-            const finalFen = fen;
+            console.log(`    Final cumulative likelihood: ${cumulativeLikelihood}`);
+            console.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate})`).join(' '));
+            console.log(`    Opponent moves tracked: ${likelihoodPath.length}, Our moves skipped: ${moveSequence.length - likelihoodPath.length}`);
+
+            // Use the final position after all moves for continuation analysis
+            const finalFen = this.chessEngine.getFen();
             const positionStats = await this.lichessClient.getPositionStats(finalFen);
             const validLines = [];
 
@@ -805,6 +786,20 @@ class BookBuilder {
     }
 
     // ==================== UTILITY METHODS ====================
+
+    /**
+     * Find move probability in Lichess position stats
+     * Equivalent to Python's WorkerPlay.find_opponent_move()
+     *
+     * @param {string} move - Move in SAN notation (e.g., 'e4', 'Nf3')
+     * @param {Array} moves - Array of move stats from LichessClient (includes playrate)
+     * @returns {number|null} - Move playrate or null if not found
+     */
+    findMoveInStats(move, moves) {
+        // LichessClient already provides both 'san' and 'uci' fields, plus calculated 'playrate'
+        const moveStats = moves.find(m => m.san === move || m.uci === move);
+        return moveStats ? moveStats.playrate : null;
+    }
 
     /**
      * Check if a continuation meets the minimum thresholds
