@@ -5,7 +5,37 @@
  * mainline moves for chess opening repertoire generation.
  */
 
-import * as PgnParser from '/node_modules/@mliebelt/pgn-parser/lib/index.umd.js';
+// Use a script tag to load the UMD module globally
+let pgnParser = null;
+
+async function loadParser() {
+    if (pgnParser) {
+        return pgnParser;
+    }
+
+    return new Promise((resolve, reject) => {
+        // Check if already loaded globally
+        if (window.PgnParser && window.PgnParser.parse) {
+            pgnParser = window.PgnParser;
+            resolve(pgnParser);
+            return;
+        }
+
+        // Load via script tag
+        const script = document.createElement('script');
+        script.src = '/node_modules/@mliebelt/pgn-parser/lib/index.umd.js';
+        script.onload = () => {
+            if (window.PgnParser && window.PgnParser.parse) {
+                pgnParser = window.PgnParser;
+                resolve(pgnParser);
+            } else {
+                reject(new Error('PGN parser not found after loading'));
+            }
+        };
+        script.onerror = () => reject(new Error('Failed to load PGN parser script'));
+        document.head.appendChild(script);
+    });
+}
 
 class PgnProcessor {
     /**
@@ -13,7 +43,7 @@ class PgnProcessor {
      * @param {string} pgnString - The PGN input string
      * @returns {Object} Opening object with name, moves, and priority
      */
-    static processPgn(pgnString) {
+    static async processPgn(pgnString) {
         try {
             if (!pgnString || typeof pgnString !== 'string' || pgnString.trim() === '') {
                 throw new Error('PGN input is empty or invalid');
@@ -23,7 +53,11 @@ class PgnProcessor {
             const normalizedPgn = this.preprocessPgn(pgnString.trim());
 
             // Parse the PGN using mliebelt's parser
-            const game = PgnParser.parse(normalizedPgn, { startRule: "game" });
+            const parser = await loadParser();
+            if (!parser || !parser.parse) {
+                throw new Error('Failed to load PGN parser');
+            }
+            const game = parser.parse(normalizedPgn, { startRule: "game" });
 
             if (!game) {
                 throw new Error('Failed to parse PGN - invalid format');
@@ -138,7 +172,7 @@ class PgnProcessor {
      * @param {string} pgnString - The PGN input string
      * @returns {Object} Validation result with isValid boolean and error message
      */
-    static validatePgn(pgnString) {
+    static async validatePgn(pgnString) {
         try {
             if (!pgnString || typeof pgnString !== 'string') {
                 return { isValid: false, error: 'PGN input is required' };
@@ -149,17 +183,22 @@ class PgnProcessor {
                 return { isValid: false, error: 'PGN input cannot be empty' };
             }
 
-            // Quick validation - check for basic PGN structure
+            // Check for weak PGN format first (like "e4 e5")
             const hasHeaders = /\[\s*\w+\s*"[^"]*"\s*\]/.test(trimmed);
             const hasMoves = /\b[1-9]\d*\.\s*[a-zA-Z]/.test(trimmed);
+            const hasWeakMoves = /^[a-zA-Z][a-zA-Z0-9+#=\-]*(\s+[a-zA-Z][a-zA-Z0-9+#=\-]*)*\s*$/.test(trimmed);
 
-            if (!hasHeaders && !hasMoves) {
+            if (!hasHeaders && !hasMoves && !hasWeakMoves) {
                 return { isValid: false, error: 'Invalid PGN format - missing headers and moves' };
             }
 
             // Try actual parsing for more thorough validation
             const normalizedPgn = this.preprocessPgn(trimmed);
-            const game = PgnParser.parse(normalizedPgn, { startRule: "game" });
+            const parser = await loadParser();
+            if (!parser || !parser.parse) {
+                return { isValid: false, error: 'Failed to load PGN parser' };
+            }
+            const game = parser.parse(normalizedPgn, { startRule: "game" });
             if (!game) {
                 return { isValid: false, error: 'PGN parsing failed - invalid syntax' };
             }
