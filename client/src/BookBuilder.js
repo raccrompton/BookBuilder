@@ -131,29 +131,10 @@ class BookBuilder {
 
             console.log(`    Root analysis: ${moves.length} moves played, perspective: ${perspective}`);
 
-            // CRITICAL FIX: Apply ALL moves from the parsed position to reach final position
-            // This matches Python Rooter behavior: board.push(move) for each move
-            if (moves.length > 0) {
-                console.log(`    Applying ${moves.length} historical moves to reach final position`);
-                for (let i = 0; i < moves.length; i++) {
-                    const move = moves[i];
-                    const currentTurn = this.chessEngine.getTurn();
-                    console.log(`    Move ${i + 1}: ${move} (${currentTurn} to move)`);
-
-                    const moveResult = this.chessEngine.makeMove(move);
-                    if (!moveResult) {
-                        const currentFen = this.chessEngine.getFen();
-                        throw new Error(`Failed to apply historical move ${move} at position ${i + 1}. Current FEN: ${currentFen}`);
-                    }
-                }
-                console.log(`    Successfully applied all ${moves.length} moves`);
-            } else {
-                console.log(`    No historical moves to apply - using starting position`);
-            }
-
-            // Get continuations from FINAL position after applying all moves (not starting position)
+            // FEN position is already at the final state after all moves - no replay needed
+            // The loaded FEN represents the position AFTER all moves have been played
             const finalFen = this.chessEngine.getFen();
-            console.log(`    Final position FEN: ${finalFen}`);
+            console.log(`    Using FEN position directly: ${finalFen}`);
 
             const positionStats = await this.lichessClient.getPositionStats(finalFen);
             const validLines = [];
@@ -283,9 +264,9 @@ class BookBuilder {
                     const newFen = this.chessEngine.getFen();
 
                     // Find our best response
-                    const candidates = await this.lichessClient.getMoveStats(newFen);
+                    const positionData = await this.lichessClient.getPositionStats(newFen);
 
-                    if (!candidates || candidates.length === 0) {
+                    if (!positionData || !positionData.moves || positionData.moves.length === 0) {
                         // No candidate moves available - try engine completion or finalize
                         this.chessEngine.undoMove(); // Undo opponent's move
                         const completed = await this.handleNoGoodResponse(lineData, move, newFen);
@@ -297,7 +278,7 @@ class BookBuilder {
 
                     const bestResponse = await this.moveSelector.selectBestMove(
                         newFen,
-                        candidates,
+                        positionData.moves,
                         this.lichessClient,
                         this.statisticsEngine
                     );
