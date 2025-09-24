@@ -276,6 +276,79 @@ class PgnGenerator {
     }
 
     /**
+   * Generate a complete PGN line entry for testing and output
+   * @param {Object} lineData - Line data with pgn, cumulativeLikelihood, likelihoodPath, winRate, totalGames
+   * @param {number} lineNumber - Line number within opening
+   * @param {string} openingName - Name of the opening
+   * @param {Object} config - Configuration object with DRAWSAREHALF setting
+   * @returns {string} Complete PGN line entry
+   */
+    generateLineEntry(lineData, lineNumber, openingName, config) {
+        // Generate event header
+        const eventHeader = `[Event "${openingName} Line ${lineNumber}"]`;
+
+        // Use the PGN moves from lineData
+        const moveSequence = lineData.pgn || '';
+
+        // Generate move playrates annotations
+        let annotations = '{Move playrates:\n';
+
+        // Add individual move playrates from likelihoodPath
+        if (lineData.likelihoodPath && lineData.likelihoodPath.length > 0) {
+            for (const move of lineData.likelihoodPath) {
+                if (move.playrate !== undefined) {
+                    const playrateFormatted = this.formatPercentage(move.playrate);
+                    annotations += `${playrateFormatted}\t${move.san}\n`;
+                }
+            }
+        }
+
+        // Add line cumulative playrate
+        if (lineData.cumulativeLikelihood !== undefined) {
+            const cumulativeFormatted = this.formatPercentage(lineData.cumulativeLikelihood);
+            annotations += `Line cumulative playrate: ${cumulativeFormatted}\n`;
+        }
+
+        // Add line winrate information
+        if (lineData.winRate !== undefined && lineData.totalGames !== undefined) {
+            const winrateFormatted = this.formatPercentage(lineData.winRate);
+            const gamesFormatted = this.formatGameCount(lineData.totalGames);
+
+            let winrateDescription;
+            if (config.DRAWSAREHALF === 0) {
+                winrateDescription = 'Line winrate (excluding draws)';
+            } else {
+                winrateDescription = 'Line winrate (draws are half)';
+            }
+
+            annotations += `${winrateDescription}: ${winrateFormatted} over ${gamesFormatted} games`;
+        }
+
+        annotations += '}';
+
+        return `${eventHeader}\n\n${moveSequence}\n${annotations}`;
+    }
+
+    /**
+   * Format a decimal value as a percentage with + prefix
+   * @param {number} value - Decimal value (0-1)
+   * @returns {string} Formatted percentage (e.g., "+25.83%")
+   */
+    formatPercentage(value) {
+        const percentage = (value * 100).toFixed(2);
+        return `+${percentage}%`;
+    }
+
+    /**
+   * Format game count as string
+   * @param {number} count - Game count
+   * @returns {string} Formatted game count
+   */
+    formatGameCount(count) {
+        return count.toString();
+    }
+
+    /**
    * Validate PGN format
    * @param {string} pgn - PGN content to validate
    * @returns {Object} Validation result

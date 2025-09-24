@@ -100,7 +100,21 @@ describe('BookBuilder Algorithmic Simulation Tests', () => {
             expect(Object.keys(results)).toContain('Chapter_1_Ruy_Lopez.pgn');
             
             const pgnContent = results['Chapter_1_Ruy_Lopez.pgn'];
-            
+
+            // DEBUG: Use failing assertion to show debug data
+            const debugInfo = {
+                resultsKeys: Object.keys(results),
+                pgnLength: pgnContent?.length || 0,
+                apiCallCount: mockLichessClient.apiCallCount,
+                finalLinesCount: bookBuilder.finalLines.length,
+                samplePgnContent: pgnContent?.substring(0, 100) || 'EMPTY'
+            };
+
+            // Temporary debug assertion - remove this line once fixed
+            if (pgnContent === '') {
+                throw new Error(`DEBUG INFO: ${JSON.stringify(debugInfo, null, 2)}`);
+            }
+
             // Validate algorithm produced correct output structure
             expect(pgnContent).toContain('[Event "Ruy Lopez Line');
             expect(pgnContent).toContain('1. e4 e5');
@@ -142,15 +156,15 @@ describe('BookBuilder Algorithmic Simulation Tests', () => {
         test('handles empty continuation scenarios correctly', async () => {
             // Create fixture that leads to empty continuations
             const emptyFixtures = {
-                'test_position': { moves: [] }
+                'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': { moves: [] }
             };
-            
+
             const emptyMockClient = new MockLichessClient(emptyFixtures);
             bookBuilder.lichessClient = emptyMockClient;
-            
+
             const testOpening = {
                 name: 'Empty Test',
-                fen: 'test_position',
+                fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // Standard starting position
                 perspective: 'white'
             };
             

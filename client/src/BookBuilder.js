@@ -52,7 +52,8 @@ class BookBuilder {
     async processOpening(config) {
         const results = {};
 
-        console.log(`Starting BookBuilder processing for ${config.openings.length} opening(s)`);
+        console.log(`[BOOKBUILDER DEBUG] Starting BookBuilder processing for ${config.openings.length} opening(s)`);
+        console.log(`[BOOKBUILDER DEBUG] Config:`, JSON.stringify(config, null, 2));
 
         for (let chapter = 1; chapter <= config.openings.length; chapter++) {
             const opening = config.openings[chapter - 1];
@@ -158,7 +159,12 @@ class BookBuilder {
             const validLines = [];
 
             if (!positionStats || !positionStats.moves) {
-                console.warn('    No position data available for final position');
+                throw new Error(`No position data for FEN: ${finalFen}`);
+            }
+
+            if (positionStats.moves.length === 0) {
+                console.log(`    [DEBUG] No moves available for position: ${finalFen}`);
+                // Continue with empty array - this is a valid scenario that should produce empty output
                 return [];
             }
 
@@ -172,6 +178,11 @@ class BookBuilder {
                         likelihoodPath: []
                     });
                 }
+            }
+
+            // DEBUG: Show final result
+            if (validLines.length === 0) {
+                throw new Error(`ROOT ANALYSIS DEBUG: No valid lines after filtering ${positionStats.moves.length} moves`);
             }
 
             console.log(`    Root analysis complete: ${validLines.length} valid initial lines`);
@@ -250,6 +261,10 @@ class BookBuilder {
 
             if (validContinuations.length === 0) {
                 // No valid continuations - finalize line
+                console.log(`    [DEBUG] No valid continuations found. Original moves: ${continuations.moves?.length || 0}, filtered to: 0`);
+                if (continuations.moves) {
+                    console.log(`    [DEBUG] First move analysis:`, continuations.moves[0]);
+                }
                 await this.finalizeLine(lineData);
                 return [];
             }
@@ -510,12 +525,10 @@ class BookBuilder {
      */
     isValidContinuation(move, cumulativeLikelihood) {
         const continuationLikelihood = move.playrate * cumulativeLikelihood;
-        const isValid = continuationLikelihood >= this.config.DEPTHLIKELIHOOD &&
-                       move.totalGames > this.config.CONTINUATIONGAMES &&
-                       move.playrate >= this.config.MINPLAYRATE;
-        
-        console.log(`    [DEBUG] Move ${move.san || move.uci}: playrate=${move.playrate}, games=${move.totalGames}, likelihood=${continuationLikelihood.toFixed(4)}, thresholds=(DEPTH:${this.config.DEPTHLIKELIHOOD}/GAMES:${this.config.CONTINUATIONGAMES}/PLAYRATE:${this.config.MINPLAYRATE}), valid=${isValid}`);
-        
+        const depthCheck = continuationLikelihood >= this.config.DEPTHLIKELIHOOD;
+        const gamesCheck = move.totalGames > this.config.CONTINUATIONGAMES;
+        const playrateCheck = move.playrate >= this.config.MINPLAYRATE;
+        const isValid = depthCheck && gamesCheck && playrateCheck;
         return isValid;
     }
 
