@@ -5,7 +5,7 @@
  * mainline moves for chess opening repertoire generation.
  */
 
-import { parse } from '/node_modules/@mliebelt/pgn-parser/lib/index.umd.js';
+import * as PgnParser from '/node_modules/@mliebelt/pgn-parser/lib/index.umd.js';
 
 class PgnProcessor {
     /**
@@ -19,8 +19,11 @@ class PgnProcessor {
                 throw new Error('PGN input is empty or invalid');
             }
 
+            // Preprocess and normalize the PGN input
+            const normalizedPgn = this.preprocessPgn(pgnString.trim());
+
             // Parse the PGN using mliebelt's parser
-            const game = parse(pgnString.trim(), { startRule: "game" });
+            const game = PgnParser.parse(normalizedPgn, { startRule: "game" });
 
             if (!game) {
                 throw new Error('Failed to parse PGN - invalid format');
@@ -155,7 +158,8 @@ class PgnProcessor {
             }
 
             // Try actual parsing for more thorough validation
-            const game = parse(trimmed, { startRule: "game" });
+            const normalizedPgn = this.preprocessPgn(trimmed);
+            const game = PgnParser.parse(normalizedPgn, { startRule: "game" });
             if (!game) {
                 return { isValid: false, error: 'PGN parsing failed - invalid syntax' };
             }
@@ -165,6 +169,60 @@ class PgnProcessor {
         } catch (error) {
             return { isValid: false, error: `PGN validation error: ${error.message}` };
         }
+    }
+
+    /**
+     * Preprocess and normalize PGN input for parsing
+     * Handles weakly formatted input like "e4 e5" and converts to proper PGN
+     * @param {string} pgnString - Raw PGN input
+     * @returns {string} Normalized PGN string
+     */
+    static preprocessPgn(pgnString) {
+        if (!pgnString) return '';
+
+        let pgn = pgnString.trim();
+
+        // Check if this looks like just moves without proper PGN structure
+        const hasHeaders = /\[[\w\s]+\s*\"[^\"]*\"\s*\]/.test(pgn);
+        const hasMoveNumbers = /\b\d+\.\s*[a-zA-Z]/.test(pgn);
+
+        // If no headers and no move numbers, treat as simple move sequence
+        if (!hasHeaders && !hasMoveNumbers) {
+            // Split on whitespace and filter out empty strings
+            const moves = pgn.split(/\s+/).filter(move => move.trim() !== '');
+
+            if (moves.length > 0) {
+                // Convert simple moves like "e4 e5 Nf3 Nc6" to proper PGN
+                let formattedMoves = '';
+                for (let i = 0; i < moves.length; i++) {
+                    const moveNumber = Math.floor(i / 2) + 1;
+
+                    if (i % 2 === 0) {
+                        // White's move
+                        formattedMoves += `${moveNumber}. ${moves[i]}`;
+                    } else {
+                        // Black's move
+                        formattedMoves += ` ${moves[i]}`;
+                        if (i < moves.length - 1) {
+                            formattedMoves += ' ';
+                        }
+                    }
+                }
+
+                // Add minimal headers for a valid PGN
+                pgn = `[Event "Opening Analysis"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+${formattedMoves} *`;
+            }
+        }
+
+        return this.cleanPgn(pgn);
     }
 
     /**
