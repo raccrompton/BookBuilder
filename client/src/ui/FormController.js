@@ -631,12 +631,6 @@ class ConfigManager {
             errors.push('PGN input is required');
         }
 
-        // Validate rating ranges
-        const ratingMin = parseInt(document.getElementById('rating-min').value);
-        const ratingMax = parseInt(document.getElementById('rating-max').value);
-        if (ratingMin >= ratingMax) {
-            errors.push('Minimum rating must be less than maximum rating');
-        }
 
         // Validate at least one time control is selected
         const timeControls = ['time-bullet', 'time-blitz', 'time-rapid', 'time-classical', 'time-correspondence'];
