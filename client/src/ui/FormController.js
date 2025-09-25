@@ -388,9 +388,9 @@ class FormController {
             // Move selection parameters (mapped to new form fields)
             MOVES: parseInt(formConfig['most-played-moves']) || 10,
             DEPTHLIKELIHOOD: this.convertGamesProbability(formConfig['games-likelihood']) || 0.02,
-            CONTINUATIONGAMES: parseInt(formConfig['minimum-games']) || 10,
+            CONTINUATIONGAMES: parseInt(formConfig['opponent-min-games']) || 10, // Opponent move minimum games filter
             MINPLAYRATE: this.convertPercentage(formConfig['min-playrate-percent']) || 0.01,
-            MINGAMES: parseInt(formConfig['min-playrate-games']) || 10,
+            MINGAMES: parseInt(formConfig['candidate-min-games']) || 19, // Our candidate move minimum games filter
             ALPHA: this.convertConfidence(formConfig['confidence-percent']) || 0.05,
             DRAWSAREHALF: formConfig['draws-half-point'] ? 1 : 0,
 
