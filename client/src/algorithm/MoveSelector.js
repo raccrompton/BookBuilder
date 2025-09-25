@@ -379,7 +379,7 @@ class MoveSelector {
                 this.config.ALPHA
             );
 
-            console.log(`      Confidence interval: [${confidence.lowerBound?.toFixed(4)}, ${confidence.upperBound?.toFixed(4)}]`);
+            console.log(`      Confidence interval: [${confidence.lowerBound?.toFixed(6)}, ${confidence.upperBound?.toFixed(6)}] (α=${this.config.ALPHA})`);
 
             // Select move with highest lower bound (most conservative estimate)
             if (confidence.lowerBound > bestLowerBound) {
