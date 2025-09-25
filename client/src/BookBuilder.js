@@ -350,6 +350,11 @@ class BookBuilder {
 
                     console.log(`[BookBuilder] Opponent move ${move.san} executed successfully:`, moveResult);
 
+                    // **CAPTURE MOVE NUMBER AT CORRECT TIMING**
+                    // Get move number AFTER opponent's move but BEFORE our response (matches Python behavior)
+                    const correctMoveNumber = isolatedEngine.getMoveNumber();
+                    console.log(`[BookBuilder] Move number after opponent's move: ${correctMoveNumber}`);
+
                     const newFen = isolatedEngine.getFen();
 
                     // Find our best response (use user-configured move limit for candidate selection)
@@ -429,7 +434,7 @@ class BookBuilder {
                             playrate: move.playrate
                         }];
 
-                        const newPgn = this.updatePgn(pgn, move.san, selectedMove.san, perspective);
+                        const newPgn = this.updatePgn(pgn, move.san, selectedMove.san, perspective, correctMoveNumber);
                         console.log(`[BookBuilder] PGN updated: "${pgn}" -> "${newPgn}"`);
 
                         const newLine = {
@@ -515,30 +520,53 @@ class BookBuilder {
     async handleNoGoodResponse(lineData, opponentMove, positionFen, engine = null) {
         if (this.config.ENGINEFINISH && this.stockfishEngine) {
             try {
+                console.log(`[BookBuilder] Engine completion: fixing position analysis and move numbering`);
+
+                // **STEP 1: Make opponent's move to get to correct position for engine analysis**
+                console.log(`[BookBuilder] Making opponent move for proper position: ${opponentMove.san}`);
+                const opponentMoveResult = this.chessEngine.makeMove(opponentMove.san);
+                if (!opponentMoveResult) {
+                    console.warn(`[BookBuilder] Opponent move ${opponentMove.san} failed in engine completion`);
+                    return null;
+                }
+
+                // **STEP 2: Capture correct move number (after opponent's move, before our response)**
+                const correctMoveNumber = this.chessEngine.getMoveNumber();
+                console.log(`[BookBuilder] Captured correct move number: ${correctMoveNumber}`);
+
+                // **STEP 3: Get engine analysis from the position AFTER opponent's move**
+                const positionAfterOpponent = this.chessEngine.getFen();
+                console.log(`[BookBuilder] Getting engine move from correct position: ${positionAfterOpponent}`);
                 const engineMove = await this.stockfishEngine.getBestMove(
-                    positionFen,
+                    positionAfterOpponent,
                     this.config.ENGINEDEPTH
                 );
 
                 if (engineMove) {
-                    // Make the engine move and get the new FEN
-                    const moveResult = this.chessEngine.makeMove(engineMove);
-                    if (!moveResult.success) {
-                        console.warn(`Engine move ${engineMove} failed: ${moveResult.error}`);
+                    // **STEP 4: Make the engine move**
+                    console.log(`[BookBuilder] Making engine response move: ${engineMove}`);
+                    const engineMoveResult = this.chessEngine.makeMove(engineMove);
+                    if (!engineMoveResult) {
+                        console.warn(`[BookBuilder] Engine move ${engineMove} failed`);
+                        this.chessEngine.undoMove(); // Clean up opponent's move
                         return null;
                     }
 
                     const newFen = this.chessEngine.getFen();
 
+                    // **STEP 5: Build PGN with correct move number**
                     const newPgn = this.updatePgn(
                         lineData.pgn,
                         opponentMove.san,
                         engineMove,
-                        lineData.perspective
+                        lineData.perspective,
+                        correctMoveNumber  // Use the correctly captured move number
                     );
 
-                    // Undo the engine move to restore position
-                    this.chessEngine.undoMove();
+                    // **STEP 6: Undo both moves to restore original position**
+                    console.log(`[BookBuilder] Restoring position: undoing engine and opponent moves`);
+                    this.chessEngine.undoMove(); // Undo engine move
+                    this.chessEngine.undoMove(); // Undo opponent move
 
                     return {
                         fen: newFen,
@@ -830,14 +858,27 @@ class BookBuilder {
 
     /**
      * Update PGN string with new moves (matches Python formatting exactly)
+     * Uses explicit move number captured at correct timing
      */
-    updatePgn(currentPgn, opponentMove, ourMove, perspective) {
+    updatePgn(currentPgn, opponentMove, ourMove, perspective, moveNumber = null) {
+        console.log(`[BookBuilder] updatePgn called:`);
+        console.log(`   currentPgn: "${currentPgn}"`);
+        console.log(`   opponentMove: "${opponentMove}"`);
+        console.log(`   ourMove: "${ourMove}"`);
+        console.log(`   perspective: "${perspective}"`);
+        console.log(`   moveNumber: ${moveNumber}`);
+
+        let result;
         if (perspective === 'black') {
-            const moveNumber = Math.ceil((currentPgn.split(' ').length + 1) / 2);
-            return `${currentPgn} ${moveNumber}. ${opponentMove} ${ourMove}`;
+            // Use explicit move number captured at correct timing
+            const useNumber = moveNumber || 1;
+            result = `${currentPgn} ${useNumber}. ${opponentMove} ${ourMove}`;
         } else {
-            return `${currentPgn} ${opponentMove} ${ourMove}`;
+            result = `${currentPgn} ${opponentMove} ${ourMove}`;
         }
+
+        console.log(`   result: "${result}"`);
+        return result;
     }
 
     /**
