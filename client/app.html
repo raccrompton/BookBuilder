@@ -370,23 +370,31 @@
             <div class="form-section-container" id="lichess-settings">
                 <div class="form-section">
                     <h2 class="section-title">🌐 Lichess Database Settings</h2>
-                    
-
+                    <div class="form-help">
+                        These settings determine what data from the Lichess opening explorer you wish BookBuilder to consider when creating your repertoire.
+                    </div>
 
                     <div class="form-group">
                         <label class="form-label">Time Controls</label>
+                        <div class="form-help">
+                            What time controls would you like to use data from?
+                        </div>
                         <div class="form-checkbox-group">
                             <div class="checkbox-item">
+                                <input type="checkbox" id="time-bullet" class="form-checkbox" checked>
+                                <label for="time-bullet">Bullet</label>
+                            </div>
+                            <div class="checkbox-item">
                                 <input type="checkbox" id="time-blitz" class="form-checkbox" checked>
-                                <label for="time-blitz">Blitz (3-8 min)</label>
+                                <label for="time-blitz">Blitz</label>
                             </div>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="time-rapid" class="form-checkbox" checked>
-                                <label for="time-rapid">Rapid (8-25 min)</label>
+                                <label for="time-rapid">Rapid</label>
                             </div>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="time-classical" class="form-checkbox" checked>
-                                <label for="time-classical">Classical (25+ min)</label>
+                                <label for="time-classical">Classical</label>
                             </div>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="time-correspondence" class="form-checkbox">
@@ -395,254 +403,221 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Rating Bands</label>
+                        <div class="form-help">
+                            What rating bands would you like to use data from?
+                        </div>
+                        <div class="form-checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="rating-1600" class="form-checkbox" checked>
+                                <label for="rating-1600">1600</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="rating-1800" class="form-checkbox" checked>
+                                <label for="rating-1800">1800</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="rating-2000" class="form-checkbox" checked>
+                                <label for="rating-2000">2000</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="rating-2200" class="form-checkbox" checked>
+                                <label for="rating-2200">2200</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="rating-2500" class="form-checkbox" checked>
+                                <label for="rating-2500">2500</label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Your Opponent's Move Filters Section -->
+            <div class="form-section-container" id="opponent-filters">
+                <div class="form-section">
+                    <h2 class="section-title">🛡️ Your Opponent's Move Filters</h2>
+                    <div class="form-help">
+                        These settings determine which of your opponent's moves BookBuilder will include in your repertoire.
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="games-likelihood">Games A Move Will Be Played</label>
+                        <select id="games-likelihood" class="form-select">
+                            <option value="0.02">1 in 50</option>
+                            <option value="0.01">1 in 100</option>
+                            <option value="0.005">1 in 200</option>
+                            <option value="0.0033">1 in 300</option>
+                            <option value="0.002" selected>1 in 500</option>
+                            <option value="0.001">1 in 1000</option>
+                        </select>
+                        <div class="form-help">
+                            BookBuilder will calculate the likelihood of your opponent's move being played in your games. Increasing the second number here will therefore increase the size of your repertoire. For example, if you select 1 in 500 games, BookBuilder will prepare a repertoire with all your opponent's replies that are likely to occur more than once per 500 games you play, according to the data from your Lichess Database settings. This 1 in X games number assumes you are always playing with white or black. It includes the probability of reaching the starting position of your repertoire, even if that position is fairly deep (eg Najdorf). BookBuilder assumes that the moves you play are always chosen and so do not affect the probability of reaching a position.
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="opponent-min-games">Minimum Games</label>
+                        <input type="number" id="opponent-min-games" class="form-input"
+                               min="1" max="100" value="10" step="1">
+                        <div class="form-help">
+                            Moves in the Lichess Database played less times than this will not be included in your repertoire. You don't want to be generating likely lines from tiny amounts of games.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Your Candidate Move Selectors Section -->
+            <div class="form-section-container" id="candidate-selectors">
+                <div class="form-section">
+                    <h2 class="section-title">🎯 Your Candidate Move Selectors</h2>
+                    <div class="form-help">
+                        These settings determine how BookBuilder will select repertoire moves it recommends you play. BookBuilder will recommend you play the highest winrate moves within these constraints.
+                    </div>
+
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label" for="rating-min">
-                                Minimum Rating
-                                <span class="range-value" id="rating-min-value">1600</span>
-                            </label>
-                            <div class="range-container">
-                                <input type="range" id="rating-min" class="form-range" 
-                                       min="1000" max="2800" value="1600" step="50">
-                                <div class="range-labels">
-                                    <span>1000</span>
-                                    <span>2800</span>
-                                </div>
+                            <label class="form-label" for="most-played-moves">Most Played Moves</label>
+                            <input type="number" id="most-played-moves" class="form-input"
+                                   min="5" max="50" value="10" step="1">
+                            <div class="form-help">
+                                This determines how many of the most played moves in a position BookBuilder should consider. If you select 5, BookBuilder will ignore strong moves that aren't in the top 5 most played in a position.
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="rating-max">
-                                Maximum Rating
-                                <span class="range-value" id="rating-max-value">2500</span>
-                            </label>
+                            <label class="form-label" for="min-playrate-percent">Minimum Playrate</label>
                             <div class="range-container">
-                                <input type="range" id="rating-max" class="form-range" 
-                                       min="1000" max="2800" value="2500" step="50">
-                                <div class="range-labels">
-                                    <span>1000</span>
-                                    <span>2800</span>
-                                </div>
+                                <input type="number" id="min-playrate-percent" class="form-input"
+                                       min="0.1" max="10" value="1" step="0.1">
+                                <span class="range-value">%</span>
+                            </div>
+                            <div class="form-help">
+                                If a move was played less often than this percentage in a given position, we won't consider it as a candidate move.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="candidate-min-games">Minimum Games</label>
+                            <input type="number" id="candidate-min-games" class="form-input"
+                                   min="1" max="100" value="19" step="1">
+                            <div class="form-help">
+                                If a move was played in fewer games than this in a given position, we won't consider it as a candidate move.
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="confidence-percent">Confidence</label>
+                            <div class="range-container">
+                                <input type="number" id="confidence-percent" class="form-input"
+                                       min="80" max="99" value="95" step="1">
+                                <span class="range-value">%</span>
+                            </div>
+                            <div class="form-help">
+                                The smaller this number the more likely BookBuilder will select moves with better winrates but less data. Technically, this is the confidence interval alpha (EG 95% CI) for deciding the lower bounds of how good a move's winrate is.
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="move-depth">
-                            Move Analysis Depth
-                            <span class="range-value" id="move-depth-value">15</span>
-                        </label>
-                        <div class="range-container">
-                            <input type="range" id="move-depth" class="form-range" 
-                                   min="5" max="50" value="15" step="1">
-                            <div class="range-labels">
-                                <span>5 moves</span>
-                                <span>50 moves</span>
-                            </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="draws-half-point" class="form-checkbox" checked>
+                            <label for="draws-half-point" class="form-label">Draws Are Half a Point</label>
                         </div>
                         <div class="form-help">
-                            How deep into each opening line to analyze for move statistics.
+                            By default, draws count as half a point for winrate calculations. But you may want a 'must win' repertoire, where a draw is as good as a loss. If so, untick this.
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Move Selection Section -->
-            <div class="form-section-container" id="move-selection">
-                <div class="form-section">
-                    <h2 class="section-title">🎯 Move Selection Settings</h2>
-                    
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label" for="depth-threshold">
-                                Depth Likelihood Threshold
-                                <span class="range-value" id="depth-threshold-value">0.05</span>
-                            </label>
-                            <div class="range-container">
-                                <input type="range" id="depth-threshold" class="form-range" 
-                                       min="0.001" max="0.5" value="0.05" step="0.001">
-                                <div class="range-labels">
-                                    <span>0.001</span>
-                                    <span>0.5</span>
-                                </div>
-                            </div>
-                            <div class="form-help">
-                                Minimum likelihood for move inclusion in repertoire.
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="statistical-alpha">
-                                Statistical Alpha (Confidence)
-                                <span class="range-value" id="statistical-alpha-value">0.05</span>
-                            </label>
-                            <div class="range-container">
-                                <input type="range" id="statistical-alpha" class="form-range" 
-                                       min="0.01" max="0.2" value="0.05" step="0.01">
-                                <div class="range-labels">
-                                    <span>0.01</span>
-                                    <span>0.2</span>
-                                </div>
-                            </div>
-                            <div class="form-help">
-                                Confidence interval for statistical significance.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label" for="min-play-rate">
-                                Minimum Play Rate
-                                <span class="range-value" id="min-play-rate-value">0.01</span>
-                            </label>
-                            <div class="range-container">
-                                <input type="range" id="min-play-rate" class="form-range" 
-                                       min="0.001" max="0.1" value="0.01" step="0.001">
-                                <div class="range-labels">
-                                    <span>0.001</span>
-                                    <span>0.1</span>
-                                </div>
-                            </div>
-                            <div class="form-help">
-                                Minimum percentage of games where move is played.
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="min-games">
-                                Minimum Games Threshold
-                                <span class="range-value" id="min-games-value">10</span>
-                            </label>
-                            <div class="range-container">
-                                <input type="range" id="min-games" class="form-range" 
-                                       min="1" max="100" value="10" step="1">
-                                <div class="range-labels">
-                                    <span>1</span>
-                                    <span>100</span>
-                                </div>
-                            </div>
-                            <div class="form-help">
-                                Minimum number of games required for move consideration.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-section" id="move-advanced">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label" for="continuation-games">
-                                    Continuation Games Minimum
-                                    <span class="range-value" id="continuation-games-value">5</span>
-                                </label>
-                                <div class="range-container">
-                                    <input type="range" id="continuation-games" class="form-range" 
-                                           min="1" max="50" value="5" step="1">
-                                    <div class="range-labels">
-                                        <span>1</span>
-                                        <span>50</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label" for="draw-scoring">Draw Scoring Method</label>
-                                <select id="draw-scoring" class="form-select">
-                                    <option value="half-point">Half Point (0.5)</option>
-                                    <option value="white-advantage">White Advantage (0.6)</option>
-                                    <option value="exclude">Exclude Draws</option>
-                                    <option value="weighted">Weighted by Length</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Engine Settings Section -->
+            <!-- Engine Filters Section -->
             <div class="form-section-container" id="engine-settings">
                 <div class="form-section">
-                    <h2 class="section-title">🤖 Engine Settings</h2>
-                    
+                    <h2 class="section-title">🤖 Engine Filters</h2>
+                    <div class="form-help">
+                        These determine how BookBuilder will use engine analysis when generating your repertoire. Note that high engine depths can significantly increase the length of time BookBuilder takes to make a repertoire.
+                    </div>
+
                     <div class="form-group">
                         <div class="checkbox-item">
                             <input type="checkbox" id="engine-enabled" class="form-checkbox" checked>
-                            <label for="engine-enabled" class="form-label">Enable Stockfish Engine Analysis</label>
+                            <label for="engine-enabled" class="form-label">Engine On</label>
                         </div>
                         <div class="form-help">
-                            Use Stockfish engine for position evaluation and move quality assessment.
+                            If this is off, the engine will not be used to filter your candidate moves.
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="engine-depth">
-                            Analysis Depth
-                            <span class="range-value" id="engine-depth-value">20</span>
-                        </label>
-                        <div class="range-container">
-                            <input type="range" id="engine-depth" class="form-range" 
-                                   min="10" max="40" value="20" step="1">
-                            <div class="range-labels">
-                                <span>10 (Fast)</span>
-                                <span>40 (Deep)</span>
-                            </div>
-                        </div>
+                        <label class="form-label" for="engine-depth">Engine Depth</label>
+                        <input type="number" id="engine-depth" class="form-input"
+                               min="10" max="40" value="20" step="1">
                         <div class="form-help">
-                            Higher depth provides more accurate analysis but takes longer.
+                            This is the depth the engine will use when evaluating moves. The recommended minimum is 20 for stable evaluations in the opening phase.
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="engine-finishing">Engine Finishing Preference</label>
-                        <select id="engine-finishing" class="form-select">
-                            <option value="quality">Prefer Quality Moves</option>
-                            <option value="popular">Prefer Popular Moves</option>
-                            <option value="balanced">Balanced Approach</option>
-                            <option value="aggressive">Prefer Aggressive Moves</option>
-                            <option value="positional">Prefer Positional Moves</option>
-                        </select>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="engine-finishing" class="form-checkbox" checked>
+                            <label for="engine-finishing" class="form-label">Engine Finishing</label>
+                        </div>
                         <div class="form-help">
-                            How the engine should prioritize move selection in final repertoire.
+                            If there is an opponent continuation we wish to consider, but we don't have sufficient data for our reply according to our filters, we can use the engine to generate the best reply until there are no opponent continuations that meet our criteria.
                         </div>
                     </div>
 
-                    <div class="form-section" id="engine-advanced">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label" for="soundness-limit">
-                                    Soundness Limit (centipawns)
-                                    <span class="range-value" id="soundness-limit-value">50</span>
-                                </label>
-                                <div class="range-container">
-                                    <input type="range" id="soundness-limit" class="form-range" 
-                                           min="10" max="200" value="50" step="10">
-                                    <div class="range-labels">
-                                        <span>10 (Strict)</span>
-                                        <span>200 (Loose)</span>
-                                    </div>
-                                </div>
-                                <div class="form-help">
-                                    Maximum evaluation loss considered acceptable.
-                                </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="soundness-limit">Soundness Limit in Centipawns</label>
+                            <input type="number" id="soundness-limit" class="form-input"
+                                   min="-500" max="500" value="-99" step="10">
+                            <div class="form-help">
+                                The maximum engine evaluation we are willing to accept, provided the winrate is better (-300 = losing by 3 pawns in evaluation). We never give up a forced mate, of course.
                             </div>
+                        </div>
 
-                            <div class="form-group">
-                                <label class="form-label" for="move-loss-limit">
-                                    Move Loss Limit (centipawns)
-                                    <span class="range-value" id="move-loss-limit-value">30</span>
-                                </label>
-                                <div class="range-container">
-                                    <input type="range" id="move-loss-limit" class="form-range" 
-                                           min="5" max="100" value="30" step="5">
-                                    <div class="range-labels">
-                                        <span>5 (Strict)</span>
-                                        <span>100 (Loose)</span>
-                                    </div>
-                                </div>
-                                <div class="form-help">
-                                    Maximum centipawn loss per move allowed.
-                                </div>
+                        <div class="form-group">
+                            <label class="form-label" for="move-loss-limit">Move Loss Limit in Centipawns</label>
+                            <input type="number" id="move-loss-limit" class="form-input"
+                                   min="-500" max="500" value="-99" step="5">
+                            <div class="form-help">
+                                The maximum evaluation we are willing to lose on a single move to play a higher winrate move. We never give up a forced mate. It's recommended to be fairly loose, for example -50, because engines are fairly inconsistent in the openings, especially on low depths.
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="ignore-loss-limit">Ignore Loss Limit</label>
+                            <input type="number" id="ignore-loss-limit" class="form-input"
+                                   min="0" max="1000" value="300" step="10">
+                            <div class="form-help">
+                                If we have a centipawns advantage above this, we won't care if we play a move that exceeds the move loss limit, if it has a higher win rate (is easier to win).
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="engine-threads">Engine Threads</label>
+                            <input type="number" id="engine-threads" class="form-input"
+                                   min="1" max="16" value="1" step="1">
+                            <div class="form-help">
+                                Increase this number to speed the engine up. It's how many threads you want the engine to use (check your comp and set 1 if unsure).
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="engine-hash">Engine Hash</label>
+                        <input type="number" id="engine-hash" class="form-input"
+                               min="16" max="10240" value="320" step="16">
+                        <div class="form-help">
+                            Increase this number to speed the engine up. It's how much hash (RAM) you want the engine to use (check your comp and set to 16 if unsure).
                         </div>
                     </div>
                 </div>
