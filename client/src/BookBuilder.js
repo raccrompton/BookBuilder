@@ -808,15 +808,15 @@ class BookBuilder {
         const continuationLikelihood = move.playrate * cumulativeLikelihood;
         const depthCheck = continuationLikelihood >= this.config.DEPTHLIKELIHOOD;
         const gamesCheck = move.totalGames > this.config.CONTINUATIONGAMES;
-        const playrateCheck = move.playrate >= this.config.MINPLAYRATE;
-        const isValid = depthCheck && gamesCheck && playrateCheck;
+        // FIXED: Remove MINPLAYRATE check for opponent moves - only use DEPTHLIKELIHOOD + CONTINUATIONGAMES
+        const isValid = depthCheck && gamesCheck;
 
         console.log(`🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
         console.log(`      Raw playrate: ${move.playrate?.toFixed(4)} (${(move.playrate * 100)?.toFixed(2)}%)`);
         console.log(`      Cumulative likelihood to reach position prior to continuation: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
         console.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
         console.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
-        console.log(`      Playrate check: ${move.playrate?.toFixed(4)} >= ${this.config.MINPLAYRATE} = ${playrateCheck ? '✅' : '❌'}`);
+        console.log(`      Playrate check: REMOVED (only applies to our responses, not opponent moves)`);
         console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
 
         return isValid;
@@ -829,18 +829,17 @@ class BookBuilder {
         console.log(`   🔍 [BookBuilder] Response validation for ${response?.san || response?.uci}:`);
 
         const hasResponse = !!response;
-        const opponentPlayrateCheck = opponentMove.playrate > this.config.MINPLAYRATE;
+        // FIXED: Remove opponent playrate check - already validated in isValidContinuation
         const responseGamesCheck = response?.totalGames > this.config.MINGAMES;
         const responseWinRateCheck = response?.winRate > 0;
         const responsePlayrateCheck = response?.playrate > this.config.MINPLAYRATE;
 
         console.log(`      Has response: ${hasResponse ? '✅' : '❌'}`);
-        console.log(`      Opponent playrate: ${opponentMove.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${opponentPlayrateCheck ? '✅' : '❌'}`);
         console.log(`      Response games: ${response?.totalGames} > ${this.config.MINGAMES} = ${responseGamesCheck ? '✅' : '❌'}`);
         console.log(`      Response win rate: ${response?.winRate?.toFixed(3)} > 0 = ${responseWinRateCheck ? '✅' : '❌'}`);
         console.log(`      Response playrate: ${response?.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${responsePlayrateCheck ? '✅' : '❌'}`);
 
-        const isValid = hasResponse && opponentPlayrateCheck && responseGamesCheck && responseWinRateCheck && responsePlayrateCheck;
+        const isValid = hasResponse && responseGamesCheck && responseWinRateCheck && responsePlayrateCheck;
         console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
 
         return isValid;
