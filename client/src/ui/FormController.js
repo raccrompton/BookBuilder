@@ -391,7 +391,7 @@ class FormController {
             CONTINUATIONGAMES: parseInt(formConfig['minimum-games']) || 10,
             MINPLAYRATE: this.convertPercentage(formConfig['min-playrate-percent']) || 0.01,
             MINGAMES: parseInt(formConfig['min-playrate-games']) || 10,
-            STATISTICALALPHA: this.convertConfidence(formConfig['confidence-percent']) || 0.05,
+            ALPHA: this.convertConfidence(formConfig['confidence-percent']) || 0.05,
             DRAWSAREHALF: formConfig['draws-half-point'] ? 1 : 0,
 
             // Engine settings (mapped to new form fields)
