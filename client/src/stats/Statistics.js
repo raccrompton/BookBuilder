@@ -168,9 +168,14 @@ class Statistics {
         const minGames = config.MINGAMES || 19;
         const minPlayRate = config.MINPLAYRATE || 0.001;
 
+        console.log(`📊 [Statistics] Quality validation: games=${gamesPlayed} > ${minGames}, playRate=${playRate?.toFixed(4)} > ${minPlayRate}`);
+        console.log(`📊 [Statistics] Config values: MINGAMES=${config.MINGAMES}, MINPLAYRATE=${config.MINPLAYRATE}`);
+
         // Total games move was played must be more than min games
         // AND min percentage play rate (otherwise data is bad)
-        return (gamesPlayed > minGames) && (playRate > minPlayRate);
+        const result = (gamesPlayed > minGames) && (playRate > minPlayRate);
+        console.log(`📊 [Statistics] Validation result: ${result ? 'PASSED' : 'FAILED'}`);
+        return result;
     }
 
     /**

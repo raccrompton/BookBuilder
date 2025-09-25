@@ -809,6 +809,7 @@ class BookBuilder {
      */
     isValidResponse(response, opponentMove) {
         console.log(`   🔍 [BookBuilder] Response validation for ${response?.san || response?.uci}:`);
+        console.log(`      🔧 [BookBuilder] Config values: MINGAMES=${this.config.MINGAMES}, MINPLAYRATE=${this.config.MINPLAYRATE}, CONTINUATIONGAMES=${this.config.CONTINUATIONGAMES}`);
 
         const hasResponse = !!response;
         // FIXED: Remove opponent playrate check - already validated in isValidContinuation
