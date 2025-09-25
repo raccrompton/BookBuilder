@@ -208,41 +208,19 @@ class BookBuilder {
             console.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate})`).join(' '));
             console.log(`    Opponent moves tracked: ${likelihoodPath.length}, Our moves skipped: ${moveSequence.length - likelihoodPath.length}`);
 
-            // Use the final position after all moves for continuation analysis
+            // Create single line object representing the input sequence (matches Python Rooter behavior)
             const finalFen = this.chessEngine.getFen();
-            const positionStats = await this.lichessClient.getPositionStats(finalFen);
-            const validLines = [];
+            const singleLine = {
+                fen: finalFen,
+                pgn: this.chessEngine.getPgn(),
+                perspective: perspective,
+                cumulativeLikelihood: cumulativeLikelihood,
+                likelihoodPath: likelihoodPath
+            };
 
-            if (!positionStats || !positionStats.moves) {
-                throw new Error(`No position data for FEN: ${finalFen}`);
-            }
-
-            if (positionStats.moves.length === 0) {
-                console.log(`    [DEBUG] No moves available for position: ${finalFen}`);
-                // Continue with empty array - this is a valid scenario that should produce empty output
-                return [];
-            }
-
-            for (const move of positionStats.moves) {
-                // FIXED: Use calculated cumulative likelihood instead of raw playrate
-                if (this.isValidContinuation(move, cumulativeLikelihood)) {
-                    validLines.push({
-                        fen: finalFen, // FIXED: Use final position FEN, not starting FEN
-                        pgn: this.chessEngine.getPgn(),
-                        perspective: perspective,
-                        cumulativeLikelihood: cumulativeLikelihood, // FIXED: Use proper cumulative likelihood
-                        likelihoodPath: likelihoodPath // FIXED: Use calculated likelihood path
-                    });
-                }
-            }
-
-            // DEBUG: Show final result
-            if (validLines.length === 0) {
-                throw new Error(`ROOT ANALYSIS DEBUG: No valid lines after filtering ${positionStats.moves.length} moves`);
-            }
-
-            console.log(`    Root analysis complete: ${validLines.length} valid initial lines`);
-            return validLines;
+            console.log(`    Root analysis complete: 1 initial line representing input sequence`);
+            console.log(`    Line: "${singleLine.pgn}" with likelihood ${cumulativeLikelihood.toFixed(6)}`);
+            return [singleLine];
 
         } catch (error) {
             throw new Error(`Invalid starting position: ${fen} - ${error.message}`);
