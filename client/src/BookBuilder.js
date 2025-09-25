@@ -296,8 +296,10 @@ class BookBuilder {
             const initialPosition = isolatedEngine.debugPosition();
             console.log(`[BookBuilder] Initial position state:`, initialPosition);
 
-            // Find opponent continuations
-            const continuations = await this.lichessClient.getPositionStats(fen);
+            // Find opponent continuations (use high limit to get all opponent options)
+            const continuations = await this.lichessClient.getPositionStats(fen, {
+                moves: 15  // High limit - we want all reasonable opponent options
+            });
 
             if (!continuations || !continuations.moves) {
                 DeterministicMode.throwOnFailure(
@@ -350,8 +352,10 @@ class BookBuilder {
 
                     const newFen = isolatedEngine.getFen();
 
-                    // Find our best response
-                    const positionData = await this.lichessClient.getPositionStats(newFen);
+                    // Find our best response (use user-configured move limit for candidate selection)
+                    const positionData = await this.lichessClient.getPositionStats(newFen, {
+                        moves: this.config.MOVES || 10  // User-configured "Most Played Moves" limit
+                    });
 
                     if (!positionData || !positionData.moves || positionData.moves.length === 0) {
                         // No candidate moves available - try engine completion or finalize
