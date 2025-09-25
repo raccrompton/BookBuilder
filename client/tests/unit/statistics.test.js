@@ -82,6 +82,57 @@ describe('Statistics Engine - Critical Python Compatibility Tests', () => {
         });
     });
 
+    describe('Regression test for winrate parameter order bug', () => {
+        test('calculateWinRate with reported values produces correct results', () => {
+            const stats = new Statistics();
+
+            // Exact values from the bug report log
+            const white = 17140;
+            const black = 16729;
+            const draws = 1257;
+            const total = 35126;
+
+            // Verify our test data matches the reported totals
+            expect(white + black + draws).toBe(total);
+
+            // Test with DRAWSAREHALF=0 (draws count as losses)
+            const result0 = stats.calculateWinRate(white, black, draws, 0);
+            const expectedWhitePerc0 = white / total; // 17140 / 35126 = 0.488
+            const expectedBlackPerc0 = black / total; // 16729 / 35126 = 0.476
+
+            expect(result0.whitePerc).toBeCloseTo(expectedWhitePerc0, 6);
+            expect(result0.blackPerc).toBeCloseTo(expectedBlackPerc0, 6);
+            expect(result0.whitePerc).toBeCloseTo(0.4880, 4);
+            expect(result0.blackPerc).toBeCloseTo(0.4763, 4);
+
+            // Test with DRAWSAREHALF=1 (draws count as half points)
+            const result1 = stats.calculateWinRate(white, black, draws, 1);
+            const expectedWhitePerc1 = (white + (0.5 * draws)) / total; // (17140 + 628.5) / 35126 = 0.5059
+            const expectedBlackPerc1 = (black + (0.5 * draws)) / total; // (16729 + 628.5) / 35126 = 0.4941
+
+            expect(result1.whitePerc).toBeCloseTo(expectedWhitePerc1, 6);
+            expect(result1.blackPerc).toBeCloseTo(expectedBlackPerc1, 6);
+            expect(result1.whitePerc).toBeCloseTo(0.5059, 4);
+            expect(result1.blackPerc).toBeCloseTo(0.4941, 4);
+
+            // Verify the bug would have produced incorrect results
+            // With wrong parameter order: calculateWinRate(white=17140, black=1257, draws=16729, 0)
+            const buggyResult = stats.calculateWinRate(white, draws, black, 0); // Swapped parameters
+
+            // This should NOT match the correct results (except white happens to match)
+            // Note: white percentage accidentally matches because it's in the correct position
+            expect(buggyResult.whitePerc).toBeCloseTo(expectedWhitePerc0, 4); // Same by coincidence
+            expect(buggyResult.blackPerc).not.toBeCloseTo(expectedBlackPerc0, 2); // Wrong!
+
+            // The buggy calculation produces:
+            // Correct: calculateWinRate(white=17140, black=16729, draws=1257, 0)
+            // Buggy:   calculateWinRate(white=17140, black=1257, draws=16729, 0) - swapped last two!
+            // white: 17140/(17140+1257+16729) = 0.488 (accidentally correct for white)
+            // black: 1257/(17140+1257+16729) = 0.0358 (completely wrong - should be 0.476!)
+            expect(buggyResult.blackPerc).toBeCloseTo(0.0358, 4);
+        });
+    });
+
     describe('calculateConfidenceInterval - Python calc_value exact matching', () => {
         test('confidence interval calculations match scipy.stats.norm.ppf', () => {
             // Test cases with known Python scipy results

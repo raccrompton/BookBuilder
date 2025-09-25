@@ -98,6 +98,9 @@ class BookBuilder {
         this.finalLines = [];
         this.processingQueue = [];
 
+        // Store the opening perspective for consistent winrate calculations
+        this.openingPerspective = opening.perspective;
+
         try {
             // Phase 1: Root analysis (replaces Python's Rooter class)
             console.log(`  Phase 1: Root analysis for ${opening.name}`);
@@ -638,14 +641,15 @@ class BookBuilder {
             if (stats && stats.white + stats.draws + stats.black > 0) {
                 const winRateResult = this.statisticsEngine.calculateWinRate(
                     stats.white,
-                    stats.draws,
                     stats.black,
+                    stats.draws,
                     this.config.DRAWSAREHALF
                 );
                 totalGames = stats.white + stats.draws + stats.black;
 
-                // Extract the correct percentage based on perspective (like MoveSelector does)
-                winRate = lineData.perspective === 'white' ?
+                // Extract the correct percentage based on REPERTOIRE perspective (not dynamic line perspective)
+                // Use the original opening perspective consistently for all winrate calculations
+                winRate = this.openingPerspective === 'white' ?
                     winRateResult.whitePerc :
                     winRateResult.blackPerc;
 
