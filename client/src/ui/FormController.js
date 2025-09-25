@@ -383,25 +383,26 @@ class FormController {
             // Lichess API settings
             speeds: this.getSelectedSpeeds(formConfig),
             variants: ['standard'], // Always use standard chess
-            ratingRange: [
-                parseInt(formConfig['rating-min']) || 1600,
-                parseInt(formConfig['rating-max']) || 2500
-            ],
+            ratings: this.getSelectedRatings(formConfig),
 
-            // Move selection parameters
-            DEPTHLIKELIHOOD: parseFloat(formConfig['depth-threshold']) || 0.05,
-            STATISTICALALPHA: parseFloat(formConfig['statistical-alpha']) || 0.05,
-            MINPLAYRATE: parseFloat(formConfig['min-play-rate']) || 0.01,
-            MINGAMES: parseInt(formConfig['min-games']) || 10,
-            CONTINUATIONGAMES: parseInt(formConfig['continuation-games']) || 5,
-            DRAWSAREHALF: formConfig['draw-scoring'] !== 'exclude',
+            // Move selection parameters (mapped to new form fields)
+            MOVES: parseInt(formConfig['most-played-moves']) || 10,
+            DEPTHLIKELIHOOD: this.convertGamesProbability(formConfig['games-likelihood']) || 0.02,
+            CONTINUATIONGAMES: parseInt(formConfig['minimum-games']) || 10,
+            MINPLAYRATE: this.convertPercentage(formConfig['min-playrate-percent']) || 0.01,
+            MINGAMES: parseInt(formConfig['min-playrate-games']) || 10,
+            STATISTICALALPHA: this.convertConfidence(formConfig['confidence-percent']) || 0.05,
+            DRAWSAREHALF: formConfig['draws-half-point'] ? 1 : 0,
 
-            // Engine settings
-            CAREABOUTENGINE: formConfig['engine-enabled'] || false,
+            // Engine settings (mapped to new form fields)
+            CAREABOUTENGINE: formConfig['engine-on'] || false,
             ENGINEDEPTH: parseInt(formConfig['engine-depth']) || 20,
-            ENGINEFINISH: formConfig['engine-finishing'] !== 'disabled',
-            SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit']) || 50,
-            MOVELOSSLIMIT: parseInt(formConfig['move-loss-limit']) || 30,
+            ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1,
+            SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit-centipawns']) || -99,
+            MOVELOSSLIMIT: parseInt(formConfig['move-loss-limit-centipawns']) || -99,
+            IGNORELOSSLIMIT: parseInt(formConfig['ignore-loss-limit']) || 300,
+            ENGINETHREADS: parseInt(formConfig['engine-threads']) || 1,
+            ENGINEHASH: parseInt(formConfig['engine-hash']) || 320,
 
             // Processing settings
             LONGTOSHORT: false, // Default: priority order
@@ -410,13 +411,56 @@ class FormController {
         };
     }
 
+    getSelectedRatings(formConfig) {
+        const ratings = [];
+        if (formConfig['rating-1600']) ratings.push('1600');
+        if (formConfig['rating-1800']) ratings.push('1800');
+        if (formConfig['rating-2000']) ratings.push('2000');
+        if (formConfig['rating-2200']) ratings.push('2200');
+        if (formConfig['rating-2500']) ratings.push('2500');
+        return ratings.length > 0 ? ratings : ['1600', '1800', '2000', '2200', '2500'];
+    }
+
+    convertGamesProbability(dropdownValue) {
+        // Convert dropdown values like "1 in 50" to decimal
+        const probabilityMap = {
+            '1 in 50': 0.02,
+            '1 in 100': 0.01,
+            '1 in 200': 0.005,
+            '1 in 300': 0.0033,
+            '1 in 500': 0.002,
+            '1 in 1000': 0.001
+        };
+        return probabilityMap[dropdownValue] || 0.02;
+    }
+
+    convertPercentage(percentValue) {
+        // Convert percentage input (1%) to decimal (0.01)
+        if (typeof percentValue === 'string' && percentValue.includes('%')) {
+            return parseFloat(percentValue.replace('%', '')) / 100;
+        }
+        return parseFloat(percentValue) / 100;
+    }
+
+    convertConfidence(percentValue) {
+        // Convert confidence percentage (95%) to alpha value (0.05)
+        let percent = percentValue;
+        if (typeof percentValue === 'string' && percentValue.includes('%')) {
+            percent = parseFloat(percentValue.replace('%', ''));
+        } else {
+            percent = parseFloat(percentValue);
+        }
+        return (100 - percent) / 100; // 95% confidence = 0.05 alpha
+    }
+
     getSelectedSpeeds(formConfig) {
         const speeds = [];
+        if (formConfig['time-bullet']) speeds.push('bullet');
         if (formConfig['time-blitz']) speeds.push('blitz');
         if (formConfig['time-rapid']) speeds.push('rapid');
         if (formConfig['time-classical']) speeds.push('classical');
         if (formConfig['time-correspondence']) speeds.push('correspondence');
-        return speeds.length > 0 ? speeds : ['blitz', 'rapid', 'classical'];
+        return speeds.length > 0 ? speeds : ['bullet', 'blitz', 'rapid', 'classical'];
     }
 
     // getSelectedVariants method removed - always use standard chess
@@ -595,7 +639,7 @@ class ConfigManager {
         }
 
         // Validate at least one time control is selected
-        const timeControls = ['time-blitz', 'time-rapid', 'time-classical', 'time-correspondence'];
+        const timeControls = ['time-bullet', 'time-blitz', 'time-rapid', 'time-classical', 'time-correspondence'];
         const selectedTimeControls = timeControls.filter(id => document.getElementById(id).checked);
         if (selectedTimeControls.length === 0) {
             errors.push('At least one time control must be selected');
