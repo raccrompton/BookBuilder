@@ -109,7 +109,7 @@ class MoveSelector {
 
         // Select best move based on win rate confidence intervals
         console.log(`📈 [MoveSelector] Starting statistical selection from ${viableCandidates.length} viable candidates...`);
-        const selectedMove = this._selectByStatistics(viableCandidates, statisticsEngine);
+        const selectedMove = this._selectByStatistics(position, viableCandidates, statisticsEngine);
 
         if (selectedMove) {
             console.log(`✅ [MoveSelector] Selected move: ${selectedMove.san || selectedMove.uci}`, {
@@ -336,9 +336,11 @@ class MoveSelector {
    * Select best move based on statistical analysis
    * @private
    */
-    _selectByStatistics(candidates, statisticsEngine) {
+    _selectByStatistics(position, candidates, statisticsEngine) {
         console.log(`📈 [MoveSelector] Statistical selection from ${candidates.length} candidates:`);
-        console.log(`   Perspective: ${position.perspective}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
+        // Extract current turn from FEN (3rd field after spaces)
+        const currentTurn = position.fen.split(' ')[1]; // 'w' or 'b'
+        console.log(`   Current turn: ${currentTurn}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
 
         let bestMove = null;
         let bestLowerBound = -1;
@@ -352,14 +354,14 @@ class MoveSelector {
             console.log(`   📋 [MoveSelector] Analyzing candidate ${i + 1}: ${candidate.san || candidate.uci}`);
             console.log(`      Games: W:${candidate.white} B:${candidate.black} D:${candidate.draws} (Total: ${totalGames})`);
 
-            if (position.perspective === 'white') {
+            if (currentTurn === 'w') {
                 winRate = statisticsEngine.calculateWinRate(
                     candidate.white,
                     candidate.black,
                     candidate.draws,
                     this.config.DRAWSAREHALF
                 ).whitePerc;
-            } else {
+            } else { // currentTurn === 'b'
                 winRate = statisticsEngine.calculateWinRate(
                     candidate.white,
                     candidate.black,
@@ -368,7 +370,7 @@ class MoveSelector {
                 ).blackPerc;
             }
 
-            console.log(`      Win rate (${position.perspective}): ${winRate?.toFixed(4)}`);
+            console.log(`      Win rate (${currentTurn === 'w' ? 'white' : 'black'} to move): ${winRate?.toFixed(4)}`);
 
             // Calculate confidence interval
             const confidence = statisticsEngine.calculateConfidenceInterval(
