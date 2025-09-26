@@ -300,6 +300,90 @@
             color: #15803d;
         }
 
+        /* Tab System Styles */
+        .tab-navigation {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: max-content;
+        }
+
+        .tab-button:hover {
+            color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .nav-button-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-nav {
+            padding: 0.75rem 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--surface);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-nav:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn-nav:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tab-progress {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 1rem;
@@ -318,6 +402,21 @@
                 flex-direction: column;
                 gap: 1rem;
             }
+
+            .tab-button {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+
+            .tab-navigation-buttons {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-button-group {
+                width: 100%;
+                justify-content: space-between;
+            }
         }
     </style>
 </head>
@@ -329,8 +428,32 @@
         </div>
 
         <form id="bookbuilder-form" class="form-container">
-            <!-- PGN Input Section -->
-            <div class="form-section-container" id="pgn-input">
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button type="button" class="tab-button active" data-tab="pgn-input">
+                    ♟️ PGN Input
+                </button>
+                <button type="button" class="tab-button" data-tab="lichess-settings">
+                    🌐 Lichess Database
+                </button>
+                <button type="button" class="tab-button" data-tab="opponent-filters">
+                    🛡️ Opponent Filters
+                </button>
+                <button type="button" class="tab-button" data-tab="candidate-selectors">
+                    🎯 Candidate Moves
+                </button>
+                <button type="button" class="tab-button" data-tab="engine-settings">
+                    🤖 Engine Filters
+                </button>
+                <button type="button" class="tab-button" data-tab="pgn-output-settings">
+                    📄 PGN Output
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <!-- PGN Input Tab -->
+            <div class="tab-content active" id="tab-pgn-input">
+                <div class="form-section-container" id="pgn-input">
                 <div class="form-section">
                     <h2 class="section-title">♟️ Chess Game (PGN Format)</h2>
 
@@ -364,11 +487,13 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- Lichess Database Section -->
-            <div class="form-section-container" id="lichess-settings">
-                <div class="form-section">
+            <!-- Lichess Database Tab -->
+            <div class="tab-content" id="tab-lichess-settings">
+                <div class="form-section-container" id="lichess-settings">
+                    <div class="form-section">
                     <h2 class="section-title">🌐 Lichess Database Settings</h2>
                     <div class="form-help">
                         These settings determine what data from the Lichess opening explorer you wish BookBuilder to consider when creating your repertoire.
@@ -433,10 +558,12 @@
                     </div>
 
                 </div>
+                </div>
             </div>
 
-            <!-- Your Opponent's Move Filters Section -->
-            <div class="form-section-container" id="opponent-filters">
+            <!-- Opponent Filters Tab -->
+            <div class="tab-content" id="tab-opponent-filters">
+                <div class="form-section-container" id="opponent-filters">
                 <div class="form-section">
                     <h2 class="section-title">🛡️ Your Opponent's Move Filters</h2>
                     <div class="form-help">
@@ -467,10 +594,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- Your Candidate Move Selectors Section -->
-            <div class="form-section-container" id="candidate-selectors">
+            <!-- Candidate Selectors Tab -->
+            <div class="tab-content" id="tab-candidate-selectors">
+                <div class="form-section-container" id="candidate-selectors">
                 <div class="form-section">
                     <h2 class="section-title">🎯 Your Candidate Move Selectors</h2>
                     <div class="form-help">
@@ -533,10 +662,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- Engine Filters Section -->
-            <div class="form-section-container" id="engine-settings">
+            <!-- Engine Settings Tab -->
+            <div class="tab-content" id="tab-engine-settings">
+                <div class="form-section-container" id="engine-settings">
                 <div class="form-section">
                     <h2 class="section-title">🤖 Engine Filters</h2>
                     <div class="form-help">
@@ -621,10 +752,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- PGN Output Configuration Section -->
-            <div class="form-section-container" id="pgn-output-settings">
+            <!-- PGN Output Settings Tab -->
+            <div class="tab-content" id="tab-pgn-output-settings">
+                <div class="form-section-container" id="pgn-output-settings">
                 <div class="form-section">
                     <h2 class="section-title">📄 PGN Output Configuration</h2>
                     <div class="form-help">
@@ -704,15 +837,26 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="loadSampleConfiguration()">
-                    Load Sample Configuration
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    🚀 Generate Repertoire
-                </button>
+            <!-- Global Tab Navigation -->
+            <div class="tab-navigation-buttons">
+                <div class="tab-progress">Step 1 of 6</div>
+                <div class="nav-button-group">
+                    <button type="button" class="btn-nav" id="prev-tab" disabled>
+                        ← Back
+                    </button>
+                    <button type="button" class="btn-nav" id="next-tab">
+                        Next →
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="loadSampleConfiguration()" style="display: none;">
+                        Load Sample Configuration
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="display: none;">
+                        🚀 Generate Repertoire
+                    </button>
+                </div>
             </div>
 
             <div class="progress-container" id="progress-container">
@@ -736,6 +880,95 @@
 
     <!-- Global utility functions (must be available before module loads) -->
     <script>
+        // Tab System Management
+        let currentTab = 0;
+        const tabs = ['pgn-input', 'lichess-settings', 'opponent-filters', 'candidate-selectors', 'engine-settings', 'pgn-output-settings'];
+
+        function initTabSystem() {
+            // Add click listeners to tab buttons
+            document.querySelectorAll('.tab-button').forEach((button, index) => {
+                button.addEventListener('click', () => switchToTab(index));
+            });
+
+            // Add click listeners to navigation buttons
+            document.addEventListener('click', (e) => {
+                if (e.target.id === 'next-tab' || e.target.closest('#next-tab')) {
+                    nextTab();
+                } else if (e.target.id === 'prev-tab' || e.target.closest('#prev-tab')) {
+                    prevTab();
+                }
+            });
+        }
+
+        function switchToTab(tabIndex) {
+            if (tabIndex < 0 || tabIndex >= tabs.length) return;
+
+            currentTab = tabIndex;
+            const targetTabId = `tab-${tabs[tabIndex]}`;
+
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach((button, index) => {
+                button.classList.toggle('active', index === tabIndex);
+            });
+
+            // Update tab content - hide all first
+            document.querySelectorAll('.tab-content').forEach((content) => {
+                content.classList.remove('active');
+            });
+
+            // Show target tab content
+            const targetTab = document.getElementById(targetTabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+
+            // Update progress indicator
+            const progressElement = document.querySelector('.tab-progress');
+            if (progressElement) {
+                progressElement.textContent = `Step ${tabIndex + 1} of ${tabs.length}`;
+            }
+
+            // Update navigation buttons
+            updateNavigationButtons();
+        }
+
+        function updateNavigationButtons() {
+            // Update back button
+            const prevBtn = document.getElementById('prev-tab');
+            if (prevBtn) {
+                prevBtn.disabled = currentTab === 0;
+            }
+
+            // Update next button
+            const nextBtn = document.getElementById('next-tab');
+            const loadBtn = document.querySelector('button[onclick="loadSampleConfiguration()"]');
+            const submitBtn = document.querySelector('button[type="submit"]');
+
+            if (currentTab === tabs.length - 1) {
+                // Last tab - show submit and load config buttons, hide next
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (loadBtn) loadBtn.style.display = 'inline-flex';
+                if (submitBtn) submitBtn.style.display = 'inline-flex';
+            } else {
+                // Not last tab - show next button, hide others
+                if (nextBtn) nextBtn.style.display = 'inline-flex';
+                if (loadBtn) loadBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'none';
+            }
+        }
+
+        function nextTab() {
+            if (currentTab < tabs.length - 1) {
+                switchToTab(currentTab + 1);
+            }
+        }
+
+        function prevTab() {
+            if (currentTab > 0) {
+                switchToTab(currentTab - 1);
+            }
+        }
+
         function updateRangeDisplay(rangeElement) {
             const valueElement = document.getElementById(rangeElement.id + '-value');
             if (valueElement) {
@@ -788,18 +1021,21 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             try {
+                // Initialize tab system first
+                initTabSystem();
+
                 // Initialize error handler first
                 errorHandler = new ErrorHandler();
                 window.errorHandler = errorHandler;
-                
+
                 // Initialize progress tracker
                 progressTracker = new ProgressTracker();
                 window.progressTracker = progressTracker;
-                
+
                 // Initialize form controller
                 formController = new FormController();
                 window.formController = formController;
-                
+
                 console.log('BookBuilder application initialized successfully');
                 
             } catch (error) {
