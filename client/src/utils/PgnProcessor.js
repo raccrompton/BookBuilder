@@ -49,8 +49,8 @@ class PgnProcessor {
                 throw new Error('PGN input is empty or invalid');
             }
 
-            // Preprocess and normalize the PGN input
-            const normalizedPgn = this.preprocessPgn(pgnString.trim());
+            // Preprocess and normalize the PGN input using chess.js
+            const normalizedPgn = await this.preprocessPgn(pgnString.trim());
 
             // Parse the PGN using mliebelt's parser
             const parser = await loadParser();
@@ -73,8 +73,8 @@ class PgnProcessor {
             // Generate opening name from headers or moves
             const name = this.generateOpeningName(game, moves);
 
-            // Use original move count from preprocessing if available (for simple sequences like "e4 e5")
-            const moveCount = this._originalMoveCount || moves.length;
+            // Use the actual parsed move count
+            const moveCount = moves.length;
 
             return {
                 name: name,
@@ -194,7 +194,7 @@ class PgnProcessor {
     }
 
     /**
-     * Validate PGN format without full parsing
+     * Validate PGN format using chess.js for authoritative validation
      * @param {string} pgnString - The PGN input string
      * @returns {Object} Validation result with isValid boolean and error message
      */
@@ -209,25 +209,8 @@ class PgnProcessor {
                 return { isValid: false, error: 'PGN input cannot be empty' };
             }
 
-            // Check for weak PGN format first (like "e4 e5")
-            const hasHeaders = /\[\s*\w+\s*"[^"]*"\s*\]/.test(trimmed);
-            const hasMoves = /\b[1-9]\d*\.\s*[a-zA-Z]/.test(trimmed);
-            const hasWeakMoves = /^[a-zA-Z][a-zA-Z0-9+#=\-]*(\s+[a-zA-Z][a-zA-Z0-9+#=\-]*)*\s*$/.test(trimmed);
-
-            if (!hasHeaders && !hasMoves && !hasWeakMoves) {
-                return { isValid: false, error: 'Invalid PGN format - missing headers and moves' };
-            }
-
-            // Try actual parsing for more thorough validation
-            const normalizedPgn = this.preprocessPgn(trimmed);
-            const parser = await loadParser();
-            if (!parser || !parser.parse) {
-                return { isValid: false, error: 'Failed to load PGN parser' };
-            }
-            const game = parser.parse(normalizedPgn, { startRule: "game" });
-            if (!game) {
-                return { isValid: false, error: 'PGN parsing failed - invalid syntax' };
-            }
+            // Use chess.js for authoritative validation
+            await this.preprocessPgn(trimmed);
 
             return { isValid: true, error: null };
 
@@ -237,77 +220,31 @@ class PgnProcessor {
     }
 
     /**
-     * Preprocess and normalize PGN input for parsing
-     * Handles weakly formatted input like "e4 e5" and converts to proper PGN
+     * Preprocess and normalize PGN input using chess.js for robust parsing
+     * Handles any valid PGN format and returns clean, standardized PGN
      * @param {string} pgnString - Raw PGN input
      * @returns {string} Normalized PGN string
      */
-    static preprocessPgn(pgnString) {
+    static async preprocessPgn(pgnString) {
         if (!pgnString) return '';
 
-        let pgn = pgnString.trim();
+        try {
+            // Import chess.js for authoritative parsing
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js');
+            const chess = new Chess();
 
-        // Check if this looks like just moves without proper PGN structure
-        const hasHeaders = /\[[\w\s]+\s*\"[^\"]*\"\s*\]/.test(pgn);
-        const hasMoveNumbers = /\b\d+\.\s*[a-zA-Z]/.test(pgn);
+            // Let chess.js handle any PGN format (with or without headers, loose notation, etc.)
+            chess.loadPgn(pgnString.trim());
 
-        // If no headers and no move numbers, treat as simple move sequence
-        if (!hasHeaders && !hasMoveNumbers) {
-            // Split on whitespace and filter out empty strings
-            const moves = pgn.split(/\s+/).filter(move => move.trim() !== '');
+            // Return clean, standardized PGN without headers or result indicators
+            return chess.pgn();
 
-            if (moves.length > 0) {
-                // Store original move count for perspective calculation
-                this._originalMoveCount = moves.length;
-
-                // Convert simple moves like "e4 e5 Nf3 Nc6" to proper PGN
-                let formattedMoves = '';
-                for (let i = 0; i < moves.length; i++) {
-                    const moveNumber = Math.floor(i / 2) + 1;
-
-                    if (i % 2 === 0) {
-                        // White's move
-                        formattedMoves += `${moveNumber}. ${moves[i]}`;
-                    } else {
-                        // Black's move
-                        formattedMoves += ` ${moves[i]}`;
-                        if (i < moves.length - 1) {
-                            formattedMoves += ' ';
-                        }
-                    }
-                }
-
-                // Add minimal headers for a valid PGN
-                pgn = `[Event "Opening Analysis"]
-[Site "?"]
-[Date "????.??.??"]
-[Round "?"]
-[White "?"]
-[Black "?"]
-[Result "*"]
-
-${formattedMoves} *`;
-            }
+        } catch (error) {
+            // If chess.js can't parse it, throw a clear error
+            throw new Error(`Invalid chess moves: ${error.message}`);
         }
-
-        return this.cleanPgn(pgn);
     }
 
-    /**
-     * Clean and format PGN string
-     * @param {string} pgnString - Raw PGN input
-     * @returns {string} Cleaned PGN string
-     */
-    static cleanPgn(pgnString) {
-        if (!pgnString) return '';
-
-        return pgnString
-            .replace(/\r\n/g, '\n')           // Normalize line endings
-            .replace(/\n\s*\n/g, '\n\n')      // Remove excessive blank lines
-            .replace(/\s+/g, ' ')             // Normalize spaces in moves
-            .replace(/\[\s*(\w+)\s*"([^"]*)"\s*\]/g, '[$1 "$2"]') // Clean headers
-            .trim();
-    }
 }
 
 export default PgnProcessor;
