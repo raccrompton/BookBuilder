@@ -392,24 +392,44 @@ class FileGenerator {
      * @returns {string} Formatted PGN content
      */
     async generateConfiguredPGN(lines, chapterName, config, pgnGenerator) {
-        console.log('📁 [FileGenerator] generateConfiguredPGN called:');
-        console.log('   outputFormat:', config.outputFormat);
-        console.log('   annotationStyle:', config.annotationStyle);
-        console.log('   lines count:', lines.length);
+        console.log('\n📁 [FileGenerator] generateConfiguredPGN() - FORMATTING ENGINE CALLED');
+        console.log('   🎯 Handling SORTING + FORMATTING (moved from BookBuilder)');
+        console.log('   📊 Received config:', {
+            outputFormat: config.outputFormat,
+            pgnConfig: config.pgnConfig,
+            LONGTOSHORT: config.LONGTOSHORT,
+            configKeys: Object.keys(config)
+        });
+        console.log('   📊 Input lines:', { linesCount: lines?.length || 'MISSING', chapterName });
 
         // Handle empty lines array
         if (!lines || lines.length === 0) {
-            console.log('   → Empty lines array, returning empty string');
+            console.log('   ❌ Empty lines array, returning empty string');
             return '';
+        }
+
+        // Sort lines by probability (moved from BookBuilder for consistent behavior)
+        console.log('   📈 Sorting lines by probability...');
+        const sortedLines = this.sortLinesByProbability(lines);
+        console.log('   🔝 Top 3 lines by probability:', sortedLines.slice(0, 3).map(line => ({
+            pgn: line.pgn,
+            likelihood: line.cumulativeLikelihood?.toFixed(6)
+        })));
+
+        // Apply LONGTOSHORT reversal if configured
+        let finalLines = sortedLines;
+        if (config.LONGTOSHORT) {
+            console.log('   🔄 Applying LONGTOSHORT reversal');
+            finalLines = [...sortedLines].reverse();
         }
 
         // Route to appropriate generation method based on configuration
         if (config.outputFormat === 'tree') {
-            console.log('   → Taking TREE generation path');
-            return await this.generateTreePGN(lines, chapterName, config, pgnGenerator);
+            console.log('   🌳 → Taking TREE generation path');
+            return await this.generateTreePGN(finalLines, chapterName, config, pgnGenerator);
         } else {
-            console.log('   → Taking INDIVIDUAL lines path');
-            return await this.generateIndividualLinesPGN(lines, chapterName, pgnGenerator);
+            console.log('   📋 → Taking INDIVIDUAL lines path');
+            return await this.generateIndividualLinesPGN(finalLines, chapterName, pgnGenerator);
         }
     }
 
@@ -465,7 +485,7 @@ class FileGenerator {
 
     /**
      * Build a tree structure from multiple lines for variation-based PGN
-     * @param {Array} lines - Array of line objects with moves and pgn
+     * @param {Array} lines - Array of line objects (should already be sorted by probability)
      * @returns {Object} Tree structure with main line and variations
      */
     buildVariationTree(lines) {
@@ -475,19 +495,14 @@ class FileGenerator {
             return { mainLine: '', variations: [] };
         }
 
-        // Sort lines by length (longest first for main line)
-        const sortedLines = lines.slice().sort((a, b) => {
-            const aLength = (a.moves || []).length;
-            const bLength = (b.moves || []).length;
-            return bLength - aLength; // Longest first
-        });
+        // Lines should already be sorted by probability (highest first)
+        // Use highest probability line as main line (much better than longest!)
+        const mainLine = lines[0];
+        const variations = lines.slice(1);
 
-        // Use longest line as main line
-        const mainLine = sortedLines[0];
-        const variations = sortedLines.slice(1);
-
-        console.log(`   Main line (longest): ${mainLine.pgn}`);
-        console.log(`   Variations: ${variations.length}`);
+        console.log(`   🎯 Main line (highest probability): ${mainLine.pgn}`);
+        console.log(`   📊 Main line likelihood: ${mainLine.cumulativeLikelihood?.toFixed(6)}`);
+        console.log(`   🌿 Variations: ${variations.length}`);
 
         return {
             mainLine: mainLine,
@@ -574,21 +589,316 @@ class FileGenerator {
 
 
     /**
-     * Generate tree move sequence without inline stats
+     * Generate tree move sequence with proper PGN variation syntax
      * @param {Object} variationTree - Tree structure with main line and variations
-     * @returns {string} Tree move sequence
+     * @returns {string} Tree move sequence with (variation) notation
      */
     async generateTreeMoveSequence(variationTree) {
+        console.log(`🌳 [FileGenerator] generateTreeMoveSequence() - Building PGN tree`);
+
         if (!variationTree.mainLine || !variationTree.mainLine.pgn) {
+            console.log(`   ❌ No main line found`);
             return '';
         }
 
-        // For now, just return the main line PGN
-        // TODO: Implement proper variation tree with ( ) notation
-        return variationTree.mainLine.pgn;
+        const mainLine = variationTree.mainLine;
+        const variations = variationTree.variations || [];
+
+        console.log(`   📋 Main line: ${mainLine.pgn}`);
+        console.log(`   🌿 Processing ${variations.length} variations`);
+
+        // Parse main line moves using chess.js
+        const mainMoves = await this.parsePGNMoves(mainLine.pgn);
+        if (mainMoves.length === 0) {
+            console.log(`   ❌ Could not parse main line moves`);
+            return mainLine.pgn; // Fallback to original PGN
+        }
+
+        // Build the tree structure with divergence analysis
+        const treeStructure = await this.buildMoveTree(mainMoves, variations);
+
+        // Generate final PGN with inline variations
+        const treePGN = this.generateTreePGNFromStructure(treeStructure, mainLine);
+
+        return treePGN;
     }
 
+    /**
+     * Parse PGN string to extract clean move array using chess.js
+     * @param {string} pgn - PGN moves string (with or without headers)
+     * @returns {Array} - Clean move array in SAN notation
+     */
+    async parsePGNMoves(pgn) {
+        try {
+            console.log(`   🔍 Parsing PGN with chess.js: "${pgn.substring(0, 50)}..."`);
 
+            // Import chess.js for robust PGN parsing
+            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js');
+            const chess = new Chess();
+
+            // Load the PGN - chess.js handles headers, formatting, etc.
+            chess.loadPgn(pgn); // loadPgn returns undefined, not boolean - chess.js API quirk
+
+            // Get move history in SAN notation - this is the robust way!
+            const moves = chess.history();
+            if (moves.length === 0) {
+                console.warn(`   ⚠️  Chess.js loaded PGN but extracted no moves`);
+                return [];
+            }
+
+            console.log(`   ✅ Chess.js extracted ${moves.length} moves:`, moves);
+
+            return moves;
+
+        } catch (error) {
+            console.error(`   ❌ Error parsing PGN with chess.js: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Build move tree structure by finding variation divergence points
+     * @param {Array} mainMoves - Main line moves array ["e4", "e5", "Nf3", "Nc6", "Bc4", "f5", "d3"]
+     * @param {Array} variations - Array of variation line objects
+     * @returns {Object} - Tree structure with divergence points and statistics
+     */
+    async buildMoveTree(mainMoves, variations) {
+        console.log(`   🔨 Building move tree from main line (${mainMoves.length} moves) and ${variations.length} variations`);
+
+        const divergences = [];
+
+        // Parse each variation and find where it diverges from main line
+        for (let i = 0; i < variations.length; i++) {
+            const variation = variations[i];
+            console.log(`   🌿 Processing variation ${i + 1}: "${variation.pgn?.substring(0, 30)}..."`);
+
+            try {
+                // Parse variation moves using chess.js
+                const varMoves = await this.parsePGNMoves(variation.pgn);
+                console.log(`   📊 Variation ${i + 1} moves:`, varMoves);
+
+                // Find divergence point
+                const divergencePoint = this.findDivergencePoint(mainMoves, varMoves);
+
+                if (divergencePoint !== -1) {
+                    console.log(`   🎯 Variation ${i + 1} diverges at move ${divergencePoint + 1}: main="${mainMoves[divergencePoint]}" vs var="${varMoves[divergencePoint]}"`);
+
+                    // Find or create divergence group at this position
+                    let divergenceGroup = divergences.find(d => d.position === divergencePoint);
+                    if (!divergenceGroup) {
+                        divergenceGroup = {
+                            position: divergencePoint,
+                            mainMove: mainMoves[divergencePoint],
+                            variations: []
+                        };
+                        divergences.push(divergenceGroup);
+                    }
+
+                    // Add this variation to the group
+                    divergenceGroup.variations.push({
+                        move: varMoves[divergencePoint],
+                        continuation: varMoves.slice(divergencePoint + 1),
+                        stats: variation.statistics || variation.stats || {},
+                        pgn: variation.pgn,
+                        likelihoodPath: variation.likelihoodPath || [],
+                        cumulativeLikelihood: variation.cumulativeLikelihood || 0
+                    });
+                }
+            } catch (error) {
+                console.warn(`   ⚠️ Error processing variation ${i + 1}:`, error.message);
+            }
+        }
+
+        // Sort divergences by position
+        divergences.sort((a, b) => a.position - b.position);
+
+        console.log(`   🌳 Tree structure complete: ${divergences.length} divergence points, ${divergences.reduce((sum, d) => sum + d.variations.length, 0)} total variations`);
+
+        return {
+            mainMoves: mainMoves,
+            divergences: divergences
+        };
+    }
+
+    /**
+     * Generate PGN with inline variation annotations from tree structure
+     * @param {Object} treeStructure - Tree structure from buildMoveTree
+     * @param {Object} mainLineStats - Statistics for the main line
+     * @returns {string} - Formatted PGN with inline variations
+     */
+    generateTreePGNFromStructure(treeStructure, mainLineStats) {
+        console.log('🎯 Generating PGN tree format from structure');
+
+        const { mainMoves, divergences } = treeStructure;
+        let pgnParts = [];
+        let moveNumber = 1;
+        let isWhiteMove = true;
+
+        for (let i = 0; i < mainMoves.length; i++) {
+            // Add move number for white moves
+            if (isWhiteMove) {
+                pgnParts.push(`${moveNumber}.`);
+            }
+
+            // Add the main move
+            pgnParts.push(mainMoves[i]);
+
+            // Check if there are variations at this position
+            const divergenceAtThisMove = divergences.find(d => d.position === i);
+            if (divergenceAtThisMove) {
+                console.log(`   📝 Adding ${divergenceAtThisMove.variations.length} variations after move ${i + 1} (${mainMoves[i]})`);
+
+                // Add each variation as inline annotation
+                for (const variation of divergenceAtThisMove.variations) {
+                    const stats = variation.stats || {};
+
+                    // Build variation string: (alternative_move continuation {stats})
+                    let variationParts = [`(${variation.move}`];
+
+                    // Add continuation moves if any
+                    if (variation.continuation && variation.continuation.length > 0) {
+                        // Add appropriate move numbers for continuation
+                        let contMoveNum = isWhiteMove ? moveNumber : moveNumber + 1;
+                        let contIsWhite = !isWhiteMove;
+
+                        for (const contMove of variation.continuation.slice(0, 3)) { // Limit to 3 moves
+                            if (contIsWhite) {
+                                variationParts.push(`${contMoveNum}.`);
+                            }
+                            variationParts.push(contMove);
+                            contIsWhite = !contIsWhite;
+                            if (contIsWhite) contMoveNum++;
+                        }
+                    }
+
+                    // Add detailed statistics annotation with move playrates
+                    const games = stats.totalGames || stats.games || 0;
+                    const winrate = stats.winrate || stats.probability || 0;
+
+                    if (games > 0) {
+                        const winratePercent = (winrate * 100).toFixed(1);
+                        const gamesFormatted = games.toLocaleString();
+
+                        // Build detailed stats including move playrates
+                        let detailedStats = [];
+
+                        // Add move playrates if available
+                        if (variation.likelihoodPath && variation.likelihoodPath.length > 0) {
+                            const movePlayrates = variation.likelihoodPath
+                                .map(move => `+${(move.playrate * 100).toFixed(1)}% ${move.san || move.move}`)
+                                .join(', ');
+                            detailedStats.push(`Move playrates: ${movePlayrates}`);
+                        }
+
+                        // Add cumulative likelihood
+                        if (variation.cumulativeLikelihood) {
+                            detailedStats.push(`Line cumulative: +${(variation.cumulativeLikelihood * 100).toFixed(1)}%`);
+                        }
+
+                        // Add winrate
+                        detailedStats.push(`Winrate: +${winratePercent}% over ${gamesFormatted} games`);
+
+                        variationParts.push(`{${detailedStats.join('. ')}}`);
+                    }
+
+                    variationParts.push(')');
+                    pgnParts.push(variationParts.join(' '));
+                }
+            }
+
+            // Update move tracking
+            if (isWhiteMove) {
+                isWhiteMove = false;
+            } else {
+                isWhiteMove = true;
+                moveNumber++;
+            }
+        }
+
+        // Add detailed main line statistics at the end
+        if (mainLineStats) {
+            // Handle both direct stats and nested statistics object
+            const statsObj = mainLineStats.statistics || mainLineStats;
+            const games = statsObj.totalGames || statsObj.games || 0;
+            const winrate = statsObj.winrate || statsObj.probability || 0;
+
+            if (games > 0) {
+                const winratePercent = (winrate * 100).toFixed(1);
+                const gamesFormatted = games.toLocaleString();
+
+                // Build detailed main line stats
+                let mainStats = [];
+
+                // Add move playrates if available
+                if (mainLineStats.likelihoodPath && mainLineStats.likelihoodPath.length > 0) {
+                    const movePlayrates = mainLineStats.likelihoodPath
+                        .map(move => `+${(move.playrate * 100).toFixed(1)}% ${move.san || move.move}`)
+                        .join(', ');
+                    mainStats.push(`Move playrates: ${movePlayrates}`);
+                }
+
+                // Add cumulative likelihood
+                if (mainLineStats.cumulativeLikelihood) {
+                    mainStats.push(`Line cumulative: +${(mainLineStats.cumulativeLikelihood * 100).toFixed(1)}%`);
+                }
+
+                // Add winrate
+                mainStats.push(`Main winrate: +${winratePercent}% over ${gamesFormatted} games`);
+
+                pgnParts.push(`{${mainStats.join('. ')}}`);
+            }
+        }
+
+        pgnParts.push('*'); // Add game termination
+
+        const result = pgnParts.join(' ');
+        console.log('✅ Generated tree PGN:', result.substring(0, 100) + '...');
+        return result;
+    }
+
+    /**
+     * Find the first position where two move arrays diverge
+     * @param {Array} mainMoves - Main line moves
+     * @param {Array} varMoves - Variation moves
+     * @returns {number} - Index of first divergence, or -1 if no divergence
+     */
+    findDivergencePoint(mainMoves, varMoves) {
+        const minLength = Math.min(mainMoves.length, varMoves.length);
+
+        for (let i = 0; i < minLength; i++) {
+            if (mainMoves[i] !== varMoves[i]) {
+                return i;
+            }
+        }
+
+        // If one line is longer than the other, divergence is at the end of the shorter line
+        if (mainMoves.length !== varMoves.length) {
+            return minLength;
+        }
+
+        // Lines are identical
+        return -1;
+    }
+
+    /**
+     * Sort lines by consecutive move probabilities (moved from BookBuilder)
+     * @param {Array} lines - Array of line objects
+     * @returns {Array} - Sorted lines (highest probability first)
+     */
+    sortLinesByProbability(lines) {
+        return lines.sort((a, b) => {
+            const aProbs = a.likelihoodPath.map(move => move.playrate);
+            const bProbs = b.likelihoodPath.map(move => move.playrate);
+
+            for (let i = 0; i < Math.min(aProbs.length, bProbs.length); i++) {
+                if (aProbs[i] !== bProbs[i]) {
+                    return bProbs[i] - aProbs[i]; // Descending order (highest probability first)
+                }
+            }
+
+            return bProbs.length - aProbs.length;
+        });
+    }
 
     /**
      * Sleep utility for download delays
