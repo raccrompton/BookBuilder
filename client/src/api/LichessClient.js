@@ -7,6 +7,7 @@ class LichessClient {
         this.baseUrl = 'https://explorer.lichess.ovh';
         this.maxRetries = config.maxRetries || 3;
         this.retryDelay = config.retryDelay || 1000;
+        this.rateLimitDelay = config.rateLimitDelay || 60000; // 60s for rate limits (matches Python)
         this.timeout = config.timeout || 10000;
     }
 
@@ -74,8 +75,9 @@ class LichessClient {
    */
     async _makeRequestWithRetry(url, operation) {
         let lastError;
+        let attempt = 1;
 
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+        while (attempt <= this.maxRetries) {
             try {
                 console.log(`Lichess API ${operation}: Attempt ${attempt}/${this.maxRetries}`);
 
@@ -91,6 +93,13 @@ class LichessClient {
                 });
 
                 clearTimeout(timeoutId);
+
+                // Handle rate limiting BEFORE checking response.ok
+                if (response.status === 429) {
+                    console.log(`🚨 [LichessClient] Rate limited - waiting ${this.rateLimitDelay/1000}s...`);
+                    await this._sleep(this.rateLimitDelay);
+                    continue; // Retry without incrementing attempt counter
+                }
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -128,6 +137,7 @@ class LichessClient {
                 } else {
                     console.error(`❌ [LichessClient] ${operation}: All ${this.maxRetries} attempts exhausted!`);
                 }
+                attempt++; // Only increment for actual failures (not rate limits)
             }
         }
 
