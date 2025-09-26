@@ -27,6 +27,20 @@ class LichessClient {
 
         const url = `${this.baseUrl}/lichess?${params}`;
 
+        // Detailed API parameter logging for debugging
+        console.log('🌐 [LichessClient] API Call Details:');
+        console.log('═'.repeat(60));
+        console.log(`📍 FEN Position: ${fen}`);
+        console.log(`🎯 Full URL: ${url}`);
+        console.log('📊 Parameters Breakdown:');
+        console.log(`   • Variant: ${params.get('variant')}`);
+        console.log(`   • Speeds: ${params.get('speeds')}`);
+        console.log(`   • Ratings: ${params.get('ratings')}`);
+        console.log(`   • Max Moves: ${params.get('moves')}`);
+        console.log('🔧 Options Object Received:');
+        console.log(`   • Raw Options:`, options);
+        console.log('═'.repeat(60));
+
         return this._makeRequestWithRetry(url, 'getPositionStats');
     }
 

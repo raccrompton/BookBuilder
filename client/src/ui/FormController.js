@@ -144,7 +144,7 @@ class FormController {
 
             // Phase 2: Validate configuration and connections
             this.progressTracker.updatePhase('Validating configuration...', 10);
-            await this.validateConnections();
+            await this.validateConnections(config);
 
             // Phase 3: Create BookBuilder instance
             this.progressTracker.updatePhase('Creating BookBuilder instance...', 15);
@@ -195,15 +195,21 @@ class FormController {
         }
     }
 
-    async validateConnections() {
-        // Test Lichess API connection
+    async validateConnections(config) {
+        // Test Lichess API connection using actual user configuration
         try {
             const startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-            await this.lichessClient.getPositionStats(startingPosition, {
-                speeds: 'blitz,rapid,classical',
-                ratings: '2000,2200,2500',
+
+            // Use the same API options format as BookBuilder
+            const validationOptions = {
+                speeds: Array.isArray(config.speeds) ? config.speeds.join(',') : (config.speeds || 'blitz,rapid,classical,correspondence'),
+                ratings: Array.isArray(config.ratings) ? config.ratings.join(',') : (config.ratings || '1600,1800,2000,2200,2500'),
+                variant: 'standard',
                 moves: 3
-            });
+            };
+
+            console.log('🔍 [FormController] Validating Lichess API with user settings:', validationOptions);
+            await this.lichessClient.getPositionStats(startingPosition, validationOptions);
         } catch (error) {
             throw new Error(`Lichess API connection failed: ${error.message}`);
         }
@@ -412,6 +418,16 @@ class FormController {
             BATCH_SIZE: 5,
             API_DELAY: 150
         };
+
+        // Log Lichess API configuration for debugging
+        console.log('🔧 [FormController] Lichess API Configuration:');
+        console.log('═'.repeat(50));
+        console.log(`🏁 Selected Speeds: ${JSON.stringify(config.speeds)}`);
+        console.log(`📊 Selected Ratings: ${JSON.stringify(config.ratings)}`);
+        console.log(`🎮 Variant: ${config.variants[0]}`);
+        console.log('═'.repeat(50));
+
+        return config;
     }
 
     getSelectedRatings(formConfig) {
