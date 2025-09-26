@@ -453,10 +453,7 @@ class FileGenerator {
         // Generate tree PGN with variations and endBlock annotations
         const treePgn = await this.generateTreeMoveSequence(variationTree);
         
-        // Generate combined statistics for all lines
-        const combinedAnnotations = this.formatCombinedAnnotations(lines);
-
-        return `${eventHeader}\n\n${treePgn}${combinedAnnotations}`.trim();
+        return `${eventHeader}\n\n${treePgn}`.trim();
     }
 
     /**
