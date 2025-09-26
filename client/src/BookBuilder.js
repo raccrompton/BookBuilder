@@ -33,6 +33,15 @@ class BookBuilder {
         this.pgnGenerator = new PgnGenerator(config);
         this.stockfishEngine = config.CAREABOUTENGINE ? new StockfishEngine() : null;
 
+        // Create Lichess API options from user configuration (fixes parameter consistency bug)
+        this.lichessApiOptions = {
+            speeds: Array.isArray(config.speeds) ? config.speeds.join(',') : (config.speeds || 'blitz,rapid,classical,correspondence'),
+            ratings: Array.isArray(config.ratings) ? config.ratings.join(',') : (config.ratings || '1600,1800,2000,2200,2500'),
+            variant: 'standard'
+        };
+
+        console.log('🔧 [BookBuilder] Lichess API options created:', this.lichessApiOptions);
+
         // State management (replaces Python's global finalLine and pgnsreturned)
         this.finalLines = [];
         this.processingQueue = [];
@@ -172,7 +181,7 @@ class BookBuilder {
 
                         // Get position stats for current position (only for opponent moves)
                         const currentFen = this.chessEngine.getFen();
-                        const positionStats = await this.lichessClient.getPositionStats(currentFen);
+                        const positionStats = await this.lichessClient.getPositionStats(currentFen, this.lichessApiOptions);
 
                         if (!positionStats || !positionStats.moves) {
                             throw new Error(`Failed to get position stats for opponent move ${move} at FEN: ${currentFen}`);
@@ -301,6 +310,7 @@ class BookBuilder {
 
             // Find opponent continuations (use high limit to get all opponent options)
             const continuations = await this.lichessClient.getPositionStats(fen, {
+                ...this.lichessApiOptions,
                 moves: 15  // High limit - we want all reasonable opponent options
             });
 
@@ -362,6 +372,7 @@ class BookBuilder {
 
                     // Find our best response (use user-configured move limit for candidate selection)
                     const positionData = await this.lichessClient.getPositionStats(newFen, {
+                        ...this.lichessApiOptions,
                         moves: this.config.MOVES || 10  // User-configured "Most Played Moves" limit
                     });
 
@@ -587,10 +598,37 @@ class BookBuilder {
             }
         }
 
-        // Finalize line without good response
+        // Finalize line without good response - use chess.js for proper PGN generation
+        let finalPgn;
+        try {
+            // Create temporary chess instance to generate proper PGN
+            const Chess = this.chessEngine.chess.constructor;
+            const tempChess = new Chess();
+
+            // Load current PGN if it exists
+            if (lineData.pgn && lineData.pgn.trim()) {
+                tempChess.loadPgn(lineData.pgn);
+            }
+
+            // Make opponent's move
+            const moveResult = tempChess.move(opponentMove.san);
+            if (!moveResult) {
+                console.warn(`[BookBuilder] Invalid opponent move for finalization: ${opponentMove.san}`);
+                // Fall back to manual concatenation as last resort
+                finalPgn = lineData.pgn + ' ' + opponentMove.san;
+            } else {
+                // Get properly formatted PGN from chess.js
+                finalPgn = tempChess.pgn();
+            }
+        } catch (error) {
+            console.warn(`[BookBuilder] Error generating final PGN with chess.js: ${error.message}`);
+            // Fall back to manual concatenation as last resort
+            finalPgn = lineData.pgn + ' ' + opponentMove.san;
+        }
+
         await this.finalizeLine({
             ...lineData,
-            pgn: lineData.pgn + ' ' + opponentMove.san,
+            pgn: finalPgn,
             cumulativeLikelihood: opponentMove.playrate * lineData.cumulativeLikelihood,
             likelihoodPath: [...lineData.likelihoodPath, {
                 san: opponentMove.san,
@@ -622,7 +660,7 @@ class BookBuilder {
             chessEngine.loadPosition(lineData.fen);
 
             console.log(`   Getting position statistics from Lichess...`);
-            const stats = await this.lichessClient.getPositionStats(lineData.fen);
+            const stats = await this.lichessClient.getPositionStats(lineData.fen, this.lichessApiOptions);
 
             if (stats) {
                 console.log(`   Position stats:`, {
