@@ -380,6 +380,244 @@ class FileGenerator {
         };
     }
 
+    // ==================== TREE/CONFIG FUNCTIONALITY ====================
+    // (Moved from PgnGenerator for proper separation of concerns)
+
+    /**
+     * Generate PGN with tree structure or individual lines based on config
+     * @param {Array} lines - Array of line objects with moves and statistics
+     * @param {string} chapterName - Base name for the chapter
+     * @param {Object} config - Output configuration
+     * @param {Object} pgnGenerator - Simple PgnGenerator instance
+     * @returns {string} Formatted PGN content
+     */
+    async generateConfiguredPGN(lines, chapterName, config, pgnGenerator) {
+        console.log('📁 [FileGenerator] generateConfiguredPGN called:');
+        console.log('   outputFormat:', config.outputFormat);
+        console.log('   annotationStyle:', config.annotationStyle);
+        console.log('   lines count:', lines.length);
+
+        // Handle empty lines array
+        if (!lines || lines.length === 0) {
+            console.log('   → Empty lines array, returning empty string');
+            return '';
+        }
+
+        // Route to appropriate generation method based on configuration
+        if (config.outputFormat === 'tree') {
+            console.log('   → Taking TREE generation path');
+            return await this.generateTreePGN(lines, chapterName, config, pgnGenerator);
+        } else if (config.annotationStyle === 'inline') {
+            console.log('   → Taking INLINE annotation path');
+            return await this.generateInlineAnnotatedPGN(lines, chapterName, config, pgnGenerator);
+        } else {
+            console.log('   → Taking DEFAULT individual lines path');
+            return await this.generateIndividualLinesPGN(lines, chapterName, pgnGenerator);
+        }
+    }
+
+    /**
+     * Generate PGN with tree structure using variations
+     * @param {Array} lines - Array of line objects with moves and statistics
+     * @param {string} chapterName - Base name for the chapter
+     * @param {Object} config - Configuration object
+     * @param {Object} pgnGenerator - Simple PgnGenerator instance
+     * @returns {string} Tree-structured PGN content
+     */
+    async generateTreePGN(lines, chapterName, config, pgnGenerator) {
+        console.log(`📋 [FileGenerator] Generating tree-structured PGN for ${lines.length} lines`);
+
+        // Build tree structure from lines
+        const variationTree = this.buildVariationTree(lines);
+
+        // Use simple PgnGenerator for the event header
+        const eventHeader = `[Event "${chapterName} Line 1"]`;
+
+        // Generate tree PGN with variations
+        let treePgn;
+        if (config.annotationStyle === 'inline') {
+            treePgn = await this.generateTreeMoveSequenceWithInlineStats(variationTree);
+        } else {
+            treePgn = await this.generateTreeMoveSequence(variationTree);
+        }
+
+        // Generate combined statistics for all lines (skip if inline since stats are embedded)
+        let combinedAnnotations = '';
+        if (config.annotationStyle !== 'inline') {
+            combinedAnnotations = this.formatCombinedAnnotations(lines);
+        }
+
+        return `${eventHeader}\n\n${treePgn}${combinedAnnotations}`.trim();
+    }
+
+    /**
+     * Generate individual lines PGN using simple PgnGenerator
+     * @param {Array} lines - Array of line objects
+     * @param {string} chapterName - Chapter name
+     * @param {Object} pgnGenerator - Simple PgnGenerator instance
+     * @returns {string} Individual lines PGN
+     */
+    async generateIndividualLinesPGN(lines, chapterName, pgnGenerator) {
+        console.log(`📋 [FileGenerator] Generating individual lines PGN for ${lines.length} lines`);
+
+        let pgnContent = '';
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineNumber = i + 1;
+            const eventName = `${chapterName} Line ${lineNumber}`;
+
+            // Use simple PgnGenerator for individual lines
+            const linePgn = await pgnGenerator.generateSingleLine(line, eventName);
+            pgnContent += linePgn + '\n\n';
+        }
+
+        return pgnContent.trim();
+    }
+
+    /**
+     * Build a tree structure from multiple lines for variation-based PGN
+     * @param {Array} lines - Array of line objects with moves and pgn
+     * @returns {Object} Tree structure with main line and variations
+     */
+    buildVariationTree(lines) {
+        console.log(`🌳 [FileGenerator] Building variation tree from ${lines.length} lines`);
+
+        if (lines.length === 0) {
+            return { mainLine: '', variations: [] };
+        }
+
+        // Sort lines by length (longest first for main line)
+        const sortedLines = lines.slice().sort((a, b) => {
+            const aLength = (a.moves || []).length;
+            const bLength = (b.moves || []).length;
+            return bLength - aLength; // Longest first
+        });
+
+        // Use longest line as main line
+        const mainLine = sortedLines[0];
+        const variations = sortedLines.slice(1);
+
+        console.log(`   Main line (longest): ${mainLine.pgn}`);
+        console.log(`   Variations: ${variations.length}`);
+
+        return {
+            mainLine: mainLine,
+            variations: variations,
+            allLines: lines
+        };
+    }
+
+    /**
+     * Format combined annotations for tree structure
+     * @param {Array} lines - Array of line objects
+     * @returns {string} Combined statistics annotation
+     */
+    formatCombinedAnnotations(lines) {
+        let annotations = '\n{Move playrates:';
+
+        // Collect all unique moves and their playrates from all lines
+        const movePlayrates = new Map();
+
+        for (const line of lines) {
+            if (line.likelihoodPath) {
+                for (const pathMove of line.likelihoodPath) {
+                    if (pathMove.san && pathMove.playrate !== undefined) {
+                        // Use the highest playrate if move appears in multiple lines
+                        const existing = movePlayrates.get(pathMove.san);
+                        if (!existing || pathMove.playrate > existing) {
+                            movePlayrates.set(pathMove.san, pathMove.playrate);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add move playrates
+        for (const [san, playrate] of movePlayrates) {
+            const playratePercent = (playrate * 100).toFixed(2);
+            annotations += `\n+${playratePercent}%\t${san}`;
+        }
+
+        // Add combined line statistics
+        let totalCumulativePlayrate = 0;
+        let totalGames = 0;
+        let totalWins = 0;
+
+        for (const line of lines) {
+            if (line.cumulativeLikelihood) {
+                totalCumulativePlayrate += line.cumulativeLikelihood;
+            }
+            // Use statistics object if available, otherwise fallback to direct properties
+            const stats = line.statistics || line;
+            if (stats.totalGames) totalGames += stats.totalGames;
+            if (stats.winrate && stats.totalGames) {
+                totalWins += stats.winrate * stats.totalGames;
+            } else if (stats.winRate && stats.totalGames) {
+                totalWins += stats.winRate * stats.totalGames;
+            }
+        }
+
+        if (totalCumulativePlayrate > 0) {
+            const avgCumulative = (totalCumulativePlayrate / lines.length * 100).toFixed(2);
+            annotations += `\nLine cumulative playrate: +${avgCumulative}%`;
+        }
+
+        if (totalGames > 0) {
+            const avgWinRate = totalWins / totalGames;
+            const winratePercent = (avgWinRate * 100).toFixed(2);
+            const gamesFormatted = totalGames.toLocaleString();
+
+            annotations += `\nLine winrate (combined): +${winratePercent}% over ${gamesFormatted} games`;
+        }
+
+        annotations += '\n}';
+        return annotations;
+    }
+
+    /**
+     * Generate PGN with inline annotations (delegates to individual lines for now)
+     * @param {Array} lines - Array of line objects
+     * @param {string} chapterName - Chapter name
+     * @param {Object} config - Configuration object
+     * @param {Object} pgnGenerator - Simple PgnGenerator instance
+     * @returns {string} PGN with inline annotations
+     */
+    async generateInlineAnnotatedPGN(lines, chapterName, config, pgnGenerator) {
+        // For now, individual + inline still uses endBlock format
+        // True inline would require integrating playrates into move sequence
+        return await this.generateIndividualLinesPGN(lines, chapterName, pgnGenerator);
+    }
+
+    /**
+     * Generate tree move sequence without inline stats
+     * @param {Object} variationTree - Tree structure with main line and variations
+     * @returns {string} Tree move sequence
+     */
+    async generateTreeMoveSequence(variationTree) {
+        if (!variationTree.mainLine || !variationTree.mainLine.pgn) {
+            return '';
+        }
+
+        // For now, just return the main line PGN
+        // TODO: Implement proper variation tree with ( ) notation
+        return variationTree.mainLine.pgn;
+    }
+
+    /**
+     * Generate tree move sequence with inline statistics
+     * @param {Object} variationTree - Tree structure with main line and variations
+     * @returns {string} Tree move sequence with inline stats
+     */
+    async generateTreeMoveSequenceWithInlineStats(variationTree) {
+        if (!variationTree.mainLine || !variationTree.mainLine.pgn) {
+            return '';
+        }
+
+        // For now, just return the main line PGN without inline stats
+        // TODO: Implement inline statistics integration
+        return variationTree.mainLine.pgn;
+    }
+
     /**
      * Sleep utility for download delays
      */
