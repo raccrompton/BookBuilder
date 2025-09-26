@@ -870,19 +870,46 @@ class BookBuilder {
         console.log(`   opponentMove: "${opponentMove}"`);
         console.log(`   ourMove: "${ourMove}"`);
         console.log(`   perspective: "${perspective}"`);
-        console.log(`   moveNumber: ${moveNumber}`);
 
-        let result;
-        if (perspective === 'black') {
-            // Use explicit move number captured at correct timing
-            const useNumber = moveNumber || 1;
-            result = `${currentPgn} ${useNumber}. ${opponentMove} ${ourMove}`;
-        } else {
-            result = `${currentPgn} ${opponentMove} ${ourMove}`;
+        try {
+            // Create a new chess instance and load current position
+            const Chess = this.chessEngine.chess.constructor;
+            const tempChess = new Chess();
+
+            // Load current PGN - chess.js handles loose formatting automatically
+            if (currentPgn && currentPgn.trim()) {
+                tempChess.loadPgn(currentPgn);
+            }
+
+            console.log(`   Chess.js state before moves: turn=${tempChess.turn()}, moveNumber=${tempChess.moveNumber()}`);
+
+            // Make both moves in sequence
+            const opponentMoveResult = tempChess.move(opponentMove);
+            if (!opponentMoveResult) {
+                throw new Error(`Invalid opponent move: ${opponentMove}`);
+            }
+            console.log(`   Opponent move executed: ${opponentMoveResult.san}`);
+
+            const ourMoveResult = tempChess.move(ourMove);
+            if (!ourMoveResult) {
+                throw new Error(`Invalid our move: ${ourMove}`);
+            }
+            console.log(`   Our move executed: ${ourMoveResult.san}`);
+
+            // Get the properly formatted PGN from chess.js
+            const result = tempChess.pgn();
+            console.log(`   Chess.js generated PGN: "${result}"`);
+            return result;
+
+        } catch (error) {
+            console.warn(`Chess.js PGN generation failed: ${error.message}`);
+            console.warn(`Falling back to string concatenation`);
+
+            // Fallback to simple string concatenation as last resort
+            const result = currentPgn ? `${currentPgn} ${opponentMove} ${ourMove}` : `${opponentMove} ${ourMove}`;
+            console.log(`   Fallback result: "${result}"`);
+            return result;
         }
-
-        console.log(`   result: "${result}"`);
-        return result;
     }
 
     /**

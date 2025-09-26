@@ -89,8 +89,11 @@ class FormController {
 
     async handleSubmit() {
         console.log('🚀 [DEBUG] Form submission started');
-        
+
         try {
+            // Log all current UI settings for debugging
+            this.logCurrentSettings();
+
             // Validate form
             console.log('🔍 [DEBUG] Starting form validation...');
             const errors = await this.configManager.validateConfig();
@@ -471,6 +474,78 @@ class FormController {
         if (valueElement) {
             valueElement.textContent = rangeElement.value;
         }
+    }
+
+    logCurrentSettings() {
+        console.log('🎛️ [SETTINGS] Current UI Configuration:');
+        console.log('═'.repeat(60));
+
+        const formData = this.configManager.getFormData();
+
+        // PGN Section
+        console.log('📝 PGN INPUT:');
+        const pgnInput = formData['pgn-input-text'] || '';
+        const pgnPreview = pgnInput.length > 100 ? pgnInput.substring(0, 100) + '...' : pgnInput;
+        console.log(`   PGN Content: ${pgnPreview || '(empty)'}`);
+        console.log(`   PGN Length: ${pgnInput.length} characters`);
+        console.log('');
+
+        // Lichess Database Settings
+        console.log('🌐 LICHESS DATABASE SETTINGS:');
+        console.log('   Time Controls:');
+        console.log(`     • Bullet: ${formData['time-bullet'] ? '✓' : '✗'}`);
+        console.log(`     • Blitz: ${formData['time-blitz'] ? '✓' : '✗'}`);
+        console.log(`     • Rapid: ${formData['time-rapid'] ? '✓' : '✗'}`);
+        console.log(`     • Classical: ${formData['time-classical'] ? '✓' : '✗'}`);
+        console.log(`     • Correspondence: ${formData['time-correspondence'] ? '✓' : '✗'}`);
+        console.log('   Rating Bands:');
+        console.log(`     • 1600: ${formData['rating-1600'] ? '✓' : '✗'}`);
+        console.log(`     • 1800: ${formData['rating-1800'] ? '✓' : '✗'}`);
+        console.log(`     • 2000: ${formData['rating-2000'] ? '✓' : '✗'}`);
+        console.log(`     • 2200: ${formData['rating-2200'] ? '✓' : '✗'}`);
+        console.log(`     • 2500: ${formData['rating-2500'] ? '✓' : '✗'}`);
+        console.log('');
+
+        // Opponent Move Filters
+        console.log('🛡️ OPPONENT MOVE FILTERS:');
+        console.log(`   Games Likelihood: ${formData['games-likelihood'] || 'N/A'}`);
+        console.log(`   Minimum Games: ${formData['opponent-min-games'] || 'N/A'}`);
+        console.log('');
+
+        // Candidate Move Selectors
+        console.log('🎯 CANDIDATE MOVE SELECTORS:');
+        console.log(`   Most Played Moves: ${formData['most-played-moves'] || 'N/A'}`);
+        console.log(`   Minimum Playrate: ${formData['min-playrate-percent'] || 'N/A'}%`);
+        console.log(`   Minimum Games: ${formData['candidate-min-games'] || 'N/A'}`);
+        console.log(`   Confidence: ${formData['confidence-percent'] || 'N/A'}%`);
+        console.log(`   Draws Are Half Point: ${formData['draws-half-point'] ? '✓' : '✗'}`);
+        console.log('');
+
+        // Engine Settings
+        console.log('🤖 ENGINE SETTINGS:');
+        console.log(`   Engine Enabled: ${formData['engine-enabled'] ? '✓' : '✗'}`);
+        console.log(`   Engine Depth: ${formData['engine-depth'] || 'N/A'}`);
+        console.log(`   Engine Finishing: ${formData['engine-finishing'] ? '✓' : '✗'}`);
+        console.log(`   Soundness Limit: ${formData['soundness-limit'] || 'N/A'} centipawns`);
+        console.log(`   Move Loss Limit: ${formData['move-loss-limit'] || 'N/A'} centipawns`);
+        console.log(`   Ignore Loss Limit: ${formData['ignore-loss-limit'] || 'N/A'}`);
+        console.log(`   Engine Threads: ${formData['engine-threads'] || 'N/A'}`);
+        console.log(`   Engine Hash: ${formData['engine-hash'] || 'N/A'} MB`);
+        console.log('');
+
+        // Summary
+        console.log('📊 CONFIGURATION SUMMARY:');
+        const enabledTimeControls = ['time-bullet', 'time-blitz', 'time-rapid', 'time-classical', 'time-correspondence']
+            .filter(id => formData[id]).map(id => id.replace('time-', '')).join(', ');
+        const enabledRatings = ['rating-1600', 'rating-1800', 'rating-2000', 'rating-2200', 'rating-2500']
+            .filter(id => formData[id]).map(id => id.replace('rating-', '')).join(', ');
+
+        console.log(`   Active Time Controls: ${enabledTimeControls || 'None'}`);
+        console.log(`   Active Ratings: ${enabledRatings || 'None'}`);
+        console.log(`   Engine: ${formData['engine-enabled'] ? 'Enabled' : 'Disabled'}`);
+        console.log(`   PGN Status: ${pgnInput.trim() ? 'Provided' : 'Empty'}`);
+
+        console.log('═'.repeat(60));
     }
 
     // PGN Input Handling Methods
