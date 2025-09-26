@@ -898,6 +898,238 @@ class FileGenerator {
     }
 
     /**
+     * Display PGN content in browser with copy functionality
+     * @param {string} content - PGN content to display
+     * @param {string} chapterName - Name of the chapter/repertoire
+     * @param {Object} metadata - Additional metadata for statistics
+     * @returns {Object} Display result with success status
+     */
+    displayPGN(content, chapterName = 'Chess Repertoire', metadata = {}) {
+        console.log(`📋 [FileGenerator] displayPGN called:`);
+        console.log(`   Chapter: ${chapterName}`);
+        console.log(`   Content size: ${content.length} characters`);
+        console.log(`   Metadata:`, metadata);
+
+        try {
+            // Get display container elements
+            const displayContainer = document.getElementById('pgn-display-container');
+            const pgnContent = document.getElementById('pgn-content');
+            const statsContainer = document.getElementById('pgn-display-stats');
+            const copyBtn = document.getElementById('copy-pgn-btn');
+            const downloadBtn = document.getElementById('download-pgn-btn');
+
+            if (!displayContainer || !pgnContent) {
+                throw new Error('PGN display elements not found in DOM');
+            }
+
+            // Set the PGN content
+            pgnContent.textContent = content;
+
+            // Generate and display statistics
+            if (statsContainer) {
+                this.populateDisplayStats(statsContainer, content, metadata);
+            }
+
+            // Setup copy functionality
+            if (copyBtn) {
+                this.setupCopyButton(copyBtn, content);
+            }
+
+            // Setup download functionality (fallback option)
+            if (downloadBtn) {
+                this.setupDownloadButton(downloadBtn, content, chapterName);
+            }
+
+            // Show the display container
+            displayContainer.style.display = 'block';
+
+            // Hide other containers
+            this.hideOtherContainers(['success-container', 'error-container']);
+
+            // Scroll to display
+            displayContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            console.log(`✅ [FileGenerator] PGN displayed successfully`);
+
+            return {
+                success: true,
+                chapterName,
+                contentLength: content.length,
+                displayMethod: 'browser'
+            };
+
+        } catch (error) {
+            console.error(`❌ [FileGenerator] Display failed:`, error);
+            throw new Error(`Failed to display PGN: ${error.message}`);
+        }
+    }
+
+    /**
+     * Populate statistics in the PGN display
+     * @param {HTMLElement} statsContainer - Container for statistics
+     * @param {string} content - PGN content
+     * @param {Object} metadata - Metadata with statistics
+     */
+    populateDisplayStats(statsContainer, content, metadata) {
+        const stats = [];
+
+        // Count lines
+        const lineCount = this.countPGNLines(content);
+        if (lineCount > 0) {
+            stats.push(`<div class="pgn-stat-item">📈 <span class="pgn-stat-value">${lineCount}</span> lines generated</div>`);
+        }
+
+        // Content size
+        const formattedSize = this.formatFileSize(content.length);
+        stats.push(`<div class="pgn-stat-item">📄 <span class="pgn-stat-value">${formattedSize}</span> total content</div>`);
+
+        // Processing time if available
+        if (metadata.processingTime) {
+            stats.push(`<div class="pgn-stat-item">⏱️ <span class="pgn-stat-value">${metadata.processingTime}</span> processing time</div>`);
+        }
+
+        // Generation timestamp
+        const timestamp = new Date().toLocaleString();
+        stats.push(`<div class="pgn-stat-item">🕒 Generated <span class="pgn-stat-value">${timestamp}</span></div>`);
+
+        // Total games if available
+        if (metadata.totalGames) {
+            const formattedGames = metadata.totalGames.toLocaleString();
+            stats.push(`<div class="pgn-stat-item">🎯 <span class="pgn-stat-value">${formattedGames}</span> games analyzed</div>`);
+        }
+
+        statsContainer.innerHTML = stats.join('');
+    }
+
+    /**
+     * Setup copy button functionality
+     * @param {HTMLElement} copyBtn - Copy button element
+     * @param {string} content - Content to copy
+     */
+    setupCopyButton(copyBtn, content) {
+        // Remove existing event listeners
+        const newCopyBtn = copyBtn.cloneNode(true);
+        copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
+
+        newCopyBtn.addEventListener('click', async () => {
+            try {
+                console.log(`📋 [FileGenerator] Copying PGN to clipboard...`);
+
+                // Use modern clipboard API if available
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(content);
+                } else {
+                    // Fallback for older browsers
+                    this.fallbackCopyToClipboard(content);
+                }
+
+                // Visual feedback
+                this.showCopySuccess(newCopyBtn);
+
+                console.log(`✅ [FileGenerator] PGN copied to clipboard successfully`);
+
+            } catch (error) {
+                console.error(`❌ [FileGenerator] Copy failed:`, error);
+                this.showCopyError(newCopyBtn, error.message);
+            }
+        });
+    }
+
+    /**
+     * Setup download button functionality
+     * @param {HTMLElement} downloadBtn - Download button element
+     * @param {string} content - Content to download
+     * @param {string} filename - Base filename
+     */
+    setupDownloadButton(downloadBtn, content, filename) {
+        // Remove existing event listeners
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+
+        newDownloadBtn.addEventListener('click', () => {
+            try {
+                const pgnFilename = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}.pgn`;
+                this.downloadFile(content, pgnFilename, 'application/x-chess-pgn');
+            } catch (error) {
+                console.error(`❌ [FileGenerator] Download failed:`, error);
+            }
+        });
+    }
+
+    /**
+     * Fallback copy method for older browsers
+     * @param {string} content - Content to copy
+     */
+    fallbackCopyToClipboard(content) {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+
+    /**
+     * Show copy success feedback
+     * @param {HTMLElement} button - Button to show feedback on
+     */
+    showCopySuccess(button) {
+        const originalText = button.innerHTML;
+
+        button.classList.add('copy-success');
+        button.innerHTML = '✅ Copied!';
+
+        setTimeout(() => {
+            button.classList.remove('copy-success');
+            button.innerHTML = originalText;
+        }, 2000);
+    }
+
+    /**
+     * Show copy error feedback
+     * @param {HTMLElement} button - Button to show feedback on
+     * @param {string} errorMsg - Error message
+     */
+    showCopyError(button, errorMsg) {
+        const originalText = button.innerHTML;
+
+        button.style.background = 'var(--danger-color)';
+        button.innerHTML = '❌ Copy Failed';
+
+        setTimeout(() => {
+            button.style.background = '';
+            button.innerHTML = originalText;
+        }, 3000);
+
+        // Show error in console for debugging
+        console.error('Copy error details:', errorMsg);
+    }
+
+    /**
+     * Hide other UI containers
+     * @param {Array} containerIds - Array of container IDs to hide
+     */
+    hideOtherContainers(containerIds = []) {
+        const defaultContainers = ['success-container', 'error-container', 'progress-container'];
+        const containersToHide = [...new Set([...defaultContainers, ...containerIds])];
+
+        containersToHide.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+    }
+
+    /**
      * Sleep utility for download delays
      */
     sleep(ms) {
