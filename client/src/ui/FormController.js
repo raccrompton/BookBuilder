@@ -238,14 +238,53 @@ class FormController {
                 progress
             );
 
+            console.log(`\n🚀 [FormController] === STARTING ${opening.name} with NEW ARCHITECTURE ===`);
+            console.log(`📋 [FormController] Config outputFormat: "${config.pgnConfig?.outputFormat || config.outputFormat || 'MISSING'}"`);
+            console.log(`🔍 [FormController] Full config.pgnConfig:`, config.pgnConfig);
+
             try {
-                const chapterContent = await this.bookBuilder.generateChapter(opening, i + 1);
+                console.log(`🔄 [FormController] About to call bookBuilder.generateChapter()`);
+
+                // BookBuilder now returns line data instead of formatted PGN
+                const chapterData = await this.bookBuilder.generateChapter(opening, i + 1);
+
+                console.log(`📊 [FormController] BookBuilder returned:`, {
+                    type: typeof chapterData,
+                    isString: typeof chapterData === 'string',
+                    hasLines: chapterData?.lines ? true : false,
+                    linesCount: chapterData.lines?.length || 'N/A',
+                    openingName: chapterData.openingName || 'MISSING',
+                    metadata: chapterData.metadata || 'MISSING'
+                });
+
+                // Check if BookBuilder returned old format (string) or new format (object)
+                if (typeof chapterData === 'string') {
+                    console.log(`❌ [FormController] ERROR: BookBuilder returned STRING (old format)!`);
+                    console.log(`   This means the new architecture isn't working.`);
+                    results[`Chapter_${i + 1}_${opening.name.replace(/\s+/g, '_')}.pgn`] = chapterData;
+                    continue;
+                }
+
+                console.log(`✅ [FormController] BookBuilder returned OBJECT (new format)`);
+                console.log(`🎯 [FormController] About to call FileGenerator.generateConfiguredPGN()`);
+
+                // Use FileGenerator to format the line data based on config
+                const fileGenerator = new FileGenerator();
+                const chapterContent = await fileGenerator.generateConfiguredPGN(
+                    chapterData.lines,
+                    chapterData.openingName,
+                    config.pgnConfig || config, // Pass the PGN config specifically
+                    this.bookBuilder.pgnGenerator // Pass PgnGenerator instance
+                );
+
+                console.log(`✅ [FormController] FileGenerator returned content (${chapterContent.length} chars)`);
+
                 const safeName = opening.name.replace(/\s+/g, '_');
                 const fileName = `Chapter_${i + 1}_${safeName}.pgn`;
                 results[fileName] = chapterContent;
 
                 // Update progress with intermediate results
-                const linesGenerated = this.bookBuilder.finalLines?.length || 0;
+                const linesGenerated = chapterData.lines?.length || 0;
                 this.progressTracker.updateProgress(
                     `Completed ${opening.name}: ${linesGenerated} lines generated`
                 );

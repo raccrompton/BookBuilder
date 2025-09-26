@@ -795,33 +795,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Move Annotations</label>
+                        <label class="form-label">Move Statistics Format</label>
                         <div class="form-help">
-                            Where should move statistics and playrates be displayed?
+                            All repertoires include detailed move statistics and playrates in a statistics block after each line.
                         </div>
-                        <div style="margin-top: 0.75rem;">
-                            <div class="checkbox-item" style="margin-bottom: 0.5rem;">
-                                <input type="radio" id="annotation-endblock" name="annotation-style" class="form-checkbox" value="endBlock" checked>
-                                <label for="annotation-endblock" style="margin-left: 0.5rem;">
-                                    <strong>End of Line</strong> - Statistics in a block after moves (default)
-                                </label>
-                            </div>
-                            <div class="form-help" style="margin-left: 1.75rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem;">
-                                Shows all statistics after the moves like:<br>
-                                <code>1. e4 c5 2. Nf3 d6<br>{Move playrates:<br>+45.67%&nbsp;&nbsp;&nbsp;&nbsp;c5<br>+78.23%&nbsp;&nbsp;&nbsp;&nbsp;d6<br>Line winrate: +52.4% over 15,234 games}</code>
-                            </div>
-
-                            <div class="checkbox-item">
-                                <input type="radio" id="annotation-inline" name="annotation-style" class="form-checkbox" value="inline">
-                                <label for="annotation-inline" style="margin-left: 0.5rem;">
-                                    <strong>Inline with Moves</strong> - Statistics embedded in each move
-                                </label>
-                            </div>
-                            <div class="form-help" style="margin-left: 1.75rem; color: var(--text-muted); font-size: 0.875rem;">
-                                Embeds statistics directly in moves like:<br>
-                                <code>1. e4{+25.28%} c5 2. Nf3{+65.97%} d6{+45.67%}<br>{Line summary: +52.4% winrate over 15,234 games}</code>
+                        <div style="margin-top: 0.75rem; padding: 1rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid var(--border);">
+                            <div class="form-help" style="margin: 0; color: var(--text-primary);">
+                                <strong>Statistics Format:</strong><br>
+                                <code style="display: block; margin-top: 0.5rem; color: var(--text-muted);">1. e4 c5 2. Nf3 d6<br>{Move playrates:<br>+45.67%&nbsp;&nbsp;&nbsp;&nbsp;c5<br>+78.23%&nbsp;&nbsp;&nbsp;&nbsp;d6<br>Line winrate: +52.4% over 15,234 games}</code>
                             </div>
                         </div>
+                        <input type="hidden" id="annotation-endblock" name="annotation-style" value="endBlock" checked>
                     </div>
 
                     <div class="form-group" style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">

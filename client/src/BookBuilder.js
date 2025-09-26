@@ -122,10 +122,15 @@ class BookBuilder {
             await this.expandAllLines();
             console.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
 
-            // Phase 3: Output generation (replaces Python's Printer class)
-            console.log('  Phase 3: Generating PGN output');
+            // Phase 3: Output generation (NEW ARCHITECTURE - returns line data)
+            console.log('  Phase 3: Generating line data (NEW ARCHITECTURE)');
             const output = await this.generateOutput(opening.name, chapterNumber);
-            console.log('  PGN generation complete');
+            console.log('  📊 BookBuilder.generateChapter() returning:', {
+                type: typeof output,
+                isObject: typeof output === 'object',
+                hasLines: output?.lines ? true : false,
+                linesCount: output?.lines?.length || 'N/A'
+            });
 
             return output;
 
@@ -745,51 +750,44 @@ class BookBuilder {
     }
 
     /**
-     * Generate final PGN output (replaces Python's Printer class)
+     * Generate clean line data for formatting (data generation only)
      *
      * @param {string} openingName - Name of the opening
      * @param {number} chapterNumber - Chapter number
-     * @returns {string} - Complete PGN content
+     * @returns {Object} - Clean line data for FileGenerator formatting
      */
     async generateOutput(openingName, _chapterNumber) {
-        console.log(`📋 [BookBuilder] Generating output for ${openingName}`);
-        console.log(`   Starting with ${this.finalLines.length} final lines`);
+        console.log(`📋 [BookBuilder] generateOutput() - DATA GENERATION ONLY`);
+        console.log(`   📖 Opening: ${openingName}`);
+        console.log(`   📊 Starting with ${this.finalLines.length} final lines`);
 
-        // Remove duplicates and subsets (matches Python logic exactly)
-        console.log(`   Removing duplicates and subsets...`);
+        // Remove duplicates and subsets (essential for preventing loops)
+        console.log(`   🧹 Deduplicating lines (prevents infinite loops)...`);
         const uniqueLines = this.removeDuplicateLines(this.finalLines);
-        console.log(`   After deduplication: ${uniqueLines.length} unique lines`);
+        console.log(`   ✅ After deduplication: ${uniqueLines.length} unique lines`);
 
-        // Sort by consecutive move probabilities (matches Python sorting)
-        console.log(`   Sorting lines by probability...`);
-        const sortedLines = this.sortLinesByProbability(uniqueLines);
-        console.log(`   Top 3 lines by probability:`, sortedLines.slice(0, 3).map(line => ({
-            pgn: line.pgn,
-            likelihood: line.cumulativeLikelihood?.toFixed(6)
-        })));
+        console.log(`   📦 Returning clean line data for FileGenerator`);
+        console.log(`   🎯 BookBuilder role: DATA GENERATION complete`);
+        console.log(`   ➡️  Next: FileGenerator will handle SORTING + FORMATTING`);
 
-        // Reverse if LONGTOSHORT is enabled (matches Python behavior)
-        if (this.config.LONGTOSHORT) {
-            sortedLines.reverse();
-        }
-
-        // Generate PGN content for each line
-        const pgnContent = [];
-
-        for (let i = 0; i < sortedLines.length; i++) {
-            const line = sortedLines[i];
-            const eventName = `${openingName} Line ${i + 1}`;
-
-            try {
-                const linePgn = await this.pgnGenerator.generateSingleLine(line, eventName);
-                pgnContent.push(linePgn);
-            } catch (error) {
-                console.warn(`Error generating PGN for line ${i + 1}: ${error.message}`);
-                continue;
+        // Return clean line data - all sorting and formatting handled by FileGenerator
+        const result = {
+            lines: uniqueLines,
+            openingName: openingName,
+            chapterNumber: _chapterNumber,
+            metadata: {
+                totalLines: uniqueLines.length,
+                originalLines: this.finalLines.length
             }
-        }
+        };
 
-        return pgnContent.join('\n\n');
+        console.log(`   📋 Returning clean line data:`, {
+            linesCount: result.lines.length,
+            openingName: result.openingName,
+            metadata: result.metadata
+        });
+
+        return result;
     }
 
     // ==================== ENGINE MANAGEMENT METHODS ====================
