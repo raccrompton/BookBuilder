@@ -407,11 +407,8 @@ class FileGenerator {
         if (config.outputFormat === 'tree') {
             console.log('   → Taking TREE generation path');
             return await this.generateTreePGN(lines, chapterName, config, pgnGenerator);
-        } else if (config.annotationStyle === 'inline') {
-            console.log('   → Taking INLINE annotation path');
-            return await this.generateInlineAnnotatedPGN(lines, chapterName, config, pgnGenerator);
         } else {
-            console.log('   → Taking DEFAULT individual lines path');
+            console.log('   → Taking INDIVIDUAL lines path');
             return await this.generateIndividualLinesPGN(lines, chapterName, pgnGenerator);
         }
     }
@@ -433,19 +430,11 @@ class FileGenerator {
         // Use simple PgnGenerator for the event header
         const eventHeader = `[Event "${chapterName} Line 1"]`;
 
-        // Generate tree PGN with variations
-        let treePgn;
-        if (config.annotationStyle === 'inline') {
-            treePgn = await this.generateTreeMoveSequenceWithInlineStats(variationTree);
-        } else {
-            treePgn = await this.generateTreeMoveSequence(variationTree);
-        }
-
-        // Generate combined statistics for all lines (skip if inline since stats are embedded)
-        let combinedAnnotations = '';
-        if (config.annotationStyle !== 'inline') {
-            combinedAnnotations = this.formatCombinedAnnotations(lines);
-        }
+        // Generate tree PGN with variations and endBlock annotations
+        const treePgn = await this.generateTreeMoveSequence(variationTree);
+        
+        // Generate combined statistics for all lines
+        const combinedAnnotations = this.formatCombinedAnnotations(lines);
 
         return `${eventHeader}\n\n${treePgn}${combinedAnnotations}`.trim();
     }
@@ -582,11 +571,7 @@ class FileGenerator {
      * @param {Object} pgnGenerator - Simple PgnGenerator instance
      * @returns {string} PGN with inline annotations
      */
-    async generateInlineAnnotatedPGN(lines, chapterName, config, pgnGenerator) {
-        // For now, individual + inline still uses endBlock format
-        // True inline would require integrating playrates into move sequence
-        return await this.generateIndividualLinesPGN(lines, chapterName, pgnGenerator);
-    }
+
 
     /**
      * Generate tree move sequence without inline stats
@@ -603,20 +588,7 @@ class FileGenerator {
         return variationTree.mainLine.pgn;
     }
 
-    /**
-     * Generate tree move sequence with inline statistics
-     * @param {Object} variationTree - Tree structure with main line and variations
-     * @returns {string} Tree move sequence with inline stats
-     */
-    async generateTreeMoveSequenceWithInlineStats(variationTree) {
-        if (!variationTree.mainLine || !variationTree.mainLine.pgn) {
-            return '';
-        }
 
-        // For now, just return the main line PGN without inline stats
-        // TODO: Implement inline statistics integration
-        return variationTree.mainLine.pgn;
-    }
 
     /**
      * Sleep utility for download delays

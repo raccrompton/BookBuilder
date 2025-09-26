@@ -448,7 +448,7 @@ describe('PgnGenerator Core Functionality', () => {
     });
 });
 
-describe('FileGenerator Configuration Matrix Tests (All 4 Combinations)', () => {
+describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
     let testLines;
     let fileGenerator;
     let pgnGenerator;
@@ -487,34 +487,8 @@ describe('FileGenerator Configuration Matrix Tests (All 4 Combinations)', () => 
         });
     });
 
-    describe('2. Individual + Inline (New Format)', () => {
-        test('generates separate PGN entries with inline move annotations', async () => {
-            const config = createConfigForTest('individual', 'inline');
-
-            const result = await fileGenerator.generateConfiguredPGN(
-                testLines,
-                'Sicilian_Defense',
-                config,
-                pgnGenerator
-            );
-
-            // Multiple event headers (one per line)
-            expect(result).toMatch(/\[Event "Sicilian_Defense Line 1"\]/);
-            expect(result).toMatch(/\[Event "Sicilian_Defense Line 2"\]/);
-            expect(result).toMatch(/\[Event "Sicilian_Defense Line 3"\]/);
-
-            // Note: Individual + Inline currently uses endBlock format
-            // since inline is primarily for tree mode
-            expect(result).toMatch(/\{Move playrates:/);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-
-            // Should NOT have inline annotations in individual mode currently
-            expect(result).not.toMatch(/c5\{[+]25\.28%\}/);
-        });
-    });
-
-    describe('3. Tree + EndBlock (New Format)', () => {
-        test('combines lines with variations and statistics blocks', async () => {
+    describe('2. Tree Format (Combined Structure)', () => {
+        test('combines lines with variations and endBlock statistics', async () => {
             const config = createConfigForTest('tree', 'endBlock');
 
             const result = await fileGenerator.generateConfiguredPGN(
@@ -538,28 +512,6 @@ describe('FileGenerator Configuration Matrix Tests (All 4 Combinations)', () => 
         });
     });
 
-    describe('4. Tree + Inline (New Format)', () => {
-        test('combines lines with variations and inline annotations', async () => {
-            const config = createConfigForTest('tree', 'inline');
-
-            const result = await fileGenerator.generateConfiguredPGN(
-                testLines,
-                'Sicilian_Defense',
-                config,
-                pgnGenerator
-            );
-
-            // Single event header (combined tree)
-            expect(result).toMatch(/\[Event "Sicilian_Defense Line 1"\]/);
-            expect(result).not.toMatch(/\[Event "Sicilian_Defense Line 2"\]/);
-
-            // Should have combined tree structure
-            expect(result).toMatch(/1\.\s*e4\s+c5\s+2\.\s*Nf3/);
-
-            // NO traditional playrates blocks in inline mode
-            expect(result).not.toMatch(/\{Move playrates:/);
-        });
-    });
 
     describe('Configuration Routing Validation', () => {
         test('routes to correct generation methods based on config', async () => {
@@ -588,7 +540,7 @@ describe('FileGenerator Configuration Matrix Tests (All 4 Combinations)', () => 
 
     describe('Edge Cases', () => {
         test('handles empty lines array', async () => {
-            const config = createConfigForTest('tree', 'inline');
+            const config = createConfigForTest('tree', 'endBlock');
 
             const result = await fileGenerator.generateConfiguredPGN(
                 [],
