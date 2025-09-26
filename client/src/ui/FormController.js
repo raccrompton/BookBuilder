@@ -371,7 +371,7 @@ class FormController {
         }
 
         // Build comprehensive configuration object
-        return {
+        const config = {
             // Opening configuration
             openings: openings.map(opening => {
                 // Calculate perspective based on move count (matches Python logic)
@@ -388,6 +388,12 @@ class FormController {
                     priority: opening.priority || 1
                 };
             }),
+
+            // PGN Output Configuration
+            pgnConfig: {
+                outputFormat: formConfig['output-format'] || 'individual',
+                annotationStyle: formConfig['annotation-style'] || 'endBlock'
+            },
 
             // Lichess API settings
             speeds: this.getSelectedSpeeds(formConfig),
@@ -419,12 +425,14 @@ class FormController {
             API_DELAY: 150
         };
 
-        // Log Lichess API configuration for debugging
-        console.log('🔧 [FormController] Lichess API Configuration:');
+        // Log configuration for debugging
+        console.log('🔧 [FormController] Configuration Summary:');
         console.log('═'.repeat(50));
         console.log(`🏁 Selected Speeds: ${JSON.stringify(config.speeds)}`);
         console.log(`📊 Selected Ratings: ${JSON.stringify(config.ratings)}`);
         console.log(`🎮 Variant: ${config.variants[0]}`);
+        console.log(`📄 PGN Output Format: ${config.pgnConfig.outputFormat}`);
+        console.log(`🎯 Annotation Style: ${config.pgnConfig.annotationStyle}`);
         console.log('═'.repeat(50));
 
         return config;
@@ -677,6 +685,21 @@ class ConfigManager {
                 }
             }
         });
+
+        // Handle radio button groups specifically
+        if (this.config['output-format']) {
+            const outputFormatRadio = document.querySelector(`input[name="output-format"][value="${this.config['output-format']}"]`);
+            if (outputFormatRadio) {
+                outputFormatRadio.checked = true;
+            }
+        }
+
+        if (this.config['annotation-style']) {
+            const annotationStyleRadio = document.querySelector(`input[name="annotation-style"][value="${this.config['annotation-style']}"]`);
+            if (annotationStyleRadio) {
+                annotationStyleRadio.checked = true;
+            }
+        }
     }
 
     async validateConfig() {
@@ -748,6 +771,17 @@ class ConfigManager {
                 config[element.id] = element.value;
             }
         });
+
+        // Handle radio button groups specifically
+        const outputFormatRadio = document.querySelector('input[name="output-format"]:checked');
+        if (outputFormatRadio) {
+            config['output-format'] = outputFormatRadio.value;
+        }
+
+        const annotationStyleRadio = document.querySelector('input[name="annotation-style"]:checked');
+        if (annotationStyleRadio) {
+            config['annotation-style'] = annotationStyleRadio.value;
+        }
 
         return config;
     }

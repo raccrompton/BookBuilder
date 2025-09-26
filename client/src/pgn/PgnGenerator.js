@@ -11,8 +11,17 @@ class PgnGenerator {
             ENGINEFINISH: config.ENGINEFINISH || 1,
             ENGINEDEPTH: config.ENGINEDEPTH || 20,
             perspective: config.perspective || 'white',
+            // New configuration options for enhanced PGN generation
+            outputFormat: config.pgnConfig?.outputFormat || config.outputFormat || 'individual', // 'individual' | 'tree'
+            annotationStyle: config.pgnConfig?.annotationStyle || config.annotationStyle || 'endBlock', // 'endBlock' | 'inline'
             ...config
         };
+
+        // Debug logging to see what configuration we received
+        console.log('🔧 [PgnGenerator] Constructor configuration:');
+        console.log('   Raw config.pgnConfig:', config.pgnConfig);
+        console.log('   Final outputFormat:', this.config.outputFormat);
+        console.log('   Final annotationStyle:', this.config.annotationStyle);
     }
 
     /**
@@ -23,6 +32,119 @@ class PgnGenerator {
    * @returns {string} Complete PGN content
    */
     async generatePGN(lines, chapterName, engineClient = null) {
+        // Debug logging to see routing decision
+        console.log('🎯 [PgnGenerator] generatePGN routing decision:');
+        console.log('   outputFormat:', this.config.outputFormat);
+        console.log('   annotationStyle:', this.config.annotationStyle);
+        console.log('   lines count:', lines.length);
+
+        // Route to appropriate generation method based on configuration
+        if (this.config.outputFormat === 'tree') {
+            console.log('   → Taking TREE generation path');
+            return await this.generateTreePGN(lines, chapterName, engineClient);
+        } else if (this.config.annotationStyle === 'inline') {
+            console.log('   → Taking INLINE annotation path');
+            return await this.generateInlineAnnotatedPGN(lines, chapterName, engineClient);
+        } else {
+            console.log('   → Taking DEFAULT individual lines path');
+            // Default behavior: individual lines with end-block annotations
+            return await this.generateIndividualLinesPGN(lines, chapterName, engineClient);
+        }
+
+        /* ORIGINAL CODE (kept for reference):
+        let pgnContent = '';
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineNumber = i + 1;
+
+            // Generate event header
+            const eventHeader = this.generateEventHeaders(chapterName, lineNumber, this.config.perspective);
+
+            // Generate move sequence with annotations
+            const moveSequence = await this.generateMoveSequence(line, engineClient);
+
+            // Generate statistical annotations
+            const annotations = this.formatMoveAnnotations(line);
+
+            // Combine into complete line
+            pgnContent += eventHeader + '\n\n';
+            pgnContent += moveSequence + '\n';
+            pgnContent += annotations + '\n\n';
+        }
+
+        return pgnContent.trim();
+        */
+    }
+
+    /**
+   * Generate PGN with tree structure using variations (new feature)
+   * Combines related lines into a single PGN with branching variations
+   * @param {Array} lines - Array of line objects with moves and statistics
+   * @param {string} chapterName - Base name for the chapter
+   * @param {Object} engineClient - Optional engine for line completion
+   * @returns {string} Tree-structured PGN content
+   */
+    async generateTreePGN(lines, chapterName, engineClient = null) {
+        console.log(`📋 [PgnGenerator] Generating tree-structured PGN for ${lines.length} lines`);
+
+        // Build tree structure from lines
+        const variationTree = this.buildVariationTree(lines);
+
+        // Generate event header for the tree
+        const eventHeader = this.generateEventHeaders(chapterName, 1, this.config.perspective);
+
+        // Generate tree PGN with variations
+        const treePgn = await this.generateTreeMoveSequence(variationTree, engineClient);
+
+        // Generate combined statistics for all lines
+        const combinedAnnotations = this.formatCombinedAnnotations(lines);
+
+        return `${eventHeader}\n\n${treePgn}\n${combinedAnnotations}`.trim();
+    }
+
+    /**
+   * Generate PGN with inline move annotations (new feature)
+   * Embeds playrate statistics directly in moves like "e4{+25.28%}"
+   * @param {Array} lines - Array of line objects with moves and statistics
+   * @param {string} chapterName - Base name for the chapter
+   * @param {Object} engineClient - Optional engine for line completion
+   * @returns {string} PGN content with inline annotations
+   */
+    async generateInlineAnnotatedPGN(lines, chapterName, engineClient = null) {
+        console.log(`📋 [PgnGenerator] Generating inline-annotated PGN for ${lines.length} lines`);
+        let pgnContent = '';
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineNumber = i + 1;
+
+            // Generate event header
+            const eventHeader = this.generateEventHeaders(chapterName, lineNumber, this.config.perspective);
+
+            // Generate move sequence with inline annotations
+            const moveSequence = await this.generateMoveSequenceWithInlineStats(line, engineClient);
+
+            // Generate summary statistics (without individual move playrates since they're inline)
+            const summaryAnnotations = this.formatSummaryAnnotations(line);
+
+            // Combine into complete line
+            pgnContent += eventHeader + '\n\n';
+            pgnContent += moveSequence + '\n';
+            pgnContent += summaryAnnotations + '\n\n';
+        }
+
+        return pgnContent.trim();
+    }
+
+    /**
+   * Generate individual lines PGN (original behavior preserved)
+   * @param {Array} lines - Array of line objects with moves and statistics
+   * @param {string} chapterName - Base name for the chapter
+   * @param {Object} engineClient - Optional engine for line completion
+   * @returns {string} Individual lines PGN content
+   */
+    async generateIndividualLinesPGN(lines, chapterName, engineClient = null) {
         let pgnContent = '';
 
         for (let i = 0; i < lines.length; i++) {
@@ -67,37 +189,45 @@ class PgnGenerator {
    * @returns {Promise<string>} Formatted move sequence
    */
     async generateMoveSequence(line, engineClient = null) {
-        let moveSequence = '';
-        let moveNumber = 1;
-        let isWhiteMove = true;
+        try {
+            // Import chess.js for proper PGN generation
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js');
+            const chess = new Chess();
 
-        // Process main line moves
-        for (let i = 0; i < line.moves.length; i++) {
-            const move = line.moves[i];
+            // Create a simple PGN string from moves array
+            const movesOnly = line.moves.map(move => move.san).join(' ');
+            console.log(`[PgnGenerator] Raw moves: ${movesOnly}`);
 
-            if (isWhiteMove) {
-                // Add space before move number if not first move
-                if (i > 0) {
-                    moveSequence += ' ';
+            // Let chess.js parse and reformat it properly
+            if (movesOnly.trim()) {
+                chess.loadPgn(movesOnly);
+            }
+
+            // Complete line with engine if configured
+            if (this.config.ENGINEFINISH === 1 && engineClient && line.finalPosition) {
+                const completion = await this.completeLineWithEngine(line.finalPosition, engineClient);
+                if (completion && completion.length > 0) {
+                    // Add engine completion moves to chess instance
+                    for (const completionMove of completion) {
+                        const result = chess.move(completionMove.san);
+                        if (!result) {
+                            console.warn(`[PgnGenerator] Invalid engine completion move: ${completionMove.san}`);
+                            break;
+                        }
+                    }
                 }
-                moveSequence += `${moveNumber}. ${move.san}`;
-            } else {
-                moveSequence += ` ${move.san}`;
-                moveNumber++;
             }
 
-            isWhiteMove = !isWhiteMove;
-        }
+            // Get properly formatted PGN from chess.js
+            const properPgn = chess.pgn();
+            console.log(`[PgnGenerator] Chess.js formatted PGN: ${properPgn}`);
+            return properPgn;
 
-        // Complete line with engine if configured
-        if (this.config.ENGINEFINISH === 1 && engineClient && line.finalPosition) {
-            const completion = await this.completeLineWithEngine(line.finalPosition, engineClient);
-            if (completion && completion.length > 0) {
-                moveSequence += this._formatEngineCompletion(completion, moveNumber, isWhiteMove);
-            }
+        } catch (error) {
+            console.error(`[PgnGenerator] Error with chess.js PGN generation: ${error.message}`);
+            // Re-throw to surface the error rather than falling back silently
+            throw error;
         }
-
-        return moveSequence;
     }
 
     /**
@@ -219,39 +349,43 @@ class PgnGenerator {
         return completionMoves;
     }
 
+    // ==================== HELPER METHODS FOR NEW FEATURES ====================
+
     /**
-   * Format engine completion moves
-   * @private
+   * Build a tree structure from multiple lines for variation-based PGN
+   * Uses the longest line as the main line, others as variations
+   * @param {Array} lines - Array of line objects with moves and pgn
+   * @returns {Object} Tree structure with main line and variations
    */
-    _formatEngineCompletion(completionMoves, startMoveNumber, isWhiteToMove) {
-        if (!completionMoves || completionMoves.length === 0) {
-            return '';
+    buildVariationTree(lines) {
+        console.log(`🌳 [PgnGenerator] Building variation tree from ${lines.length} lines`);
+
+        if (lines.length === 0) {
+            return { mainLine: '', variations: [] };
         }
 
-        let completion = ' ';
-        let moveNumber = startMoveNumber;
-        let isWhiteMove = isWhiteToMove;
+        // Sort lines by length (longest first for main line)
+        const sortedLines = lines.slice().sort((a, b) => {
+            const aLength = (a.moves || this.extractMovesFromPgn(a.pgn)).length;
+            const bLength = (b.moves || this.extractMovesFromPgn(b.pgn)).length;
+            return bLength - aLength; // Longest first
+        });
 
-        for (let i = 0; i < completionMoves.length; i++) {
-            const move = completionMoves[i];
+        // Use longest line as main line
+        const mainLine = sortedLines[0];
+        const variations = sortedLines.slice(1);
 
-            if (isWhiteMove) {
-                completion += `${moveNumber}. ${move.san}`;
-            } else {
-                completion += ` ${move.san}`;
-                moveNumber++;
-            }
+        console.log(`   Main line (longest): ${mainLine.pgn}`);
+        console.log(`   Variations: ${variations.length}`);
 
-            // Add space between moves (except last)
-            if (i < completionMoves.length - 1) {
-                completion += ' ';
-            }
-
-            isWhiteMove = !isWhiteMove;
-        }
-
-        return completion;
+        return {
+            mainLine: mainLine,
+            variations: variations,
+            allLines: lines
+        };
     }
+
+    // _formatEngineCompletion method removed - now handled directly in generateMoveSequence using chess.js
 
     /**
    * Generate single PGN line for testing
@@ -286,34 +420,7 @@ class PgnGenerator {
         return result;
     }
 
-    /**
-   * Format moves without engine completion
-   * @private
-   */
-    _formatMovesOnly(moves) {
-        let moveSequence = '';
-        let moveNumber = 1;
-        let isWhiteMove = true;
-
-        for (let i = 0; i < moves.length; i++) {
-            const move = moves[i];
-
-            if (isWhiteMove) {
-                // Add space before move number if not first move
-                if (i > 0) {
-                    moveSequence += ' ';
-                }
-                moveSequence += `${moveNumber}. ${move.san}`;
-            } else {
-                moveSequence += ` ${move.san}`;
-                moveNumber++;
-            }
-
-            isWhiteMove = !isWhiteMove;
-        }
-
-        return moveSequence;
-    }
+    // _formatMovesOnly method removed - now handled directly in generateMoveSequence using chess.js
 
     /**
    * Generate a complete PGN line entry for testing and output
@@ -367,6 +474,247 @@ class PgnGenerator {
         annotations += '}';
 
         return `${eventHeader}\n\n${moveSequence}\n${annotations}`;
+    }
+
+    /**
+     * Generate tree-structured move sequence with variations
+     * @param {Object} variationTree - Tree structure from buildVariationTree
+     * @param {Object} engineClient - Optional engine for line completion
+     * @returns {string} PGN formatted tree with variations
+     */
+    async generateTreeMoveSequence(variationTree, engineClient = null) {
+        if (!variationTree || !variationTree.mainLine) {
+            return '';
+        }
+
+        let pgn = '';
+        const mainLine = variationTree.mainLine;
+
+        // Generate main line moves
+        for (let i = 0; i < mainLine.moves.length; i++) {
+            const move = mainLine.moves[i];
+            const moveNumber = Math.floor(i / 2) + 1;
+            const isWhiteMove = i % 2 === 0;
+
+            if (isWhiteMove) {
+                pgn += `${moveNumber}. ${move.san}`;
+            } else {
+                pgn += ` ${move.san}`;
+            }
+
+            // Add variations at this position if any
+            if (variationTree.variations && variationTree.variations[i]) {
+                const variations = variationTree.variations[i];
+                for (const variation of variations) {
+                    pgn += ` (${variation.moves.map(m => m.san).join(' ')})`;
+                }
+            }
+
+            pgn += ' ';
+        }
+
+        // Engine finishing if enabled
+        if (engineClient && this.config.ENGINEFINISH) {
+            try {
+                const lastPosition = mainLine.fen || mainLine.moves[mainLine.moves.length - 1]?.fen;
+                if (lastPosition) {
+                    const engineMove = await engineClient.getBestMove(lastPosition, this.config.ENGINEDEPTH);
+                    if (engineMove) {
+                        const moveCount = Math.floor(mainLine.moves.length / 2) + 1;
+                        const isWhite = mainLine.moves.length % 2 === 0;
+                        if (isWhite) {
+                            pgn += `${moveCount}. ${engineMove}`;
+                        } else {
+                            pgn += `${engineMove}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Engine completion failed:', error);
+            }
+        }
+
+        return pgn.trim();
+    }
+
+    /**
+     * Format combined annotations for tree structure
+     * @param {Array} lines - Array of line objects
+     * @returns {string} Combined statistics annotation
+     */
+    formatCombinedAnnotations(lines) {
+        let annotations = '\n{';
+
+        // Aggregate statistics across all lines
+        let totalGames = 0;
+        let totalWins = 0;
+        let uniqueMoves = new Set();
+
+        for (const line of lines) {
+            if (line.totalGames) totalGames += line.totalGames;
+            if (line.winRate && line.totalGames) {
+                totalWins += line.winRate * line.totalGames;
+            }
+            if (line.moves) {
+                line.moves.forEach(move => uniqueMoves.add(move.san || move));
+            }
+        }
+
+        annotations += `\nTotal lines analyzed: ${lines.length}`;
+        annotations += `\nTotal games: ${this.formatGameCount(totalGames)}`;
+
+        if (totalGames > 0) {
+            const avgWinRate = totalWins / totalGames;
+            annotations += `\nAverage winrate: ${this.formatPercentage(avgWinRate)}`;
+        }
+
+        annotations += `\nUnique moves: ${uniqueMoves.size}`;
+        annotations += '\n}';
+
+        return annotations;
+    }
+
+    /**
+     * Generate individual lines PGN (default behavior)
+     * @param {Array} lines - Array of line objects
+     * @param {string} chapterName - Chapter name
+     * @param {Object} engineClient - Optional engine client
+     * @returns {string} Individual lines PGN
+     */
+    async generateIndividualLinesPGN(lines, chapterName, engineClient = null) {
+        console.log(`📋 [PgnGenerator] Generating individual lines PGN for ${lines.length} lines`);
+
+        let pgnContent = '';
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineNumber = i + 1;
+
+            // Generate event header
+            const eventHeader = this.generateEventHeaders(chapterName, lineNumber, this.config.perspective);
+
+            // Generate move sequence with annotations
+            const moveSequence = await this.generateMoveSequence(line, engineClient);
+            const annotations = this.formatMoveAnnotations(line);
+
+            pgnContent += `${eventHeader}\n\n${moveSequence}\n${annotations}\n\n`;
+        }
+
+        return pgnContent.trim();
+    }
+
+    /**
+     * Generate inline annotated PGN
+     * @param {Array} lines - Array of line objects
+     * @param {string} chapterName - Chapter name
+     * @param {Object} engineClient - Optional engine client
+     * @returns {string} Inline annotated PGN
+     */
+    async generateInlineAnnotatedPGN(lines, chapterName, engineClient = null) {
+        console.log(`📋 [PgnGenerator] Generating inline annotated PGN for ${lines.length} lines`);
+
+        let pgnContent = '';
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lineNumber = i + 1;
+
+            // Generate event header
+            const eventHeader = this.generateEventHeaders(chapterName, lineNumber, this.config.perspective);
+
+            // Generate move sequence with inline statistics
+            const moveSequence = await this.generateMoveSequenceWithInlineStats(line, engineClient);
+
+            // Generate summary annotations (shorter since stats are inline)
+            const summaryAnnotations = this.formatSummaryAnnotations(line);
+
+            pgnContent += `${eventHeader}\n\n${moveSequence}\n${summaryAnnotations}\n\n`;
+        }
+
+        return pgnContent.trim();
+    }
+
+    /**
+     * Generate move sequence with inline statistics like "e4{+25.28%}"
+     * @param {Object} line - Line object with moves and statistics
+     * @param {Object} engineClient - Optional engine client
+     * @returns {string} Move sequence with inline stats
+     */
+    async generateMoveSequenceWithInlineStats(line, engineClient = null) {
+        if (!line.moves || line.moves.length === 0) {
+            return '';
+        }
+
+        let moveSequence = '';
+
+        for (let i = 0; i < line.moves.length; i++) {
+            const move = line.moves[i];
+            const moveNumber = Math.floor(i / 2) + 1;
+            const isWhiteMove = i % 2 === 0;
+
+            if (isWhiteMove) {
+                moveSequence += `${moveNumber}. `;
+            }
+
+            // Add move with inline playrate if available
+            if (move.playrate !== undefined) {
+                const playrateFormatted = this.formatPercentage(move.playrate);
+                moveSequence += `${move.san}{${playrateFormatted}}`;
+            } else {
+                moveSequence += move.san;
+            }
+
+            if (!isWhiteMove) {
+                moveSequence += ' ';
+            } else {
+                moveSequence += ' ';
+            }
+        }
+
+        // Engine finishing if enabled
+        if (engineClient && this.config.ENGINEFINISH) {
+            try {
+                const lastPosition = line.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+                const engineMove = await engineClient.getBestMove(lastPosition, this.config.ENGINEDEPTH);
+                if (engineMove) {
+                    const nextMoveNumber = Math.floor(line.moves.length / 2) + 1;
+                    const isWhite = line.moves.length % 2 === 0;
+                    if (isWhite) {
+                        moveSequence += `${nextMoveNumber}. ${engineMove}`;
+                    } else {
+                        moveSequence += engineMove;
+                    }
+                }
+            } catch (error) {
+                console.warn('Engine completion failed:', error);
+            }
+        }
+
+        return moveSequence.trim();
+    }
+
+    /**
+     * Format summary annotations (shorter version for inline mode)
+     * @param {Object} line - Line object
+     * @returns {string} Summary annotations
+     */
+    formatSummaryAnnotations(line) {
+        let annotations = '\n{';
+
+        if (line.totalGames !== undefined) {
+            annotations += `\nTotal games: ${this.formatGameCount(line.totalGames)}`;
+        }
+
+        if (line.winRate !== undefined) {
+            const winrateFormatted = this.formatPercentage(line.winRate);
+            annotations += `\nLine winrate: ${winrateFormatted}`;
+        }
+
+        if (line.cumulativeLikelihood !== undefined) {
+            const cumulativeFormatted = this.formatPercentage(line.cumulativeLikelihood);
+            annotations += `\nCumulative playrate: ${cumulativeFormatted}`;
+        }
+
+        annotations += '\n}';
+        return annotations;
     }
 
     /**
