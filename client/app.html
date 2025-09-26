@@ -274,6 +274,93 @@
             color: #166534;
         }
 
+        .pgn-display-container {
+            margin-top: 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+
+        .pgn-display-header {
+            background: var(--background);
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pgn-display-header h4 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .pgn-display-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .pgn-display-content {
+            max-height: 60vh;
+            overflow-y: auto;
+            background: #fafafa;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pgn-content {
+            margin: 0;
+            padding: 1.5rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: transparent;
+            border: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .pgn-display-stats {
+            padding: 1rem 1.5rem;
+            background: var(--background);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pgn-stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pgn-stat-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Copy feedback animation */
+        .copy-success {
+            background: var(--success-color) !important;
+            color: white !important;
+            transform: scale(1.05);
+            transition: all 0.2s ease;
+        }
+
+        .copy-success::after {
+            content: ' ✓';
+        }
+
         .validation-error {
             color: var(--danger-color);
             font-size: 0.875rem;
@@ -416,6 +503,26 @@
             .nav-button-group {
                 width: 100%;
                 justify-content: space-between;
+            }
+
+            .pgn-display-header {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+
+            .pgn-display-actions {
+                justify-content: center;
+            }
+
+            .pgn-content {
+                font-size: 0.75rem;
+                padding: 1rem;
+            }
+
+            .pgn-display-stats {
+                flex-direction: column;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -858,6 +965,27 @@
             <div class="success-container" id="success-container">
                 <h4>Success!</h4>
                 <p id="success-message"></p>
+            </div>
+
+            <!-- PGN Display Container -->
+            <div class="pgn-display-container" id="pgn-display-container" style="display: none;">
+                <div class="pgn-display-header">
+                    <h4>📋 Generated PGN Repertoire</h4>
+                    <div class="pgn-display-actions">
+                        <button type="button" class="btn btn-primary" id="copy-pgn-btn">
+                            📋 Copy to Clipboard
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="download-pgn-btn">
+                            💾 Download File
+                        </button>
+                    </div>
+                </div>
+                <div class="pgn-display-content">
+                    <pre class="pgn-content" id="pgn-content"></pre>
+                </div>
+                <div class="pgn-display-stats" id="pgn-display-stats">
+                    <!-- Statistics will be populated dynamically -->
+                </div>
             </div>
         </form>
     </div>

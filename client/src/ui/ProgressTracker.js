@@ -83,8 +83,9 @@ class ProgressTracker {
             this.phases = [
                 { name: 'Initializing', weight: 5 },
                 { name: 'Validating', weight: 10 },
-                { name: 'Processing', weight: 70 },
+                { name: 'Processing', weight: 65 },
                 { name: 'Generating', weight: 10 },
+                { name: 'Preparing Display', weight: 5 },
                 { name: 'Finalizing', weight: 5 }
             ];
         }
@@ -250,9 +251,20 @@ class ProgressTracker {
     }
 
     /**
+     * Update progress for PGN display preparation phase
+     */
+    updateDisplayPhase(message = 'Preparing PGN display...', progress = 90) {
+        if (!this.isActive) return;
+
+        this.updatePhase(message, progress);
+        this.logProgress('Formatting PGN content for display');
+        this.logProgress('Setting up copy and download functionality');
+    }
+
+    /**
      * Complete progress tracking
      */
-    complete(message, downloadInfo = null) {
+    complete(message, completionInfo = null) {
         this.isActive = false;
         this.fill.style.width = '100%';
         this.text.textContent = message;
@@ -284,15 +296,46 @@ class ProgressTracker {
         // Log completion
         this.logProgress(message);
 
-        if (downloadInfo) {
-            this.logProgress(`Generated ${downloadInfo.fileCount} files`);
-            this.logProgress(`Total size: ${downloadInfo.totalSize || 'Unknown'}`);
+        if (completionInfo) {
+            // Handle both download and display info
+            if (completionInfo.fileCount) {
+                this.logProgress(`Generated ${completionInfo.fileCount} files`);
+            }
+            if (completionInfo.contentLength) {
+                this.logProgress(`Generated content: ${this.formatFileSize(completionInfo.contentLength)}`);
+            }
+            if (completionInfo.displayMethod === 'browser') {
+                this.logProgress('PGN displayed in browser with copy functionality');
+            }
+            if (completionInfo.totalSize) {
+                this.logProgress(`Total size: ${completionInfo.totalSize}`);
+            }
         }
 
-        // Show success container after a delay
-        setTimeout(() => {
-            this.showSuccessContainer(message, downloadInfo);
-        }, 1000);
+        // Hide progress container after a short delay for display mode
+        if (completionInfo && completionInfo.displayMethod === 'browser') {
+            setTimeout(() => {
+                this.container.style.display = 'none';
+            }, 1500);
+        } else {
+            // Show traditional success container for download mode
+            setTimeout(() => {
+                this.showSuccessContainer(message, completionInfo);
+            }, 1000);
+        }
+    }
+
+    /**
+     * Format file size for display
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     /**

@@ -154,11 +154,11 @@ class FormController {
             this.progressTracker.updatePhase('Processing openings...', 20);
             const results = await this.processOpenings(config);
 
-            // Phase 5: Generate downloads
-            this.progressTracker.updatePhase('Preparing downloads...', 95);
-            await this.generateDownloads(results);
+            // Phase 5: Prepare display
+            this.progressTracker.updateDisplayPhase('Preparing PGN display...', 90);
+            const displayResult = await this.generateDisplay(results);
 
-            this.progressTracker.complete('Repertoire generated successfully!');
+            this.progressTracker.complete('Repertoire generated successfully!', displayResult);
 
         } catch (error) {
             console.error(`❌ [FormController] Generation failed in startGeneration:`, error);
@@ -316,6 +316,74 @@ class FormController {
         return results;
     }
 
+    async generateDisplay(results) {
+        const fileGenerator = new FileGenerator();
+
+        try {
+            console.log(`📋 [FormController] generateDisplay called with ${Object.keys(results).length} results`);
+
+            // Prepare content for display
+            let displayContent = '';
+            let chapterName = 'Chess Repertoire';
+            const metadata = {
+                processingTime: null,
+                totalGames: 0,
+                totalLines: 0
+            };
+
+            // Handle single or multiple results
+            if (Object.keys(results).length === 1) {
+                // Single chapter - display directly
+                const [filename, content] = Object.entries(results)[0];
+                displayContent = content;
+                chapterName = filename.replace(/\.pgn$/, '');
+
+                // Count lines for metadata
+                metadata.totalLines = fileGenerator.countPGNLines(content);
+
+            } else {
+                // Multiple chapters - create combined display
+                const chapters = Object.entries(results).map(([filename, content]) => ({
+                    name: filename.replace(/\.pgn$/, ''),
+                    content: content
+                }));
+
+                displayContent = fileGenerator.generateCombinedPGN(chapters);
+                chapterName = 'Complete Chess Repertoire';
+
+                // Aggregate metadata
+                metadata.totalLines = chapters.reduce((sum, chapter) =>
+                    sum + fileGenerator.countPGNLines(chapter.content), 0);
+            }
+
+            // Calculate processing time
+            if (this.progressTracker.startTime) {
+                const elapsed = Date.now() - this.progressTracker.startTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                metadata.processingTime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+            }
+
+            console.log(`📊 [FormController] Displaying content:`, {
+                chapterName,
+                contentLength: displayContent.length,
+                metadata
+            });
+
+            // Display the PGN content
+            const displayResult = fileGenerator.displayPGN(displayContent, chapterName, metadata);
+
+            console.log(`✅ [FormController] PGN displayed successfully`);
+
+            return displayResult;
+
+        } catch (error) {
+            console.error(`❌ [FormController] Display generation failed:`, error);
+            throw new Error(`Display generation failed: ${error.message}`);
+        }
+    }
+
+    // Keep the original generateDownloads method as legacy/fallback option
     async generateDownloads(results) {
         const fileGenerator = new FileGenerator();
         const downloadResults = [];
@@ -862,19 +930,33 @@ class ProgressTracker {
         this.text.textContent = `${currentText}\n${additionalInfo}`;
     }
 
-    complete(message) {
+    updateDisplayPhase(message = 'Preparing PGN display...', progress = 90) {
+        if (!this.isActive) return;
+
+        this.updatePhase(message, progress);
+    }
+
+    complete(message, completionInfo = null) {
         this.isActive = false;
         this.fill.style.width = '100%';
         this.text.textContent = message;
 
-        // Show success container after a delay
-        setTimeout(() => {
-            this.container.style.display = 'none';
-            const successContainer = document.getElementById('success-container');
-            const successMessage = document.getElementById('success-message');
-            successContainer.style.display = 'block';
-            successMessage.textContent = message;
-        }, 1000);
+        // Handle display mode vs traditional success mode
+        if (completionInfo && completionInfo.displayMethod === 'browser') {
+            // Hide progress container for display mode
+            setTimeout(() => {
+                this.container.style.display = 'none';
+            }, 1500);
+        } else {
+            // Show traditional success container
+            setTimeout(() => {
+                this.container.style.display = 'none';
+                const successContainer = document.getElementById('success-container');
+                const successMessage = document.getElementById('success-message');
+                successContainer.style.display = 'block';
+                successMessage.textContent = message;
+            }, 1000);
+        }
     }
 
     reset() {
