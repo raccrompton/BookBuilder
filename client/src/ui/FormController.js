@@ -116,6 +116,39 @@ class FormController {
 
             // Start repertoire generation
             console.log('🎯 [DEBUG] Starting generation process...');
+
+            // Immediately show progress container when generation starts
+            console.log('🎬 [FormController] Showing progress container for generation...');
+            console.log('🔍 [FormController] showProgressContainer type:', typeof showProgressContainer);
+            console.log('🔍 [FormController] window.showProgressContainer type:', typeof window.showProgressContainer);
+
+            if (typeof showProgressContainer === 'function') {
+                console.log('✅ [FormController] Calling showProgressContainer...');
+                showProgressContainer();
+            } else if (typeof window.showProgressContainer === 'function') {
+                console.log('✅ [FormController] Calling window.showProgressContainer...');
+                window.showProgressContainer();
+            } else {
+                console.error('❌ [FormController] showProgressContainer function not found!');
+            }
+
+            // Initialize progress display with starting state
+            if (typeof updateProgress === 'function') {
+                updateProgress({
+                        stage: 'Initializing',
+                        current: 0,
+                        total: 100,
+                        percentage: 0,
+                        speed: 0,
+                        eta: '--:--',
+                        currentMessage: 'Starting repertoire generation...',
+                        lines: 0,
+                        moves: 0,
+                        continuations: 0
+                    });
+                }
+            }
+
             await this.startGeneration(bookBuilderConfig);
 
         } catch (error) {
@@ -131,6 +164,12 @@ class FormController {
                 }
             });
             this.errorHandler.showError('Failed to start generation', error);
+
+            // Restore form view on error
+            console.log('🔄 [FormController] Restoring form view due to error...');
+            if (typeof hideProgressContainer === 'function') {
+                hideProgressContainer();
+            }
         }
     }
 
@@ -146,9 +185,15 @@ class FormController {
             this.progressTracker.updatePhase('Validating configuration...', 10);
             await this.validateConnections(config);
 
-            // Phase 3: Create BookBuilder instance
+            // Phase 3: Create BookBuilder instance with progress callback
             this.progressTracker.updatePhase('Creating BookBuilder instance...', 15);
-            this.bookBuilder = new BookBuilder(config);
+
+            // Create progress callback for BookBuilder
+            const progressCallback = (progressData) => {
+                this.handleBookBuilderProgress(progressData);
+            };
+
+            this.bookBuilder = new BookBuilder(config, progressCallback);
 
             // Phase 4: Process openings
             this.progressTracker.updatePhase('Processing openings...', 20);
@@ -171,6 +216,41 @@ class FormController {
             console.error(`   Config at time of error:`, config);
             this.errorHandler.showError('Generation failed', error);
             this.progressTracker.reset();
+
+            // Restore form view on generation error
+            console.log('🔄 [FormController] Restoring form view due to generation error...');
+            if (typeof hideProgressContainer === 'function') {
+                hideProgressContainer();
+            }
+        }
+    }
+
+    /**
+     * Handle progress updates from BookBuilder
+     * @param {Object} progressData - Progress data from BookBuilder
+     */
+    handleBookBuilderProgress(progressData) {
+        console.log('📊 [FormController] BookBuilder progress:', progressData);
+
+        // Show progress container if not already visible
+        if (!document.getElementById('progress-container').classList.contains('active')) {
+            console.log('🎬 [FormController] Showing progress container...');
+            if (typeof showProgressContainer === 'function') {
+                showProgressContainer();
+            }
+        }
+
+        // Update the global updateProgress function from app.html
+        if (typeof updateProgress === 'function') {
+            updateProgress(progressData);
+        } else {
+            console.warn('⚠️ [FormController] updateProgress function not available');
+        }
+
+        // Log detailed progress for debugging
+        if (progressData.current && progressData.total) {
+            const percentage = ((progressData.current / progressData.total) * 100).toFixed(1);
+            console.log(`   📈 Position ${progressData.current}/${progressData.total} (${percentage}%) - ${progressData.currentMessage}`);
         }
     }
 
@@ -556,7 +636,14 @@ class FormController {
     }
 
     convertGamesProbability(dropdownValue) {
-        // Convert dropdown values like "1 in 50" to decimal
+        // Handle both decimal string values (from HTML) and legacy text values
+        // First try parsing as decimal (current HTML format: "0.002")
+        const parsedDecimal = parseFloat(dropdownValue);
+        if (!isNaN(parsedDecimal) && parsedDecimal > 0 && parsedDecimal <= 1) {
+            return parsedDecimal;
+        }
+
+        // Fall back to text-based mapping for backward compatibility
         const probabilityMap = {
             '1 in 50': 0.02,
             '1 in 100': 0.01,
@@ -901,33 +988,47 @@ class ProgressTracker {
     constructor() {
         this.container = document.getElementById('progress-container');
         this.fill = document.getElementById('progress-fill');
-        this.text = document.getElementById('progress-text');
+        // Use the new progress container elements
+        this.stageText = document.getElementById('progress-stage');
+        this.currentText = document.getElementById('progress-current');
         this.isActive = false;
     }
 
     start() {
         this.isActive = true;
-        this.container.style.display = 'block';
+        // Use our new progress container system
+        if (typeof showProgressContainer === 'function') {
+            showProgressContainer();
+        } else {
+            this.container.classList.add('active');
+        }
         this.updatePhase('Starting...', 0);
 
         // Hide other containers
-        document.getElementById('error-container').style.display = 'none';
-        document.getElementById('success-container').style.display = 'none';
+        const errorContainer = document.getElementById('error-container');
+        const successContainer = document.getElementById('success-container');
+        if (errorContainer) errorContainer.style.display = 'none';
+        if (successContainer) successContainer.style.display = 'none';
     }
 
     updatePhase(text, percentage) {
         if (!this.isActive) return;
 
-        this.fill.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
-        this.text.textContent = text;
+        if (this.fill) {
+            this.fill.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+        }
+        if (this.stageText) {
+            this.stageText.textContent = text;
+        }
     }
 
     updateProgress(additionalInfo) {
         if (!this.isActive) return;
 
-        // Add additional info without changing main progress
-        const currentText = this.text.textContent;
-        this.text.textContent = `${currentText}\n${additionalInfo}`;
+        // Update the current message text
+        if (this.currentText) {
+            this.currentText.textContent = additionalInfo;
+        }
     }
 
     updateDisplayPhase(message = 'Preparing PGN display...', progress = 90) {
@@ -938,32 +1039,60 @@ class ProgressTracker {
 
     complete(message, completionInfo = null) {
         this.isActive = false;
-        this.fill.style.width = '100%';
-        this.text.textContent = message;
+        if (this.fill) {
+            this.fill.style.width = '100%';
+        }
+        if (this.stageText) {
+            this.stageText.textContent = message;
+        }
+        if (this.currentText) {
+            this.currentText.textContent = 'Generation completed successfully!';
+        }
 
         // Handle display mode vs traditional success mode
         if (completionInfo && completionInfo.displayMethod === 'browser') {
             // Hide progress container for display mode
             setTimeout(() => {
-                this.container.style.display = 'none';
+                if (typeof hideProgressContainer === 'function') {
+                    hideProgressContainer();
+                } else {
+                    this.container.classList.remove('active');
+                }
             }, 1500);
         } else {
             // Show traditional success container
             setTimeout(() => {
-                this.container.style.display = 'none';
+                if (typeof hideProgressContainer === 'function') {
+                    hideProgressContainer();
+                } else {
+                    this.container.classList.remove('active');
+                }
                 const successContainer = document.getElementById('success-container');
                 const successMessage = document.getElementById('success-message');
-                successContainer.style.display = 'block';
-                successMessage.textContent = message;
+                if (successContainer && successMessage) {
+                    successContainer.style.display = 'block';
+                    successMessage.textContent = message;
+                }
             }, 1000);
         }
     }
 
     reset() {
         this.isActive = false;
-        this.container.style.display = 'none';
-        this.fill.style.width = '0%';
-        this.text.textContent = 'Initializing...';
+        if (typeof hideProgressContainer === 'function') {
+            hideProgressContainer();
+        } else {
+            this.container.classList.remove('active');
+        }
+        if (this.fill) {
+            this.fill.style.width = '0%';
+        }
+        if (this.stageText) {
+            this.stageText.textContent = 'Initializing...';
+        }
+        if (this.currentText) {
+            this.currentText.textContent = 'Ready to begin analysis...';
+        }
     }
 }
 

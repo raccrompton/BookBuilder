@@ -23,7 +23,7 @@ import PgnGenerator from './pgn/PgnGenerator.js';
  * Replaces Python's Grower, Rooter, Leafer, and Printer classes
  */
 class BookBuilder {
-    constructor(config) {
+    constructor(config, progressCallback = null) {
         // Dependency injection instead of Python's global variables
         this.config = config;
         this.chessEngine = new ChessEngine(); // Main engine for root analysis
@@ -32,6 +32,28 @@ class BookBuilder {
         this.statisticsEngine = new Statistics();
         this.pgnGenerator = new PgnGenerator(config);
         this.stockfishEngine = config.CAREABOUTENGINE ? new StockfishEngine() : null;
+
+        // Progress tracking system
+        this.progressCallback = progressCallback;
+
+        // DEBUG: Log progress callback setup
+        console.log('🔧 [BookBuilder] Constructor called with progress callback:', {
+            hasCallback: !!progressCallback,
+            callbackType: typeof progressCallback,
+            isFunction: typeof progressCallback === 'function'
+        });
+
+        this.progressState = {
+            stage: 'Initializing',
+            currentPosition: 0,
+            totalEstimated: 0,
+            startTime: null,
+            lastUpdate: null,
+            positionsProcessed: 0,
+            linesGenerated: 0,
+            movesAnalyzed: 0,
+            continuationsFound: 0
+        };
 
         // Create Lichess API options from user configuration (fixes parameter consistency bug)
         this.lichessApiOptions = {
@@ -110,26 +132,62 @@ class BookBuilder {
         // Store the opening perspective for consistent winrate calculations
         this.openingPerspective = opening.perspective;
 
+        // Initialize progress tracking with estimated positions
+        const estimatedPositions = this.estimatePositionCount(opening);
+        this.initializeProgress(estimatedPositions);
+
         try {
             // Phase 1: Root analysis (replaces Python's Rooter class)
             console.log(`  Phase 1: Root analysis for ${opening.name}`);
+            this.emitProgress({
+                stage: 'Root Analysis',
+                currentMessage: `Analyzing opening moves for ${opening.name}...`
+            });
+
             const rootResults = await this.analyzeRoot(opening.moves || [], opening.perspective);
             this.processingQueue.push(...rootResults);
             console.log(`  Found ${rootResults.length} initial continuations`);
 
+            this.emitProgress({
+                positionsProcessed: 1,
+                currentMessage: `Root analysis complete. Found ${rootResults.length} continuations.`
+            });
+
             // Phase 2: Iterative expansion (replaces Python's Leafer loop)
             console.log('  Phase 2: Iterative line expansion');
+            this.emitProgress({
+                stage: 'Line Expansion',
+                currentMessage: 'Starting iterative position analysis...'
+            });
+
             await this.expandAllLines();
             console.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
 
+            this.emitProgress({
+                linesGenerated: this.finalLines.length,
+                currentMessage: `Line expansion complete. Generated ${this.finalLines.length} lines.`
+            });
+
             // Phase 3: Output generation (NEW ARCHITECTURE - returns line data)
             console.log('  Phase 3: Generating line data (NEW ARCHITECTURE)');
+            this.emitProgress({
+                stage: 'Output Generation',
+                currentMessage: 'Generating final PGN output...'
+            });
+
             const output = await this.generateOutput(opening.name, chapterNumber);
             console.log('  📊 BookBuilder.generateChapter() returning:', {
                 type: typeof output,
                 isObject: typeof output === 'object',
                 hasLines: output?.lines ? true : false,
                 linesCount: output?.lines?.length || 'N/A'
+            });
+
+            // Mark as complete
+            this.emitProgress({
+                positionsProcessed: this.progressState.totalEstimated,
+                percentage: 100,
+                currentMessage: `Chapter generation complete! Generated ${output?.lines?.length || 0} lines.`
             });
 
             return output;
@@ -258,6 +316,12 @@ class BookBuilder {
 
             console.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
 
+            // Update progress with current position processing
+            this.emitProgress({
+                positionsProcessed: Math.min(this.progressState.positionsProcessed + currentBatch.length, this.progressState.totalEstimated - 1),
+                currentMessage: `Processing batch ${iterationCount}: ${currentBatch.length} positions, ${this.processingQueue.length} remaining...`
+            });
+
             // Process batch in parallel with isolated engines for each line
             console.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines with isolated engines`);
             const batchResults = await Promise.all(
@@ -291,6 +355,13 @@ class BookBuilder {
      */
     async expandLine(lineData) {
         const { fen, pgn, cumulativeLikelihood, likelihoodPath, perspective } = lineData;
+
+        // **SIMPLE PROGRESS COUNTER**
+        this.progressState.positionsProcessed++;
+        this.emitProgress({
+            positionsProcessed: this.progressState.positionsProcessed,
+            currentMessage: `Processing position ${this.progressState.positionsProcessed}...`
+        });
 
         // **CREATE ISOLATED ENGINE INSTANCE**
         const isolatedEngine = this.createIsolatedEngine();
@@ -348,6 +419,10 @@ class BookBuilder {
 
             for (const move of validContinuations) {
                 try {
+                    // Update progress for move analysis
+                    this.progressState.movesAnalyzed++;
+                    this.progressState.continuationsFound = validContinuations.length;
+
                     // **ENHANCED MOVE VALIDATION PIPELINE**
                     console.log(`[BookBuilder] Processing opponent move: ${move.san}`);
                     console.log(`[BookBuilder] Position before move:`, isolatedEngine.debugPosition());
@@ -833,6 +908,138 @@ class BookBuilder {
         const perspective = moveCount % 2 === 0 ? 'black' : 'white';
         console.log(`    📋 [BookBuilder] Perspective calculation: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
         return perspective;
+    }
+
+    // ==================== PROGRESS TRACKING METHODS ====================
+
+    /**
+     * Emit progress update to callback function
+     * @param {Object} updates - Progress state updates
+     */
+    emitProgress(updates = {}) {
+        // DEBUG: Always log that emitProgress was called
+        console.log('🚀 [BookBuilder] emitProgress called:', {
+            hasCallback: !!this.progressCallback,
+            callbackType: typeof this.progressCallback,
+            updates
+        });
+
+        if (!this.progressCallback) {
+            console.warn('⚠️ [BookBuilder] No progress callback available - skipping emit');
+            return;
+        }
+
+        // Update progress state
+        this.progressState = { ...this.progressState, ...updates };
+
+        const now = Date.now();
+        this.progressState.lastUpdate = now;
+
+        // Calculate processing speed and ETA
+        let speed = 0;
+        let eta = '--:--';
+
+        if (this.progressState.startTime && this.progressState.positionsProcessed > 0) {
+            const elapsedSeconds = (now - this.progressState.startTime) / 1000;
+            speed = this.progressState.positionsProcessed / elapsedSeconds;
+
+            if (speed > 0 && this.progressState.totalEstimated > 0) {
+                const remainingPositions = Math.max(0, this.progressState.totalEstimated - this.progressState.positionsProcessed);
+                const remainingSeconds = remainingPositions / speed;
+                eta = this.formatTime(remainingSeconds);
+            }
+        }
+
+        // Calculate percentage
+        const percentage = this.progressState.totalEstimated > 0
+            ? (this.progressState.positionsProcessed / this.progressState.totalEstimated) * 100
+            : 0;
+
+        // Emit progress data
+        const progressData = {
+            stage: this.progressState.stage,
+            current: this.progressState.positionsProcessed,
+            total: this.progressState.totalEstimated,
+            percentage: Math.min(percentage, 100),
+            speed: speed,
+            eta: eta,
+            currentMessage: updates.currentMessage || this.progressState.currentMessage || 'Processing...',
+            lines: this.progressState.linesGenerated,
+            moves: this.progressState.movesAnalyzed,
+            continuations: this.progressState.continuationsFound
+        };
+
+        console.log(`📊 [BookBuilder] Progress: ${progressData.stage} - ${progressData.current}/${progressData.total} (${progressData.percentage.toFixed(1)}%)`);
+
+        try {
+            this.progressCallback(progressData);
+        } catch (error) {
+            console.warn('Progress callback error:', error.message);
+        }
+    }
+
+    /**
+     * Initialize progress tracking for a new chapter
+     * @param {number} estimatedPositions - Estimated total positions to process
+     */
+    initializeProgress(estimatedPositions = 100) {
+        this.progressState.startTime = Date.now();
+        this.progressState.totalEstimated = estimatedPositions;
+        this.progressState.positionsProcessed = 0;
+        this.progressState.linesGenerated = 0;
+        this.progressState.movesAnalyzed = 0;
+        this.progressState.continuationsFound = 0;
+
+        this.emitProgress({
+            stage: 'Root Analysis',
+            currentMessage: 'Starting opening analysis...'
+        });
+    }
+
+    /**
+     * Estimate the number of positions that will be processed
+     * @param {Object} opening - Opening configuration
+     * @returns {number} - Estimated position count
+     */
+    estimatePositionCount(opening) {
+        // Base estimate starts with opening depth
+        const openingDepth = (opening.moves || []).length;
+
+        // Rough estimates based on typical chess tree growth
+        // These are conservative estimates for progress display
+        let estimate = 20; // Base minimum for any opening
+
+        if (openingDepth <= 2) {
+            estimate = 50; // Many possibilities from starting positions
+        } else if (openingDepth <= 4) {
+            estimate = 30; // Moderate tree growth
+        } else {
+            estimate = 20; // Deeper positions have fewer valid continuations
+        }
+
+        // Adjust based on configuration complexity
+        const depthLikelihood = this.config.DEPTHLIKELIHOOD || 0.002;
+        if (depthLikelihood < 0.001) {
+            estimate *= 2; // Very thorough analysis = more positions
+        } else if (depthLikelihood > 0.005) {
+            estimate = Math.max(10, estimate * 0.5); // Quick analysis = fewer positions
+        }
+
+        console.log(`📊 [BookBuilder] Estimated ${estimate} positions for opening: ${opening.name}`);
+        return Math.round(estimate);
+    }
+
+    /**
+     * Format time in MM:SS format
+     * @param {number} seconds - Seconds to format
+     * @returns {string} - Formatted time string
+     */
+    formatTime(seconds) {
+        if (!seconds || seconds < 0) return '--:--';
+
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
     // ==================== UTILITY METHODS ====================

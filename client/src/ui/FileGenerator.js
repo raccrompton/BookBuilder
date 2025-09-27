@@ -492,10 +492,14 @@ class FileGenerator {
             return { mainLine: '', variations: [] };
         }
 
+        // Deduplicate lines at tree level (critical for preventing duplicate variations)
+        const deduplicatedLines = this.deduplicateTreeLines(lines);
+        console.log(`   🧹 Tree-level deduplication: ${lines.length} → ${deduplicatedLines.length} unique lines`);
+
         // Lines should already be sorted by probability (highest first)
         // Use highest probability line as main line (much better than longest!)
-        const mainLine = lines[0];
-        const variations = lines.slice(1);
+        const mainLine = deduplicatedLines[0];
+        const variations = deduplicatedLines.slice(1);
 
         console.log(`   🎯 Main line (highest probability): ${mainLine.pgn}`);
         console.log(`   📊 Main line likelihood: ${mainLine.cumulativeLikelihood?.toFixed(6)}`);
@@ -504,8 +508,27 @@ class FileGenerator {
         return {
             mainLine: mainLine,
             variations: variations,
-            allLines: lines
+            allLines: deduplicatedLines
         };
+    }
+
+    /**
+     * Deduplicate lines at tree level by PGN (simple duplicate removal)
+     * @param {Array} lines - Array of line objects
+     * @returns {Array} Deduplicated lines
+     */
+    deduplicateTreeLines(lines) {
+        const seen = new Set();
+        const deduplicated = [];
+
+        for (const line of lines) {
+            if (!seen.has(line.pgn)) {
+                seen.add(line.pgn);
+                deduplicated.push(line);
+            }
+        }
+
+        return deduplicated;
     }
 
     /**
@@ -654,6 +677,150 @@ class FileGenerator {
     }
 
     /**
+     * Build nested variation tree from variations (new nested approach)
+     * Creates proper PGN-style nested variations like: 1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3
+     * @param {Array} variations - Array of variation line objects
+     * @param {Array} mainMoves - Main line moves for reference
+     * @returns {Object} - Nested variation tree structure
+     */
+    async buildNestedVariationTree(variations, mainMoves) {
+        console.log(`   🌳 Building nested variation tree from ${variations.length} variations`);
+
+        // Parse all variations into move sequences with divergence points
+        const parsedVariations = [];
+        for (const variation of variations) {
+            try {
+                const moves = await this.parsePGNMoves(variation.pgn);
+                if (moves.length > 0) {
+                    const divergencePoint = this.findDivergencePoint(mainMoves, moves);
+                    if (divergencePoint !== -1) {
+                        parsedVariations.push({
+                            ...variation,
+                            moves: moves,
+                            divergencePoint: divergencePoint,
+                            divergentMove: moves[divergencePoint],
+                            continuation: moves.slice(divergencePoint + 1)
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn(`Error parsing variation: ${error.message}`);
+            }
+        }
+
+        // Group variations by divergence point
+        const divergenceGroups = new Map();
+        for (const variation of parsedVariations) {
+            const point = variation.divergencePoint;
+            if (!divergenceGroups.has(point)) {
+                divergenceGroups.set(point, []);
+            }
+            divergenceGroups.get(point).push(variation);
+        }
+
+        // Build nested structure for each divergence point
+        const nestedDivergences = [];
+        for (const [point, variations] of divergenceGroups) {
+            const nestedStructure = this.buildNestedStructureAtPoint(variations, point);
+            nestedDivergences.push({
+                position: point,
+                nested: nestedStructure
+            });
+        }
+
+        // Sort by position
+        nestedDivergences.sort((a, b) => a.position - b.position);
+
+        console.log(`   ✅ Built nested tree with ${nestedDivergences.length} divergence points`);
+        return nestedDivergences;
+    }
+
+    /**
+     * Build nested structure at a specific divergence point
+     * @param {Array} variations - Variations at this point
+     * @param {number} divergencePoint - The divergence position
+     * @returns {Array} - Nested variation structure
+     */
+    buildNestedStructureAtPoint(variations, divergencePoint) {
+        // Group by first divergent move
+        const moveGroups = new Map();
+
+        for (const variation of variations) {
+            const move = variation.divergentMove;
+            if (!moveGroups.has(move)) {
+                moveGroups.set(move, []);
+            }
+            moveGroups.get(move).push(variation);
+        }
+
+        // Build nested structure for each move group
+        const nestedMoves = [];
+        for (const [move, moveVariations] of moveGroups) {
+            // Separate variations that end here vs continue further
+            const endingHere = moveVariations.filter(v => v.continuation.length === 0);
+            const continuingFurther = moveVariations.filter(v => v.continuation.length > 0);
+
+            const moveNode = {
+                move: move,
+                stats: endingHere.length > 0 ? (endingHere[0].statistics || endingHere[0].stats || {}) : null,
+                likelihoodPath: endingHere.length > 0 ? endingHere[0].likelihoodPath : null,
+                cumulativeLikelihood: endingHere.length > 0 ? endingHere[0].cumulativeLikelihood : null,
+                subVariations: []
+            };
+
+            // If there are continuing variations, build sub-structure recursively
+            if (continuingFurther.length > 0) {
+                moveNode.subVariations = this.buildSubVariationStructure(continuingFurther, 0);
+            }
+
+            nestedMoves.push(moveNode);
+        }
+
+        return nestedMoves;
+    }
+
+    /**
+     * Build sub-variation structure recursively
+     * @param {Array} variations - Continuing variations
+     * @param {number} contDepth - Depth in continuation
+     * @returns {Array} - Sub-variation structure
+     */
+    buildSubVariationStructure(variations, contDepth) {
+        if (variations.length === 0) return [];
+
+        // Group by next move in continuation
+        const groups = new Map();
+
+        for (const variation of variations) {
+            if (variation.continuation.length <= contDepth) continue;
+
+            const nextMove = variation.continuation[contDepth];
+            if (!groups.has(nextMove)) {
+                groups.set(nextMove, []);
+            }
+            groups.get(nextMove).push(variation);
+        }
+
+        // Build sub-variation nodes
+        const subVars = [];
+        for (const [move, groupVars] of groups) {
+            const endingAtThisDepth = groupVars.filter(v => v.continuation.length === contDepth + 1);
+            const continuingDeeper = groupVars.filter(v => v.continuation.length > contDepth + 1);
+
+            const subVar = {
+                move: move,
+                stats: endingAtThisDepth.length > 0 ? (endingAtThisDepth[0].statistics || endingAtThisDepth[0].stats || {}) : null,
+                subVariations: continuingDeeper.length > 0 ?
+                    this.buildSubVariationStructure(continuingDeeper, contDepth + 1) : []
+            };
+
+            subVars.push(subVar);
+        }
+
+        return subVars;
+    }
+
+    /**
      * Build move tree structure by finding variation divergence points
      * @param {Array} mainMoves - Main line moves array ["e4", "e5", "Nf3", "Nc6", "Bc4", "f5", "d3"]
      * @param {Array} variations - Array of variation line objects
@@ -662,59 +829,81 @@ class FileGenerator {
     async buildMoveTree(mainMoves, variations) {
         console.log(`   🔨 Building move tree from main line (${mainMoves.length} moves) and ${variations.length} variations`);
 
+        // Build nested variation tree for proper consolidation
+        const nestedDivergences = await this.buildNestedVariationTree(variations, mainMoves);
+
+        // Convert nested structure to the format expected by generateTreePGNFromStructure
         const divergences = [];
 
-        // Parse each variation and find where it diverges from main line
-        for (let i = 0; i < variations.length; i++) {
-            const variation = variations[i];
-            console.log(`   🌿 Processing variation ${i + 1}: "${variation.pgn?.substring(0, 30)}..."`);
+        for (const nestedDiv of nestedDivergences) {
+            const divergenceGroup = {
+                position: nestedDiv.position,
+                mainMove: mainMoves[nestedDiv.position],
+                variations: [],
+                nestedStructure: nestedDiv.nested // Keep nested structure for new formatter
+            };
 
-            try {
-                // Parse variation moves using chess.js
-                const varMoves = await this.parsePGNMoves(variation.pgn);
-                console.log(`   📊 Variation ${i + 1} moves:`, varMoves);
+            // Convert nested structure to flat variations for backward compatibility
+            // But also preserve the nested structure for the new formatter
+            this.flattenNestedStructure(nestedDiv.nested, divergenceGroup.variations);
 
-                // Find divergence point
-                const divergencePoint = this.findDivergencePoint(mainMoves, varMoves);
-
-                if (divergencePoint !== -1) {
-                    console.log(`   🎯 Variation ${i + 1} diverges at move ${divergencePoint + 1}: main="${mainMoves[divergencePoint]}" vs var="${varMoves[divergencePoint]}"`);
-
-                    // Find or create divergence group at this position
-                    let divergenceGroup = divergences.find(d => d.position === divergencePoint);
-                    if (!divergenceGroup) {
-                        divergenceGroup = {
-                            position: divergencePoint,
-                            mainMove: mainMoves[divergencePoint],
-                            variations: []
-                        };
-                        divergences.push(divergenceGroup);
-                    }
-
-                    // Add this variation to the group
-                    divergenceGroup.variations.push({
-                        move: varMoves[divergencePoint],
-                        continuation: varMoves.slice(divergencePoint + 1),
-                        stats: variation.statistics || variation.stats || {},
-                        pgn: variation.pgn,
-                        likelihoodPath: variation.likelihoodPath || [],
-                        cumulativeLikelihood: variation.cumulativeLikelihood || 0
-                    });
-                }
-            } catch (error) {
-                console.warn(`   ⚠️ Error processing variation ${i + 1}:`, error.message);
-            }
+            divergences.push(divergenceGroup);
         }
 
-        // Sort divergences by position
-        divergences.sort((a, b) => a.position - b.position);
-
-        console.log(`   🌳 Tree structure complete: ${divergences.length} divergence points, ${divergences.reduce((sum, d) => sum + d.variations.length, 0)} total variations`);
+        console.log(`   🌳 Tree structure complete: ${divergences.length} divergence points`);
 
         return {
             mainMoves: mainMoves,
-            divergences: divergences
+            divergences: divergences,
+            hasNestedStructure: true // Flag to use new formatter
         };
+    }
+
+    /**
+     * Flatten nested structure for backward compatibility (while preserving nested for new formatter)
+     * @param {Array} nestedMoves - Nested move structure
+     * @param {Array} flatVariations - Output array for flat variations
+     */
+    flattenNestedStructure(nestedMoves, flatVariations) {
+        for (const moveNode of nestedMoves) {
+            // Add this move as a variation
+            const variation = {
+                move: moveNode.move,
+                continuation: this.extractContinuation(moveNode.subVariations),
+                stats: moveNode.stats || {},
+                likelihoodPath: moveNode.likelihoodPath || [],
+                cumulativeLikelihood: moveNode.cumulativeLikelihood || 0,
+                isNested: true // Flag that this came from nested structure
+            };
+
+            flatVariations.push(variation);
+
+            // Recursively flatten sub-variations (they'll get added as separate variations)
+            if (moveNode.subVariations && moveNode.subVariations.length > 0) {
+                this.flattenNestedStructure(moveNode.subVariations, flatVariations);
+            }
+        }
+    }
+
+    /**
+     * Extract continuation moves from sub-variations
+     * @param {Array} subVariations - Sub-variation nodes
+     * @returns {Array} - Array of continuation moves
+     */
+    extractContinuation(subVariations) {
+        const continuation = [];
+
+        // Take the first sub-variation's moves as continuation (simplified approach)
+        if (subVariations && subVariations.length > 0) {
+            const firstSub = subVariations[0];
+            continuation.push(firstSub.move);
+
+            // Add moves from deeper levels (limit to 3-4 moves for readability)
+            const deeperContinuation = this.extractContinuation(firstSub.subVariations);
+            continuation.push(...deeperContinuation.slice(0, 2));
+        }
+
+        return continuation;
     }
 
     /**
@@ -725,6 +914,26 @@ class FileGenerator {
      */
     generateTreePGNFromStructure(treeStructure, mainLineStats) {
         console.log('🎯 Generating PGN tree format from structure');
+
+        const { mainMoves, divergences, hasNestedStructure } = treeStructure;
+
+        // Use new nested formatter if available
+        if (hasNestedStructure) {
+            return this.generateNestedPGNFromStructure(treeStructure, mainLineStats);
+        }
+
+        // Fallback to old formatter for backward compatibility
+        return this.generateFlatPGNFromStructure(treeStructure, mainLineStats);
+    }
+
+    /**
+     * Generate proper nested PGN with sub-variations
+     * @param {Object} treeStructure - Tree structure with nested data
+     * @param {Object} mainLineStats - Main line statistics
+     * @returns {string} - Nested PGN format
+     */
+    generateNestedPGNFromStructure(treeStructure, mainLineStats) {
+        console.log('🌳 Generating nested PGN with proper sub-variations');
 
         const { mainMoves, divergences } = treeStructure;
         let pgnParts = [];
@@ -742,65 +951,17 @@ class FileGenerator {
 
             // Check if there are variations at this position
             const divergenceAtThisMove = divergences.find(d => d.position === i);
-            if (divergenceAtThisMove) {
-                console.log(`   📝 Adding ${divergenceAtThisMove.variations.length} variations after move ${i + 1} (${mainMoves[i]})`);
+            if (divergenceAtThisMove && divergenceAtThisMove.nestedStructure) {
+                console.log(`   📝 Adding nested variations after move ${i + 1} (${mainMoves[i]})`);
 
-                // Add each variation as inline annotation
-                for (const variation of divergenceAtThisMove.variations) {
-                    const stats = variation.stats || {};
+                // Generate nested variations using the new structure
+                const nestedVariations = this.generateNestedVariationsAtPosition(
+                    divergenceAtThisMove.nestedStructure,
+                    moveNumber,
+                    isWhiteMove
+                );
 
-                    // Build variation string: (alternative_move continuation {stats})
-                    let variationParts = [`(${variation.move}`];
-
-                    // Add continuation moves if any
-                    if (variation.continuation && variation.continuation.length > 0) {
-                        // Add appropriate move numbers for continuation
-                        let contMoveNum = isWhiteMove ? moveNumber : moveNumber + 1;
-                        let contIsWhite = !isWhiteMove;
-
-                        for (const contMove of variation.continuation.slice(0, 3)) { // Limit to 3 moves
-                            if (contIsWhite) {
-                                variationParts.push(`${contMoveNum}.`);
-                            }
-                            variationParts.push(contMove);
-                            contIsWhite = !contIsWhite;
-                            if (contIsWhite) contMoveNum++;
-                        }
-                    }
-
-                    // Add detailed statistics annotation with move playrates
-                    const games = stats.totalGames || stats.games || 0;
-                    const winrate = stats.winrate || stats.probability || 0;
-
-                    if (games > 0) {
-                        const winratePercent = (winrate * 100).toFixed(1);
-                        const gamesFormatted = games.toLocaleString();
-
-                        // Build detailed stats including move playrates
-                        let detailedStats = [];
-
-                        // Add move playrates if available
-                        if (variation.likelihoodPath && variation.likelihoodPath.length > 0) {
-                            const movePlayrates = variation.likelihoodPath
-                                .map(move => `+${(move.playrate * 100).toFixed(1)}% ${move.san || move.move}`)
-                                .join(', ');
-                            detailedStats.push(`Move playrates: ${movePlayrates}`);
-                        }
-
-                        // Add cumulative likelihood
-                        if (variation.cumulativeLikelihood) {
-                            detailedStats.push(`Line cumulative: +${(variation.cumulativeLikelihood * 100).toFixed(1)}%`);
-                        }
-
-                        // Add winrate
-                        detailedStats.push(`Winrate: +${winratePercent}% over ${gamesFormatted} games`);
-
-                        variationParts.push(`{${detailedStats.join('. ')}}`);
-                    }
-
-                    variationParts.push(')');
-                    pgnParts.push(variationParts.join(' '));
-                }
+                pgnParts.push(...nestedVariations);
             }
 
             // Update move tracking
@@ -812,45 +973,315 @@ class FileGenerator {
             }
         }
 
-        // Add detailed main line statistics at the end
+        // Add main line statistics
         if (mainLineStats) {
-            // Handle both direct stats and nested statistics object
-            const statsObj = mainLineStats.statistics || mainLineStats;
-            const games = statsObj.totalGames || statsObj.games || 0;
-            const winrate = statsObj.winrate || statsObj.probability || 0;
-
-            if (games > 0) {
-                const winratePercent = (winrate * 100).toFixed(1);
-                const gamesFormatted = games.toLocaleString();
-
-                // Build detailed main line stats
-                let mainStats = [];
-
-                // Add move playrates if available
-                if (mainLineStats.likelihoodPath && mainLineStats.likelihoodPath.length > 0) {
-                    const movePlayrates = mainLineStats.likelihoodPath
-                        .map(move => `+${(move.playrate * 100).toFixed(1)}% ${move.san || move.move}`)
-                        .join(', ');
-                    mainStats.push(`Move playrates: ${movePlayrates}`);
-                }
-
-                // Add cumulative likelihood
-                if (mainLineStats.cumulativeLikelihood) {
-                    mainStats.push(`Line cumulative: +${(mainLineStats.cumulativeLikelihood * 100).toFixed(1)}%`);
-                }
-
-                // Add winrate
-                mainStats.push(`Main winrate: +${winratePercent}% over ${gamesFormatted} games`);
-
-                pgnParts.push(`{${mainStats.join('. ')}}`);
+            const mainStatsAnnotation = this.generateStatsAnnotation(mainLineStats, 'Main');
+            if (mainStatsAnnotation) {
+                pgnParts.push(mainStatsAnnotation);
             }
         }
 
         pgnParts.push('*'); // Add game termination
 
         const result = pgnParts.join(' ');
-        console.log('✅ Generated tree PGN:', result.substring(0, 100) + '...');
+        console.log('✅ Generated nested PGN:', result.substring(0, 150) + '...');
         return result;
+    }
+
+    /**
+     * Generate nested variations at a specific position
+     * @param {Array} nestedMoves - Nested move structure
+     * @param {number} currentMoveNumber - Current move number
+     * @param {boolean} isWhiteMove - Whether current position is white to move
+     * @returns {Array} - Array of PGN parts for variations
+     */
+    generateNestedVariationsAtPosition(nestedMoves, currentMoveNumber, isWhiteMove) {
+        const variationParts = [];
+
+        for (const moveNode of nestedMoves) {
+            // Build the variation string with correct move numbering
+            let variationStr = [`(${currentMoveNumber}${isWhiteMove ? '.' : '...'} ${moveNode.move}`];
+
+            // Add continuation moves and sub-variations
+            if (moveNode.subVariations && moveNode.subVariations.length > 0) {
+                const subVarParts = this.generateContinuationMoves(
+                    moveNode.subVariations,
+                    currentMoveNumber,
+                    isWhiteMove
+                );
+                variationStr.push(...subVarParts);
+            }
+
+            // Add statistics for this variation
+            const statsAnnotation = this.generateStatsAnnotation(moveNode);
+            if (statsAnnotation) {
+                variationStr.push(statsAnnotation);
+            }
+
+            variationStr.push(')');
+            variationParts.push(variationStr.join(' '));
+        }
+
+        return variationParts;
+    }
+
+    /**
+     * Generate continuation moves with proper nested sub-variations
+     * @param {Array} subVariations - Sub-variation nodes
+     * @param {number} baseMoveNumber - Base move number
+     * @param {boolean} baseIsWhite - Whether base position is white to move
+     * @returns {Array} - Continuation PGN parts
+     */
+    generateContinuationMoves(subVariations, baseMoveNumber, baseIsWhite) {
+        const parts = [];
+        let currentMoveNumber = baseIsWhite ? baseMoveNumber + 1 : baseMoveNumber;
+        let isWhiteMove = !baseIsWhite;
+
+        // If there's only one sub-variation, just continue the line
+        if (subVariations.length === 1) {
+            const subVar = subVariations[0];
+
+            // Add the move with proper numbering
+            if (isWhiteMove) {
+                parts.push(`${currentMoveNumber}.`);
+            }
+            parts.push(subVar.move);
+
+            // Recursively add deeper continuations
+            if (subVar.subVariations && subVar.subVariations.length > 0) {
+                const deeperParts = this.generateContinuationMoves(
+                    subVar.subVariations,
+                    currentMoveNumber,
+                    isWhiteMove
+                );
+                parts.push(...deeperParts);
+            }
+        } else {
+            // Multiple sub-variations - need to create nested structure
+            // Add the first move as continuation
+            const firstSub = subVariations[0];
+            if (isWhiteMove) {
+                parts.push(`${currentMoveNumber}.`);
+            }
+            parts.push(firstSub.move);
+
+            // Add other variations as nested
+            for (let i = 1; i < subVariations.length; i++) {
+                const subVar = subVariations[i];
+                const nestedPart = `(${currentMoveNumber}${isWhiteMove ? '.' : '...'} ${subVar.move}`;
+
+                // Add any deeper continuations for this nested variation
+                if (subVar.subVariations && subVar.subVariations.length > 0) {
+                    const deeperParts = this.generateContinuationMoves(
+                        subVar.subVariations,
+                        currentMoveNumber,
+                        isWhiteMove
+                    );
+                    parts.push(`${nestedPart} ${deeperParts.join(' ')})`)
+                } else {
+                    parts.push(`${nestedPart})`);
+                }
+            }
+
+            // Continue with the first variation's continuations
+            if (firstSub.subVariations && firstSub.subVariations.length > 0) {
+                const deeperParts = this.generateContinuationMoves(
+                    firstSub.subVariations,
+                    currentMoveNumber,
+                    isWhiteMove
+                );
+                parts.push(...deeperParts);
+            }
+        }
+
+        return parts;
+    }
+
+    /**
+     * Generate sub-variations recursively
+     * @param {Array} subVariations - Sub-variation nodes
+     * @param {number} moveNumber - Current move number
+     * @param {boolean} isWhiteMove - Whether white to move
+     * @param {number} depth - Current depth (for limiting)
+     * @returns {Array} - Sub-variation PGN parts
+     */
+    generateSubVariations(subVariations, moveNumber, isWhiteMove, depth) {
+        if (depth > 3 || !subVariations || subVariations.length === 0) {
+            return []; // Limit depth to keep PGN readable
+        }
+
+        const subParts = [];
+
+        for (const subVar of subVariations) {
+            // Add move number and move
+            if (isWhiteMove) {
+                subParts.push(`${moveNumber}.`);
+            }
+            subParts.push(subVar.move);
+
+            // Add nested sub-variations
+            if (subVar.subVariations && subVar.subVariations.length > 0) {
+                const nestedParts = [`(${subVar.subVariations.map(sv =>
+                    `${!isWhiteMove ? moveNumber + 1 : moveNumber}${!isWhiteMove ? '.' : '...'} ${sv.move}`
+                ).join(' ')}`];
+
+                nestedParts.push(')');
+                subParts.push(nestedParts.join(' '));
+            }
+
+            // Update for next iteration
+            if (isWhiteMove) {
+                isWhiteMove = false;
+            } else {
+                isWhiteMove = true;
+                moveNumber++;
+            }
+        }
+
+        return subParts;
+    }
+
+    /**
+     * Generate statistics annotation for a move/variation
+     * @param {Object} moveNode - Move node with statistics
+     * @param {string} prefix - Prefix for stats (optional)
+     * @returns {string} - Statistics annotation
+     */
+    generateStatsAnnotation(moveNode, prefix = '') {
+        if (!moveNode) return '';
+
+        const stats = moveNode.stats || moveNode.statistics || moveNode;
+        const games = stats.totalGames || stats.games || 0;
+        const winrate = stats.winrate || stats.probability || 0;
+
+        if (games === 0) return '';
+
+        const detailedStats = [];
+
+        // Add cumulative likelihood
+        if (moveNode.cumulativeLikelihood) {
+            detailedStats.push(`${(moveNode.cumulativeLikelihood * 100).toFixed(1)}%`);
+        }
+
+        // Add winrate
+        const winratePercent = (winrate * 100).toFixed(1);
+        const gamesFormatted = games.toLocaleString();
+        detailedStats.push(`${prefix ? prefix + ' ' : ''}+${winratePercent}% (${gamesFormatted})`);
+
+        return detailedStats.length > 0 ? `{${detailedStats.join(', ')}}` : '';
+    }
+
+    /**
+     * Generate flat PGN (backward compatibility)
+     */
+    generateFlatPGNFromStructure(treeStructure, mainLineStats) {
+        // Keep the original implementation for backward compatibility
+        const { mainMoves, divergences } = treeStructure;
+        let pgnParts = [];
+        let moveNumber = 1;
+        let isWhiteMove = true;
+
+        for (let i = 0; i < mainMoves.length; i++) {
+            if (isWhiteMove) {
+                pgnParts.push(`${moveNumber}.`);
+            }
+            pgnParts.push(mainMoves[i]);
+
+            const divergenceAtThisMove = divergences.find(d => d.position === i);
+            if (divergenceAtThisMove) {
+                for (const variation of divergenceAtThisMove.variations) {
+                    if (variation.isNested) continue; // Skip nested variations in flat mode
+
+                    let variationParts = [`(${variation.move}`];
+
+                    if (variation.continuation && variation.continuation.length > 0) {
+                        let contMoveNum = isWhiteMove ? moveNumber : moveNumber + 1;
+                        let contIsWhite = !isWhiteMove;
+
+                        for (const contMove of variation.continuation.slice(0, 3)) {
+                            if (contIsWhite) {
+                                variationParts.push(`${contMoveNum}.`);
+                            }
+                            variationParts.push(contMove);
+                            contIsWhite = !contIsWhite;
+                            if (contIsWhite) contMoveNum++;
+                        }
+                    }
+
+                    const statsAnnotation = this.generateStatsAnnotation(variation);
+                    if (statsAnnotation) {
+                        variationParts.push(statsAnnotation);
+                    }
+
+                    variationParts.push(')');
+                    pgnParts.push(variationParts.join(' '));
+                }
+            }
+
+            if (isWhiteMove) {
+                isWhiteMove = false;
+            } else {
+                isWhiteMove = true;
+                moveNumber++;
+            }
+        }
+
+        if (mainLineStats) {
+            const mainStatsAnnotation = this.generateStatsAnnotation(mainLineStats, 'Main');
+            if (mainStatsAnnotation) {
+                pgnParts.push(mainStatsAnnotation);
+            }
+        }
+
+        pgnParts.push('*');
+        return pgnParts.join(' ');
+    }
+
+    /**
+     * Combine statistics from multiple identical variations
+     * @param {Array} variations - Array of identical variations with statistics
+     * @returns {Object} - Combined statistics object
+     */
+    combineStatistics(variations) {
+        if (variations.length === 1) {
+            return variations[0].statistics || variations[0].stats || {};
+        }
+
+        const combined = {
+            totalGames: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0
+        };
+
+        let totalCumulativeLikelihood = 0;
+
+        for (const variation of variations) {
+            const stats = variation.statistics || variation.stats || {};
+
+            if (stats.totalGames) {
+                combined.totalGames += stats.totalGames;
+            }
+            if (stats.wins) combined.wins += stats.wins;
+            if (stats.draws) combined.draws += stats.draws;
+            if (stats.losses) combined.losses += stats.losses;
+
+            if (variation.cumulativeLikelihood) {
+                totalCumulativeLikelihood += variation.cumulativeLikelihood;
+            }
+        }
+
+        // Calculate combined win rate
+        if (combined.totalGames > 0) {
+            combined.winrate = combined.wins / combined.totalGames;
+        }
+
+        // Average cumulative likelihood
+        if (totalCumulativeLikelihood > 0) {
+            combined.averageCumulativeLikelihood = totalCumulativeLikelihood / variations.length;
+        }
+
+        return combined;
     }
 
     /**
