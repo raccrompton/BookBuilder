@@ -135,18 +135,17 @@ class FormController {
             // Initialize progress display with starting state
             if (typeof updateProgress === 'function') {
                 updateProgress({
-                        stage: 'Initializing',
-                        current: 0,
-                        total: 100,
-                        percentage: 0,
-                        speed: 0,
-                        eta: '--:--',
-                        currentMessage: 'Starting repertoire generation...',
-                        lines: 0,
-                        moves: 0,
-                        continuations: 0
-                    });
-                }
+                    stage: 'Initializing',
+                    current: 0,
+                    total: 100,
+                    percentage: 0,
+                    speed: 0,
+                    eta: '--:--',
+                    currentMessage: 'Starting repertoire generation...',
+                    lines: 0,
+                    moves: 0,
+                    continuations: 0
+                });
             }
 
             await this.startGeneration(bookBuilderConfig);
