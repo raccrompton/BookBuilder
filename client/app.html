@@ -11,7 +11,7 @@
         worker-src 'self';
         img-src 'self' data: https:;
     ">
-    <title>BookBuilder - Chess Opening Repertoire Generator</title>
+    <title>BookBuilder</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -812,8 +812,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏰 BookBuilder</h1>
-            <p>Chess Opening Repertoire Generator</p>
+            <h1>BookBuilder</h1>
+            <p>Automated Repertoire Building</p>
         </div>
 
         <form id="bookbuilder-form" class="form-container">
@@ -1319,6 +1319,13 @@
                 </div>
             </div>
         </form>
+
+        <!-- Simple generation status display (outside form so it stays visible when form is hidden) -->
+        <div id="generation-status" style="display: none; padding: 3rem; text-align: center;">
+            <h2 style="color: #2563eb; margin-bottom: 1rem;">Generating Repertoire...</h2>
+            <p id="generation-status-text" style="font-size: 1.5rem; font-weight: 600;">0 positions processed</p>
+            <p style="margin-top: 1rem; color: #64748b;">Due to engines, APIs, and thinking, this can take a while - stay patient!</p>
+        </div>
     </div>
 
     <!-- Global utility functions (must be available before module loads) -->
@@ -1477,6 +1484,23 @@
             tabNavigationButtons.style.display = 'flex';
         }
 
+        // Simple generation status functions
+        function showGenerationStatus() {
+            document.querySelector('.form-container').style.display = 'none';
+            document.querySelector('.tab-navigation').style.display = 'none';
+            document.querySelector('.tab-navigation-buttons').style.display = 'none';
+            document.getElementById('generation-status').style.display = 'block';
+            document.getElementById('generation-status-text').textContent = '0 positions processed';
+        }
+
+        function updateGenerationStatus(count) {
+            document.getElementById('generation-status-text').textContent = `${count} positions processed`;
+        }
+
+        function hideGenerationStatus() {
+            document.getElementById('generation-status').style.display = 'none';
+        }
+
         // Progress Update Functions
         function updateProgress(data) {
             console.log('🎯 [updateProgress] Received data:', data);
@@ -1494,7 +1518,7 @@
             const total = data.total || data.totalEstimated || 0;
             const percentage = data.percentage || (total > 0 ? Math.round((current / total) * 100) : 0);
 
-            document.getElementById('progress-position').textContent = total > 0 ? `${current} of ~${total}` : `${current} positions processed`;
+            document.getElementById('progress-position').textContent = `${current} positions analyzed`;
 
             // Update speed metrics
             if (data.speed) {
@@ -1524,9 +1548,6 @@
             if (data.continuations || data.continuationsFound) {
                 document.getElementById('progress-continuations').textContent = data.continuations || data.continuationsFound || 0;
             }
-
-            // Animate metric updates for visual feedback
-            animateMetricUpdate(document.getElementById('progress-position'));
         }
 
         function formatTime(seconds) {
