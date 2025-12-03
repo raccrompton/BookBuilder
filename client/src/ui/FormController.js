@@ -117,35 +117,9 @@ class FormController {
             // Start repertoire generation
             console.log('🎯 [DEBUG] Starting generation process...');
 
-            // Immediately show progress container when generation starts
-            console.log('🎬 [FormController] Showing progress container for generation...');
-            console.log('🔍 [FormController] showProgressContainer type:', typeof showProgressContainer);
-            console.log('🔍 [FormController] window.showProgressContainer type:', typeof window.showProgressContainer);
-
-            if (typeof showProgressContainer === 'function') {
-                console.log('✅ [FormController] Calling showProgressContainer...');
-                showProgressContainer();
-            } else if (typeof window.showProgressContainer === 'function') {
-                console.log('✅ [FormController] Calling window.showProgressContainer...');
-                window.showProgressContainer();
-            } else {
-                console.error('❌ [FormController] showProgressContainer function not found!');
-            }
-
-            // Initialize progress display with starting state
-            if (typeof updateProgress === 'function') {
-                updateProgress({
-                    stage: 'Initializing',
-                    current: 0,
-                    total: 100,
-                    percentage: 0,
-                    speed: 0,
-                    eta: '--:--',
-                    currentMessage: 'Starting repertoire generation...',
-                    lines: 0,
-                    moves: 0,
-                    continuations: 0
-                });
+            // Show simple generation status (hides form)
+            if (typeof showGenerationStatus === 'function') {
+                showGenerationStatus();
             }
 
             await this.startGeneration(bookBuilderConfig);
@@ -202,6 +176,11 @@ class FormController {
             this.progressTracker.updateDisplayPhase('Preparing PGN display...', 90);
             const displayResult = await this.generateDisplay(results);
 
+            // Hide generation status before showing results
+            if (typeof hideGenerationStatus === 'function') {
+                hideGenerationStatus();
+            }
+
             this.progressTracker.complete('Repertoire generated successfully!', displayResult);
 
         } catch (error) {
@@ -218,6 +197,9 @@ class FormController {
 
             // Restore form view on generation error
             console.log('🔄 [FormController] Restoring form view due to generation error...');
+            if (typeof hideGenerationStatus === 'function') {
+                hideGenerationStatus();
+            }
             if (typeof hideProgressContainer === 'function') {
                 hideProgressContainer();
             }
@@ -231,25 +213,10 @@ class FormController {
     handleBookBuilderProgress(progressData) {
         console.log('📊 [FormController] BookBuilder progress:', progressData);
 
-        // Show progress container if not already visible
-        if (!document.getElementById('progress-container').classList.contains('active')) {
-            console.log('🎬 [FormController] Showing progress container...');
-            if (typeof showProgressContainer === 'function') {
-                showProgressContainer();
-            }
-        }
-
-        // Update the global updateProgress function from app.html
-        if (typeof updateProgress === 'function') {
-            updateProgress(progressData);
-        } else {
-            console.warn('⚠️ [FormController] updateProgress function not available');
-        }
-
-        // Log detailed progress for debugging
-        if (progressData.current && progressData.total) {
-            const percentage = ((progressData.current / progressData.total) * 100).toFixed(1);
-            console.log(`   📈 Position ${progressData.current}/${progressData.total} (${percentage}%) - ${progressData.currentMessage}`);
+        // Update the simple generation status
+        const count = progressData.current || progressData.positionsProcessed || 0;
+        if (typeof updateGenerationStatus === 'function') {
+            updateGenerationStatus(count);
         }
     }
 

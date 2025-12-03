@@ -87,8 +87,7 @@ class LichessClient {
                 const response = await fetch(url, {
                     signal: controller.signal,
                     headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': 'BookBuilder-JS/1.0'
+                        'Accept': 'application/json'
                     }
                 });
 
