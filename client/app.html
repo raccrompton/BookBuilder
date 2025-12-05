@@ -12,6 +12,22 @@
         img-src 'self' data: https:;
     ">
     <title>BookBuilder</title>
+
+    <!-- Import map for bare module specifiers (needed for chessops in browser) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "chessops/pgn": "./node_modules/chessops/dist/esm/pgn.js",
+            "chessops/chess": "./node_modules/chessops/dist/esm/chess.js",
+            "chessops/fen": "./node_modules/chessops/dist/esm/fen.js",
+            "chessops/san": "./node_modules/chessops/dist/esm/san.js",
+            "chessops/variant": "./node_modules/chessops/dist/esm/variant.js",
+            "chessops/util": "./node_modules/chessops/dist/esm/util.js",
+            "@badrap/result": "./node_modules/@badrap/result/dist/mjs/index.mjs"
+        }
+    }
+    </script>
+
     <style>
         :root {
             --primary-color: #2563eb;
@@ -1324,7 +1340,7 @@
         <div id="generation-status" style="display: none; padding: 3rem; text-align: center;">
             <h2 style="color: #2563eb; margin-bottom: 1rem;">Generating Repertoire...</h2>
             <p id="generation-status-text" style="font-size: 1.5rem; font-weight: 600;">0 positions processed</p>
-            <p style="margin-top: 1rem; color: #64748b;">Due to engines, APIs, and thinking, this can take a while - stay patient!</p>
+            <p style="margin-top: 1rem; color: #64748b;">Due to engines, API limits, and thinking, this can take a while - stay patient!</p>
         </div>
     </div>
 
