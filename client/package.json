@@ -69,8 +69,11 @@
       "^@/(.*)$": "<rootDir>/src/$1",
       "^/node_modules/chess\\.js/dist/esm/chess\\.js$": "<rootDir>/node_modules/chess.js/dist/esm/chess.js"
     },
+    "transform": {
+      "^.+\\.(js|jsx|ts|tsx|mjs)$": "babel-jest"
+    },
     "transformIgnorePatterns": [
-      "node_modules/(?!(chess\\.js)/)"
+      "node_modules/(?!(chess\\.js|chessops|@badrap)/)"
     ],
     "collectCoverageFrom": [
       "src/**/*.js",

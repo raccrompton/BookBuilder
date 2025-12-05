@@ -256,20 +256,20 @@ describe('FileGenerator Core Functionality', () => {
     });
 
     describe('Legacy PGN Generation Methods', () => {
-        test('generatePGN creates basic PGN with metadata', () => {
-            const testLines = createSicilianTestLines().slice(0, 2);
+        test('generatePGN creates basic PGN with metadata', async () => { // REFACTORED: Now async since generatePGN is async
+            const testLines = createSicilianTestLines().slice(0, 2); // Get first two test lines
             const metadata = {
                 chapterName: 'Test Opening',
                 author: 'Test Author',
                 opening: 'Sicilian Defense'
             };
 
-            const result = fileGenerator.generatePGN(testLines, metadata);
+            const result = await fileGenerator.generatePGN(testLines, metadata); // REFACTORED: Await the async result
 
-            expect(result).toMatch(/\[Event "Test Opening"\]/);
-            expect(result).toMatch(/\[Annotator "Test Author"\]/);
-            expect(result).toMatch(/\[Opening "Sicilian Defense"\]/);
-            expect(result).toMatch(/1\.\s*e4\s+c5/);
+            expect(result).toMatch(/\[Event "Test Opening"\]/); // Check Event header
+            expect(result).toMatch(/\[Annotator "Test Author"\]/); // Check Annotator header
+            expect(result).toMatch(/\[Opening "Sicilian Defense"\]/); // Check Opening header
+            expect(result).toMatch(/1\.\s*e4\s+c5/); // Check first moves appear
         });
 
     });

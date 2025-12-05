@@ -298,7 +298,7 @@ class BookBuilder {
             return [singleLine];
 
         } catch (error) {
-            throw new Error(`Invalid starting position: ${fen} - ${error.message}`);
+            throw new Error(`analyzeRoot failed: ${error.message}`); // Re-throw with context; original error contains FEN details if relevant
         }
     }
 
@@ -679,32 +679,24 @@ class BookBuilder {
         }
 
         // Finalize line without good response - use chess.js for proper PGN generation
-        let finalPgn;
-        try {
-            // Create temporary chess instance to generate proper PGN
-            const Chess = this.chessEngine.chess.constructor;
-            const tempChess = new Chess();
+        // REFACTORED: Removed string concatenation fallbacks - throw errors instead for transparency
+        const Chess = this.chessEngine.chess.constructor; // Get the Chess constructor from the engine
+        const tempChess = new Chess(); // Create temporary instance for PGN manipulation
 
-            // Load current PGN if it exists
-            if (lineData.pgn && lineData.pgn.trim()) {
-                tempChess.loadPgn(lineData.pgn);
-            }
-
-            // Make opponent's move
-            const moveResult = tempChess.move(opponentMove.san);
-            if (!moveResult) {
-                console.warn(`[BookBuilder] Invalid opponent move for finalization: ${opponentMove.san}`);
-                // Fall back to manual concatenation as last resort
-                finalPgn = lineData.pgn + ' ' + opponentMove.san;
-            } else {
-                // Get properly formatted PGN from chess.js
-                finalPgn = tempChess.pgn();
-            }
-        } catch (error) {
-            console.warn(`[BookBuilder] Error generating final PGN with chess.js: ${error.message}`);
-            // Fall back to manual concatenation as last resort
-            finalPgn = lineData.pgn + ' ' + opponentMove.san;
+        // Load current PGN if it exists
+        if (lineData.pgn && lineData.pgn.trim()) {
+            tempChess.loadPgn(lineData.pgn); // Load existing moves into temp instance
         }
+
+        // Make opponent's move - must succeed since we're finalizing with a valid opponent continuation
+        const moveResult = tempChess.move(opponentMove.san); // Attempt to make the opponent's move
+        if (!moveResult) {
+            // REFACTORED: Throw instead of falling back to string concatenation
+            throw new Error(`Invalid opponent move for finalization: ${opponentMove.san} at position after "${lineData.pgn}"`);
+        }
+
+        // Get properly formatted PGN from chess.js
+        const finalPgn = tempChess.pgn(); // Extract canonical PGN with proper move numbers
 
         await this.finalizeLine({
             ...lineData,
@@ -1145,13 +1137,9 @@ class BookBuilder {
             return result;
 
         } catch (error) {
-            console.warn(`Chess.js PGN generation failed: ${error.message}`);
-            console.warn(`Falling back to string concatenation`);
-
-            // Fallback to simple string concatenation as last resort
-            const result = currentPgn ? `${currentPgn} ${opponentMove} ${ourMove}` : `${opponentMove} ${ourMove}`;
-            console.log(`   Fallback result: "${result}"`);
-            return result;
+            // REFACTORED: Throw error instead of silently falling back to string concatenation
+            // String concatenation can produce invalid PGN that breaks downstream processing
+            throw new Error(`PGN update failed: ${error.message}. Input: currentPgn="${currentPgn}", opponentMove="${opponentMove}", ourMove="${ourMove}"`);
         }
     }
 
@@ -1242,39 +1230,63 @@ class BookBuilder {
 
     /**
      * Extract moves array from PGN string for proper formatting
-     * @param {string} pgn - PGN string with moves
-     * @returns {Array} Array of move objects with SAN notation
+     *
+     * WHAT IT DOES:
+     * Takes a PGN string (with or without headers) and extracts all moves
+     * as an array of move objects. Uses chess.js for robust parsing.
+     *
+     * PARAMETERS:
+     * @param {string} pgn - PGN string with moves (e.g., "1. e4 e5 2. Nf3 Nc6")
+     *
+     * RETURNS:
+     * @returns {Array<{san: string}>} Array of move objects with SAN notation
+     *   Example: [{san: 'e4'}, {san: 'e5'}, {san: 'Nf3'}, {san: 'Nc6'}]
+     *
+     * HOW IT WORKS:
+     * 1. Check for empty input - return empty array
+     * 2. Create a chess.js instance via our engine's constructor
+     * 3. Load the PGN using chess.js's robust parser
+     * 4. Extract move history as canonical SAN notation
+     * 5. Convert to array of {san: string} objects
+     *
+     * NOTE: Uses chess.js for robust parsing that handles:
+     * - Standard PGN format ("1. e4 e5 2. Nf3 Nc6")
+     * - Check/checkmate symbols ("Qxf7+", "Qxf7#")
+     * - Disambiguation ("N1f3", "Rae1")
+     * - Castling ("O-O", "O-O-O")
+     * - Promotions ("e8=Q")
+     * - PGN with headers
      */
     extractMovesFromPgn(pgn) {
+        // Guard clause: handle empty/null/undefined input
         if (!pgn || pgn.trim() === '') {
-            return [];
+            return []; // Return empty array for empty input
         }
 
-        const moves = [];
+        try {
+            // Get the Chess constructor from our engine's chess.js instance
+            // This avoids importing chess.js again and keeps the dependency centralized
+            const Chess = this.chessEngine.chess.constructor; // Get Chess class from existing instance
+            const tempChess = new Chess(); // Create fresh instance for parsing
 
-        // For test scenarios starting after 1.e4, add the opening move
-        if (pgn.includes('e5') || pgn.includes('c5') || pgn.includes('e6') || pgn.includes('d6')) {
-            moves.push({ san: 'e4' });
+            // Load the PGN string - chess.js handles all valid PGN formats
+            // including headers, annotations, variations, and various notation styles
+            tempChess.loadPgn(pgn); // Throws if PGN is invalid
+
+            // Extract move history as canonical SAN notation
+            // chess.js's history() returns moves in standardized form
+            const history = tempChess.history(); // ['e4', 'e5', 'Nf3', 'Nc6']
+
+            // Convert to array of {san: string} objects to match contract
+            return history.map(san => ({ san })); // [{san: 'e4'}, {san: 'e5'}, ...]
+
+        } catch (error) {
+            // Log warning but return empty array to maintain backwards compatibility
+            // This prevents crashes when encountering malformed PGN
+            console.warn(`[BookBuilder] Failed to parse PGN: ${error.message}`);
+            console.warn(`[BookBuilder] PGN input was: "${pgn.substring(0, 100)}..."`);
+            return []; // Return empty array as fallback
         }
-
-        // Extract only the move part from PGN, ignoring headers
-        // Look for move sequences like "d6" at the end after headers
-        const lines = pgn.split('\n');
-        for (const line of lines) {
-            const trimmed = line.trim();
-            // Skip headers (lines starting with [)
-            if (trimmed.startsWith('[') || trimmed === '') {
-                continue;
-            }
-
-            // Look for moves that are simple SAN notation
-            const moveMatch = trimmed.match(/^\s*\*?\s*([a-h][1-8]|[NBRQK][a-h1-8]|[a-h]x[a-h][1-8]|O-O|O-O-O|[a-h][1-8]=[NBRQ])\s*$/);
-            if (moveMatch) {
-                moves.push({ san: moveMatch[1] });
-            }
-        }
-
-        return moves;
     }
 
     /**

@@ -40,58 +40,66 @@ async function loadParser() {
 class PgnProcessor {
     /**
      * Process a single PGN string and extract opening information
+     * REFACTORED: Simplified to use chess.js directly for move extraction instead of cascading parser fallbacks
+     *
      * @param {string} pgnString - The PGN input string
      * @returns {Object} Opening object with name, moves, and priority
      */
     static async processPgn(pgnString) {
         try {
             if (!pgnString || typeof pgnString !== 'string' || pgnString.trim() === '') {
-                throw new Error('PGN input is empty or invalid');
+                throw new Error('PGN input is empty or invalid'); // Validate input before processing
             }
 
-            // Preprocess and normalize the PGN input using chess.js
-            const normalizedPgn = await this.preprocessPgn(pgnString.trim());
+            // Use chess.js for robust move extraction - handles all PGN formats
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js'); // Dynamic import for ES module
+            const chess = new Chess(); // Create chess instance for parsing
 
-            // Parse the PGN using mliebelt's parser
-            const parser = await loadParser();
-            if (!parser || !parser.parse) {
-                throw new Error('Failed to load PGN parser');
-            }
-            const game = parser.parse(normalizedPgn, { startRule: "game" });
+            // Load PGN - chess.js handles headers, loose formatting, etc.
+            chess.loadPgn(pgnString.trim()); // loadPgn normalizes the input
 
-            if (!game) {
-                throw new Error('Failed to parse PGN - invalid format');
-            }
-
-            // Extract mainline moves (ignore variations)
-            const moves = this.extractMainlineMoves(game);
+            // Extract moves using chess.js history() - robust and canonical
+            const moves = chess.history(); // Returns array of SAN moves: ['e4', 'e5', 'Nf3', ...]
 
             if (moves.length === 0) {
-                throw new Error('No moves found in PGN');
+                throw new Error('No moves found in PGN'); // Validate we got moves
+            }
+
+            // Parse headers using mliebelt's parser (it's good at header extraction)
+            // Only load parser if we need opening name from headers
+            let game = null; // Will hold parsed game for header access
+            try {
+                const parser = await loadParser(); // Load mliebelt parser
+                if (parser && parser.parse) {
+                    game = parser.parse(pgnString.trim(), { startRule: "game" }); // Parse for headers only
+                }
+            } catch (headerError) {
+                console.warn(`Header parsing failed, will generate name from moves: ${headerError.message}`);
+                // Continue without headers - we can generate name from moves
             }
 
             // Generate opening name from headers or moves
-            const name = this.generateOpeningName(game, moves);
-
-            // Use the actual parsed move count
-            const moveCount = moves.length;
+            const name = this.generateOpeningName(game, moves); // Use parsed game for headers, or fall back to move-based name
 
             return {
-                name: name,
-                moves: moves,
-                moveCount: moveCount, // Track original move sequence length
+                name: name, // Opening name from headers or moves
+                moves: moves, // Array of SAN moves from chess.js
+                moveCount: moves.length, // Track original move sequence length
                 priority: 1 // Default priority for single PGN input
             };
 
         } catch (error) {
-            console.error('PGN Processing Error:', error);
-            throw new Error(`PGN parsing failed: ${error.message}`);
+            console.error('PGN Processing Error:', error); // Log error for debugging
+            throw new Error(`PGN parsing failed: ${error.message}`); // Re-throw with context
         }
     }
 
     /**
      * Extract mainline moves from parsed PGN game
-     * @param {Object} game - Parsed PGN game object
+     * @deprecated This method uses fragile cascading fallbacks. processPgn() now uses chess.js directly.
+     * Kept for backward compatibility if any code still calls it directly.
+     *
+     * @param {Object} game - Parsed PGN game object from mliebelt parser
      * @returns {Array<string>} Array of mainline moves in SAN notation
      */
     static extractMainlineMoves(game) {
