@@ -265,26 +265,26 @@ describe('BookBuilder Integration Tests', () => {
             global.Blob = jest.fn(() => ({}));
         });
 
-        it('should generate valid PGN content', () => {
+        it('should generate valid PGN content', async () => { // REFACTORED: Now async since generatePGN is async
             const testResults = [
                 {
-                    pgn: '1. e4 e5 2. Nf3',
-                    cumulativeLikelihood: 0.85,
-                    totalGames: 1000,
-                    winRate: 0.55
+                    pgn: '1. e4 e5 2. Nf3', // Test line PGN
+                    cumulativeLikelihood: 0.85, // 85% cumulative likelihood
+                    totalGames: 1000, // Sample size
+                    winRate: 0.55 // 55% win rate
                 }
             ];
 
-            const pgn = fileGenerator.generatePGN(testResults, {
+            const pgn = await fileGenerator.generatePGN(testResults, { // REFACTORED: Await the async result
                 chapterName: 'Test Opening',
                 author: 'Test'
             });
 
-            expect(pgn).toContain('[Event "Test Opening"]');
-            expect(pgn).toContain('[Annotator "Test"]');
-            expect(pgn).toContain('1. e4 e5 2. Nf3');
-            expect(pgn).toContain('85.00%');
-            expect(pgn).toContain('1000');
+            expect(pgn).toContain('[Event "Test Opening"]'); // Check Event header
+            expect(pgn).toContain('[Annotator "Test"]'); // Check Annotator header
+            expect(pgn).toContain('1. e4 e5 2. Nf3'); // Check moves present
+            expect(pgn).toContain('85.00%'); // Check likelihood formatting
+            expect(pgn).toContain('1000'); // Check game count present
         });
 
         it('should validate PGN content', () => {

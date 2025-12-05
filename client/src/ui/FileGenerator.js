@@ -15,119 +15,183 @@ class FileGenerator {
 
     /**
      * Generate PGN content from analysis results
+     * REFACTORED: Now async to support robust chess.js PGN parsing in formatPGNLine
      */
-    generatePGN(results, metadata = {}) {
+    async generatePGN(results, metadata = {}) {
         const {
-            chapterName = 'Opening Analysis',
-            author = 'BookBuilder',
-            date = new Date().toISOString().split('T')[0]
+            chapterName = 'Opening Analysis', // Default chapter name if not provided
+            author = 'BookBuilder', // Default author attribution
+            date = new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
         } = metadata;
 
-        let pgnContent = '';
+        let pgnContent = ''; // Accumulator for the generated PGN string
 
-        // Add header information
-        pgnContent += `[Event "${chapterName}"]\n`;
-        pgnContent += '[Site "BookBuilder Generated"]\n';
-        pgnContent += `[Date "${date}"]\n`;
-        pgnContent += '[Round "1"]\n';
-        pgnContent += '[White "Analysis"]\n';
-        pgnContent += '[Black "Analysis"]\n';
-        pgnContent += '[Result "*"]\n';
-        pgnContent += `[Annotator "${author}"]\n`;
-        pgnContent += '[Generator "BookBuilder v1.0"]\n';
+        // Add header information (standard PGN Seven Tag Roster plus custom tags)
+        pgnContent += `[Event "${chapterName}"]\n`; // Event tag - using chapter name
+        pgnContent += '[Site "BookBuilder Generated"]\n'; // Site tag - identifies generator
+        pgnContent += `[Date "${date}"]\n`; // Date tag in PGN format
+        pgnContent += '[Round "1"]\n'; // Round tag (required by PGN spec)
+        pgnContent += '[White "Analysis"]\n'; // White player tag
+        pgnContent += '[Black "Analysis"]\n'; // Black player tag
+        pgnContent += '[Result "*"]\n'; // Result unknown (analysis, not a completed game)
+        pgnContent += `[Annotator "${author}"]\n`; // Who created the annotations
+        pgnContent += '[Generator "BookBuilder v1.0"]\n'; // Software that generated the PGN
 
         if (metadata.opening) {
-            pgnContent += `[Opening "${metadata.opening}"]\n`;
+            pgnContent += `[Opening "${metadata.opening}"]\n`; // Optional opening name tag
         }
 
         if (metadata.totalLines) {
-            pgnContent += `[TotalLines "${metadata.totalLines}"]\n`;
+            pgnContent += `[TotalLines "${metadata.totalLines}"]\n`; // Custom tag for line count
         }
 
-        pgnContent += '\n';
+        pgnContent += '\n'; // Blank line separates headers from moves (PGN spec)
 
-        // Add lines with analysis
-        if (Array.isArray(results)) {
-            results.forEach((line, index) => {
-                pgnContent += this.formatPGNLine(line, index + 1);
-                pgnContent += '\n\n';
-            });
-        } else if (results.finalLines) {
-            results.finalLines.forEach((line, index) => {
-                pgnContent += this.formatPGNLine(line, index + 1);
-                pgnContent += '\n\n';
-            });
+        // Add lines with analysis - REFACTORED: Use for...of loop for async/await
+        const linesToProcess = Array.isArray(results) ? results : (results.finalLines || []); // Get array of lines
+        for (let i = 0; i < linesToProcess.length; i++) {
+            const formattedLine = await this.formatPGNLine(linesToProcess[i], i + 1); // Await async formatting
+            pgnContent += formattedLine; // Add formatted line to output
+            pgnContent += '\n\n'; // Double newline separates lines
         }
 
-        return pgnContent;
+        return pgnContent; // Return complete PGN content
     }
 
     /**
      * Format a single PGN line with annotations
+     * REFACTORED: Now async to support robust chess.js PGN parsing
      */
-    formatPGNLine(line, lineNumber) {
-        let formatted = `{ Line ${lineNumber} }\n`;
+    async formatPGNLine(line, lineNumber) {
+        let formatted = `{ Line ${lineNumber} }\n`; // Start with line number annotation
 
         // Add statistical information
         if (line.cumulativeLikelihood) {
-            formatted += `{ Cumulative Likelihood: ${(line.cumulativeLikelihood * 100).toFixed(2)}% }\n`;
+            formatted += `{ Cumulative Likelihood: ${(line.cumulativeLikelihood * 100).toFixed(2)}% }\n`; // Add likelihood as percentage
         }
 
         if (line.totalGames) {
-            formatted += `{ Total Games: ${line.totalGames} }\n`;
+            formatted += `{ Total Games: ${line.totalGames} }\n`; // Add game count
         }
 
         if (line.winRate !== undefined) {
-            formatted += `{ Win Rate: ${(line.winRate * 100).toFixed(1)}% }\n`;
+            formatted += `{ Win Rate: ${(line.winRate * 100).toFixed(1)}% }\n`; // Add win rate as percentage
         }
 
         // Format the moves
-        let moves = line.pgn || '';
+        let moves = line.pgn || ''; // Get PGN string from line object
 
         // Add move quality annotations if available
         if (line.moveQualities) {
-            moves = this.addMoveQualityAnnotations(moves, line.moveQualities);
+            moves = await this.addMoveQualityAnnotations(moves, line.moveQualities); // REFACTORED: Now awaits async method
         }
 
-        formatted += moves;
+        formatted += moves; // Append moves to formatted output
 
         // Add final evaluation if available
         if (line.finalEvaluation) {
-            formatted += ` { Final: ${line.finalEvaluation > 0 ? '+' : ''}${(line.finalEvaluation / 100).toFixed(2)} }`;
+            formatted += ` { Final: ${line.finalEvaluation > 0 ? '+' : ''}${(line.finalEvaluation / 100).toFixed(2)} }`; // Add centipawn evaluation
         }
 
-        return formatted;
+        return formatted; // Return complete formatted line
     }
 
     /**
      * Add move quality annotations to PGN
+     * REFACTORED: Uses chess.js for robust PGN parsing instead of fragile split(' ')
+     *
+     * WHAT IT DOES:
+     * Takes a PGN string and an array of quality annotations (!!, !, ?!, etc.)
+     * and interleaves them after each move.
+     *
+     * @param {string} pgnMoves - PGN moves string (e.g., "1. e4 e5 2. Nf3 Nc6")
+     * @param {Array} qualities - Array of quality annotations for each move
+     * @returns {string} - PGN with quality annotations inserted after moves
      */
-    addMoveQualityAnnotations(pgnMoves, qualities) {
+    async addMoveQualityAnnotations(pgnMoves, qualities) {
         if (!qualities || qualities.length === 0) {
-            return pgnMoves;
+            return pgnMoves; // Return unchanged if no quality annotations provided
         }
 
-        const moves = pgnMoves.split(' ').filter(move => move.trim());
-        const annotated = [];
+        try {
+            // Use chess.js to robustly parse the PGN moves
+            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js'); // Dynamic import for ES module
+            const chess = new Chess(); // Create new chess instance
 
-        let qualityIndex = 0;
+            chess.loadPgn(pgnMoves); // Load the PGN - chess.js handles all formatting
+            const moves = chess.history(); // Extract clean move list in SAN notation
+
+            if (moves.length === 0) {
+                console.warn('[FileGenerator] No moves extracted from PGN for quality annotations');
+                return pgnMoves; // Return original if parsing yielded no moves
+            }
+
+            // Rebuild PGN with quality annotations interleaved
+            const annotatedMoves = []; // Array to build annotated move sequence
+            for (let i = 0; i < moves.length; i++) {
+                annotatedMoves.push(moves[i]); // Add the move
+
+                // Add quality annotation if available for this move
+                if (i < qualities.length) {
+                    const annotation = this.getQualityAnnotation(qualities[i]); // Convert quality to PGN symbol
+                    if (annotation) {
+                        annotatedMoves.push(annotation); // Add annotation after move
+                    }
+                }
+            }
+
+            // Re-format with proper move numbers using chess.js
+            const rebuiltChess = new Chess(); // New instance for rebuilding
+            for (let i = 0; i < moves.length; i++) {
+                rebuiltChess.move(moves[i]); // Replay each move
+            }
+
+            // Get properly numbered PGN, then insert annotations at correct positions
+            // Note: chess.js pgn() doesn't support annotations, so we build manually
+            const result = this.buildAnnotatedPgnString(moves, qualities); // Build annotated string with move numbers
+            return result;
+
+        } catch (error) {
+            console.error(`[FileGenerator] Error adding quality annotations: ${error.message}`);
+            return pgnMoves; // Return original on error as graceful fallback
+        }
+    }
+
+    /**
+     * Build annotated PGN string with proper move numbers
+     * Helper for addMoveQualityAnnotations
+     *
+     * @param {Array} moves - Clean move array from chess.js history()
+     * @param {Array} qualities - Quality annotations for each move
+     * @returns {string} - Properly formatted PGN with annotations
+     */
+    buildAnnotatedPgnString(moves, qualities) {
+        const parts = []; // Array to collect PGN tokens
+        let moveNumber = 1; // Track current move number
 
         for (let i = 0; i < moves.length; i++) {
-            const move = moves[i];
-            annotated.push(move);
+            const isWhiteMove = (i % 2 === 0); // Even indices are white moves (0, 2, 4...)
 
-            // Add quality annotation after the move
-            if (qualityIndex < qualities.length) {
-                const quality = qualities[qualityIndex];
-                const annotation = this.getQualityAnnotation(quality);
+            if (isWhiteMove) {
+                parts.push(`${moveNumber}.`); // Add move number before white's move
+            }
+
+            parts.push(moves[i]); // Add the move itself
+
+            // Add quality annotation if available
+            if (i < qualities.length && qualities[i]) {
+                const annotation = this.getQualityAnnotation(qualities[i]); // Get PGN symbol for quality
                 if (annotation) {
-                    annotated.push(annotation);
+                    parts.push(annotation); // Add annotation immediately after move
                 }
-                qualityIndex++;
+            }
+
+            if (!isWhiteMove) {
+                moveNumber++; // Increment move number after black's move
             }
         }
 
-        return annotated.join(' ');
+        return parts.join(' '); // Join all parts with spaces
     }
 
     /**
