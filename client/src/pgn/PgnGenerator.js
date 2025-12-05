@@ -114,67 +114,73 @@ class PgnGenerator {
    * @returns {string} Formatted annotations block
    */
     formatMoveAnnotations(line) {
-        console.log(`   📈 [PgnGenerator] formatMoveAnnotations called`);
-        let annotations = '{Move playrates:\n';
+        console.log(`   📈 [PgnGenerator] formatMoveAnnotations called`); // Log function entry for debugging
+        let annotations = '{Move playrates:\n'; // Start annotation block with header
 
         // Add individual move playrates from likelihoodPath (contains {san, playrate} objects)
-        if (line.likelihoodPath && line.likelihoodPath.length > 0) {
-            console.log(`      Processing ${line.likelihoodPath.length} moves from likelihood path:`);
-            for (let i = 0; i < line.likelihoodPath.length; i++) {
-                const move = line.likelihoodPath[i];
-                console.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`);
-                if (move.playrate !== undefined && move.san) {
-                    const playratePercent = (move.playrate * 100).toFixed(2);
-                    const annotation = `+${playratePercent}%\t${move.san}\n`;
-                    console.log(`            Adding annotation: "${annotation.trim()}"`);
-                    annotations += annotation;
+        // Format: "e4 55.79%, d4 48.12%." - readable on one line with commas between moves
+        if (line.likelihoodPath && line.likelihoodPath.length > 0) { // Check if we have move data
+            console.log(`      Processing ${line.likelihoodPath.length} moves from likelihood path:`); // Log move count
+            const moveAnnotations = []; // Collect move annotations to join with commas
+            for (let i = 0; i < line.likelihoodPath.length; i++) { // Loop through each move
+                const move = line.likelihoodPath[i]; // Get current move object
+                console.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`); // Log move details
+                if (move.playrate !== undefined && move.san) { // Only add if we have both playrate and move notation
+                    const playratePercent = (move.playrate * 100).toFixed(2); // Convert decimal to percentage
+                    const moveAnnotation = `${move.san} ${playratePercent}%`; // Format: "e4 55.79%" (move before percentage, no + sign)
+                    console.log(`            Adding annotation: "${moveAnnotation}"`); // Log the annotation
+                    moveAnnotations.push(moveAnnotation); // Add to collection
                 }
             }
+            // Join moves with ", " and end with "." then newline - readable on one line
+            if (moveAnnotations.length > 0) { // Only add if we have moves
+                annotations += moveAnnotations.join(', ') + '.\n'; // "e4 55.79%, d4 48.12%."
+            }
         } else {
-            console.log(`      No likelihood path available (${line.likelihoodPath?.length || 0} moves)`);
+            console.log(`      No likelihood path available (${line.likelihoodPath?.length || 0} moves)`); // Log missing data
         }
 
-        // Add line statistics
-        console.log(`      Adding line statistics...`);
-        if (line.statistics) {
-            console.log(`         Using line.statistics:`, line.statistics);
-            const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2);
-            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`;
-            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`);
-            annotations += cumulativeAnnotation;
+        // Add line statistics - separated by period from move playrates
+        console.log(`      Adding line statistics...`); // Log statistics section start
+        if (line.statistics) { // Check if statistics object exists
+            console.log(`         Using line.statistics:`, line.statistics); // Log raw statistics
+            const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2); // Convert to percentage
+            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%.\n`; // No + sign, end with period
+            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
+            annotations += cumulativeAnnotation; // Add to output
 
-            if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) {
-                const winratePercent = (line.statistics.winrate * 100).toFixed(2);
-                const gamesFormatted = line.statistics.totalGames.toLocaleString();
-                console.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`);
+            if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) { // Check for winrate data
+                const winratePercent = (line.statistics.winrate * 100).toFixed(2); // Convert to percentage
+                const gamesFormatted = line.statistics.totalGames.toLocaleString(); // Format with commas (eg "1,234")
+                console.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`); // Log values
 
-                let winrateDescription;
-                if (this.config.DRAWSAREHALF === 0) {
-                    winrateDescription = 'Line winrate (excluding draws)';
-                } else {
-                    winrateDescription = 'Line winrate (draws as half points)';
+                let winrateDescription; // Build description based on draw handling setting
+                if (this.config.DRAWSAREHALF === 0) { // If draws are excluded from winrate
+                    winrateDescription = 'Line winrate (excluding draws)'; // Use excluding language
+                } else { // If draws count as half points
+                    winrateDescription = 'Line winrate (draws as half points)'; // Use half-point language
                 }
 
-                const winrateAnnotation = `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
-                console.log(`         Win rate annotation: "${winrateAnnotation}"`);
-                annotations += winrateAnnotation;
+                const winrateAnnotation = `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games.`; // No + sign, end with period
+                console.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
+                annotations += winrateAnnotation; // Add to output (no newline before closing brace)
             } else {
-                console.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`);
+                console.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`); // Log missing data
             }
-        } else if (line.cumulativeLikelihood) {
-            console.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`);
+        } else if (line.cumulativeLikelihood) { // Fallback if no statistics object but have cumulative likelihood
+            console.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`); // Log fallback source
             // Use cumulativeLikelihood from line object if no statistics
-            const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2);
-            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`;
-            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`);
-            annotations += cumulativeAnnotation;
+            const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2); // Convert to percentage
+            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%.`; // No + sign, end with period
+            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
+            annotations += cumulativeAnnotation; // Add to output
         } else {
-            console.log(`         No statistics or cumulative likelihood available`);
+            console.log(`         No statistics or cumulative likelihood available`); // Log missing data
         }
 
-        annotations += '}';
-        console.log(`      Final annotations block: ${annotations.split('\n').length} lines`);
-        return annotations;
+        annotations += '}'; // Close annotation block
+        console.log(`      Final annotations block: ${annotations.split('\n').length} lines`); // Log line count
+        return annotations; // Return complete annotation string
     }
 
     /**

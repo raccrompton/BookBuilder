@@ -1,0 +1,188 @@
+[Event "Opening: e4 e5 Line 1"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. exd5 e4 4. Qe2 Be7 5. Qxe4 Nf6 6. Qa4+ c6 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++54.88%	exd5
++40.27%	Qe2
++72.06%	Qxe4
++39.50%	Qa4+
+Line cumulative playrate: +2.19%
+Line winrate (draws as half points): +51.24% over 6,680 games}
+
+[Event "Opening: e4 e5 Line 2"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. exd5 e4 4. Nd4 Qxd5 5. c3 Bd6 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++54.88%	exd5
++28.48%	Nd4
++48.12%	c3
+Line cumulative playrate: +2.62%
+Line winrate (draws as half points): +64.00% over 30,364 games}
+
+[Event "Opening: e4 e5 Line 3"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. exd5 e4 4. Nd4 Qxd5 5. Nb3 Qe5 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++54.88%	exd5
++28.48%	Nd4
++46.13%	Nb3
+Line cumulative playrate: +2.51%
+Line winrate (draws as half points): +62.22% over 33,534 games}
+
+[Event "Opening: e4 e5 Line 4"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. exd5 e4 4. Ng1 Nf6 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++54.88%	exd5
++17.32%	Ng1
+Line cumulative playrate: +3.31%
+Line winrate (draws as half points): +56.39% over 281,362 games}
+
+[Event "Opening: e4 e5 Line 5"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. Nxe5 Bd6 4. d4 dxe4 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++22.26%	Nxe5
++73.59%	d4
+Line cumulative playrate: +5.70%
+Line winrate (draws as half points): +52.18% over 1,091,115 games}
+
+[Event "Opening: e4 e5 Line 6"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 d5 3. d4 dxe4 4. Nxe5 Bd6 *
+{Move playrates:
++55.79%	e4
++62.36%	Nf3
++7.95%	d4
++94.32%	Nxe5
+Line cumulative playrate: +2.61%
+Line winrate (draws as half points): +52.18% over 1,091,115 games}
+
+[Event "Opening: e4 e5 Line 7"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Bc4 f5 3. exf5 Nf6 *
+{Move playrates:
++55.79%	e4
++9.30%	Bc4
++39.63%	exf5
+Line cumulative playrate: +2.06%
+Line winrate (draws as half points): +53.90% over 242,882 games}
+
+[Event "Opening: e4 e5 Line 8"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. f4 d5 3. exd5 c6 *
+{Move playrates:
++55.79%	e4
++8.97%	f4
++62.94%	exd5
+Line cumulative playrate: +3.15%
+Line winrate (draws as half points): +59.83% over 254,449 games}
+
+[Event "Opening: e4 e5 Line 9"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. Nc3 d5 *
+{Move playrates:
++55.79%	e4
++7.45%	Nc3
+Line cumulative playrate: +4.16%
+Line winrate (draws as half points): +47.66% over 845,147 games}
+
+[Event "Opening: e4 e5 Line 10"]
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1. e4 e5 2. d4 Nf6 3. dxe5 Nxe4 *
+{Move playrates:
++55.79%	e4
++6.74%	d4
++58.11%	dxe5
+Line cumulative playrate: +2.18%
+Line winrate (draws as half points): +46.26% over 933,806 games}

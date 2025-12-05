@@ -5,6 +5,8 @@
  * BookBuilder client-side application.
  */
 
+import PgnTreeMerger from '../pgn/PgnTreeMerger.js'; // Import the tree merger for combining PGN lines into variation tree
+
 class FileGenerator {
     constructor() {
         this.generatedFiles = new Map();
@@ -442,18 +444,32 @@ class FileGenerator {
      * @returns {string} Tree-structured PGN content
      */
     async generateTreePGN(lines, chapterName, config, pgnGenerator) {
-        console.log(`📋 [FileGenerator] Generating tree-structured PGN for ${lines.length} lines`);
+        console.log(`📋 [FileGenerator] Generating tree-structured PGN for ${lines.length} lines`); // Log entry point with line count
 
-        // Build tree structure from lines
-        const variationTree = this.buildVariationTree(lines);
+        // Create a new tree merger instance to combine all lines
+        const merger = new PgnTreeMerger(); // Initialize the chessops-based merger
+        merger.setHeader('Event', `${chapterName}`); // Set the chapter name as the Event header
 
-        // Use simple PgnGenerator for the event header
-        const eventHeader = `[Event "${chapterName} Line 1"]`;
+        // Generate each line with full annotations using PgnGenerator, then merge
+        for (let i = 0; i < lines.length; i++) { // Iterate through all lines
+            const line = lines[i]; // Get current line data
+            const lineNumber = i + 1; // Calculate 1-indexed line number
+            const eventName = `${chapterName} Line ${lineNumber}`; // Create event name for this line
 
-        // Generate tree PGN with variations and endBlock annotations
-        const treePgn = await this.generateTreeMoveSequence(variationTree);
-        
-        return `${eventHeader}\n\n${treePgn}`.trim();
+            // Use PgnGenerator to create fully-annotated individual line PGN
+            // This preserves all annotations (playrates, winrates, etc.)
+            const annotatedPgn = pgnGenerator.generateSingleLine(line, eventName); // Generate annotated PGN for this line
+
+            // Add the annotated line to the merger - it will find divergence points automatically
+            merger.addLine(annotatedPgn); // Merge this line into the tree
+        }
+
+        // Export the merged tree as a single PGN with variations
+        const treePgn = merger.toPgn(); // Generate final merged PGN string
+
+        console.log(`✅ [FileGenerator] Tree PGN generated with ${lines.length} lines merged`); // Log success
+
+        return treePgn; // Return the merged tree PGN
     }
 
     /**
@@ -760,8 +776,11 @@ class FileGenerator {
             const endingHere = moveVariations.filter(v => v.continuation.length === 0);
             const continuingFurther = moveVariations.filter(v => v.continuation.length > 0);
 
+            // Store reference to the original line object for full annotation generation
             const moveNode = {
                 move: move,
+                // Store the original line object which contains all data needed for full annotations
+                originalLine: endingHere.length > 0 ? endingHere[0] : null,
                 stats: endingHere.length > 0 ? (endingHere[0].statistics || endingHere[0].stats || {}) : null,
                 likelihoodPath: endingHere.length > 0 ? endingHere[0].likelihoodPath : null,
                 cumulativeLikelihood: endingHere.length > 0 ? endingHere[0].cumulativeLikelihood : null,
@@ -807,8 +826,11 @@ class FileGenerator {
             const endingAtThisDepth = groupVars.filter(v => v.continuation.length === contDepth + 1);
             const continuingDeeper = groupVars.filter(v => v.continuation.length > contDepth + 1);
 
+            // Store reference to the original line object for full annotation generation
             const subVar = {
                 move: move,
+                // Store the original line object which contains all data needed for full annotations
+                originalLine: endingAtThisDepth.length > 0 ? endingAtThisDepth[0] : null,
                 stats: endingAtThisDepth.length > 0 ? (endingAtThisDepth[0].statistics || endingAtThisDepth[0].stats || {}) : null,
                 subVariations: continuingDeeper.length > 0 ?
                     this.buildSubVariationStructure(continuingDeeper, contDepth + 1) : []
@@ -973,9 +995,10 @@ class FileGenerator {
             }
         }
 
-        // Add main line statistics
+        // Add main line statistics using full annotation format
         if (mainLineStats) {
-            const mainStatsAnnotation = this.generateStatsAnnotation(mainLineStats, 'Main');
+            // Use generateFullAnnotation for the same format as individual lines
+            const mainStatsAnnotation = this.generateFullAnnotation(mainLineStats, this.config);
             if (mainStatsAnnotation) {
                 pgnParts.push(mainStatsAnnotation);
             }
@@ -1012,8 +1035,11 @@ class FileGenerator {
                 variationStr.push(...subVarParts);
             }
 
-            // Add statistics for this variation
-            const statsAnnotation = this.generateStatsAnnotation(moveNode);
+            // Add full statistics for this variation (using originalLine for complete data)
+            // Use generateFullAnnotation for the same format as individual lines
+            const statsAnnotation = moveNode.originalLine
+                ? this.generateFullAnnotation(moveNode.originalLine, this.config)
+                : this.generateStatsAnnotation(moveNode);
             if (statsAnnotation) {
                 variationStr.push(statsAnnotation);
             }
@@ -1172,6 +1198,83 @@ class FileGenerator {
     }
 
     /**
+     * Generate full annotation matching PgnGenerator.formatMoveAnnotations() format
+     * This produces the complete stats block with move playrates, cumulative playrate, and winrate
+     * @param {Object} lineData - Original line object with likelihoodPath, statistics, etc.
+     * @param {Object} config - Configuration object with DRAWSAREHALF setting
+     * @returns {string} - Full annotation block matching individual lines format
+     */
+    generateFullAnnotation(lineData, config = {}) {
+        // Return empty string if no line data
+        if (!lineData) return '';
+
+        let annotations = '{Move playrates:\n';
+
+        // Add individual move playrates from likelihoodPath (matches PgnGenerator format)
+        if (lineData.likelihoodPath && lineData.likelihoodPath.length > 0) {
+            for (const move of lineData.likelihoodPath) {
+                // Only add moves with valid playrate and san
+                if (move.playrate !== undefined && move.san) {
+                    const playratePercent = (move.playrate * 100).toFixed(2);
+                    annotations += `+${playratePercent}%\t${move.san}\n`;
+                }
+            }
+        }
+
+        // Add line statistics - check statistics object first, then fallback to direct properties
+        if (lineData.statistics) {
+            // Use statistics object format
+            if (lineData.statistics.cumulativePlayrate !== undefined) {
+                const cumulativePlayrate = (lineData.statistics.cumulativePlayrate * 100).toFixed(2);
+                annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            }
+
+            // Add winrate information
+            if (lineData.statistics.winrate !== undefined && lineData.statistics.totalGames !== undefined) {
+                const winratePercent = (lineData.statistics.winrate * 100).toFixed(2);
+                const gamesFormatted = lineData.statistics.totalGames.toLocaleString();
+
+                // Use correct description based on DRAWSAREHALF config
+                let winrateDescription;
+                if (config.DRAWSAREHALF === 0) {
+                    winrateDescription = 'Line winrate (excluding draws)';
+                } else {
+                    winrateDescription = 'Line winrate (draws as half points)';
+                }
+
+                annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+            }
+        } else {
+            // Fallback to direct properties on lineData
+            if (lineData.cumulativeLikelihood !== undefined) {
+                const cumulativePlayrate = (lineData.cumulativeLikelihood * 100).toFixed(2);
+                annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+            }
+
+            // Check for winRate/totalGames on lineData directly
+            const winRate = lineData.winRate || lineData.winrate;
+            const totalGames = lineData.totalGames || lineData.games;
+            if (winRate !== undefined && totalGames !== undefined) {
+                const winratePercent = (winRate * 100).toFixed(2);
+                const gamesFormatted = totalGames.toLocaleString();
+
+                // Use correct description based on DRAWSAREHALF config
+                let winrateDescription;
+                if (config.DRAWSAREHALF === 0) {
+                    winrateDescription = 'Line winrate (excluding draws)';
+                } else {
+                    winrateDescription = 'Line winrate (draws as half points)';
+                }
+
+                annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+            }
+        }
+
+        annotations += '}';
+        return annotations;
+    }
+
+    /**
      * Generate flat PGN (backward compatibility)
      */
     generateFlatPGNFromStructure(treeStructure, mainLineStats) {
@@ -1208,7 +1311,10 @@ class FileGenerator {
                         }
                     }
 
-                    const statsAnnotation = this.generateStatsAnnotation(variation);
+                    // Use full annotation format for variations (matching individual lines format)
+                    const statsAnnotation = variation.originalLine
+                        ? this.generateFullAnnotation(variation.originalLine, this.config)
+                        : this.generateStatsAnnotation(variation);
                     if (statsAnnotation) {
                         variationParts.push(statsAnnotation);
                     }
@@ -1226,8 +1332,9 @@ class FileGenerator {
             }
         }
 
+        // Add main line statistics using full annotation format
         if (mainLineStats) {
-            const mainStatsAnnotation = this.generateStatsAnnotation(mainLineStats, 'Main');
+            const mainStatsAnnotation = this.generateFullAnnotation(mainLineStats, this.config);
             if (mainStatsAnnotation) {
                 pgnParts.push(mainStatsAnnotation);
             }
