@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+        script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
         style-src 'self' 'unsafe-inline';
         connect-src 'self' https://lichess.org https://explorer.lichess.ovh;
-        worker-src 'self';
+        worker-src 'self' blob:;
         img-src 'self' data: https:;
     ">
     <title>BookBuilder</title>
+
+    <!-- Lucide Icons - Clean, minimal SVG icon library -->
+    <!-- Pinned to specific version to prevent breaking changes -->
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
     <!-- Import map for bare module specifiers (needed for chessops in browser) -->
     <script type="importmap">
@@ -989,7 +993,57 @@
 
         /* Icon inside theme toggle button - shows current mode */
         .theme-toggle-icon {
-            font-size: 1rem;
+            display: inline-flex;  /* Inline flex for proper icon alignment */
+            align-items: center;
+        }
+
+        /* =============================================================================
+           LUCIDE ICON STYLES
+           Consistent styling for all Lucide SVG icons throughout the app.
+           Icons inherit color from their parent element for easy theming.
+           ============================================================================= */
+
+        /* Base icon styling - applies to all Lucide icons */
+        .icon {
+            width: 1.125rem;          /* 18px - slightly smaller than text */
+            height: 1.125rem;
+            stroke-width: 1.75;       /* Slightly thinner strokes for elegance */
+            flex-shrink: 0;           /* Prevent icons from shrinking in flex containers */
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Tab button icons - match text color */
+        .tab-button .icon {
+            width: 1rem;
+            height: 1rem;
+            opacity: 0.7;             /* Subtle when inactive */
+            transition: opacity 0.2s;
+        }
+
+        .tab-button:hover .icon,
+        .tab-button.active .icon {
+            opacity: 1;               /* Full opacity on hover/active */
+        }
+
+        /* Section title icons - slightly larger */
+        .section-title .icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            color: var(--primary-color);
+        }
+
+        /* Button icons */
+        .btn .icon {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Footer toggle icons */
+        .theme-toggle .icon,
+        .debug-toggle .icon {
+            width: 1rem;
+            height: 1rem;
         }
         .debug-category label {
             font-size: 0.8rem;
@@ -1014,22 +1068,22 @@
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button type="button" class="tab-button active" data-tab="pgn-input">
-                    ♟️ PGN Input
+                    <i data-lucide="file-text" class="icon"></i> PGN Input
                 </button>
                 <button type="button" class="tab-button" data-tab="lichess-settings">
-                    🌐 Lichess Database
+                    <i data-lucide="database" class="icon"></i> Lichess Database
                 </button>
                 <button type="button" class="tab-button" data-tab="opponent-filters">
-                    🛡️ Opponent Filters
+                    <i data-lucide="filter" class="icon"></i> Opponent Filters
                 </button>
                 <button type="button" class="tab-button" data-tab="candidate-selectors">
-                    🎯 Candidate Moves
+                    <i data-lucide="crosshair" class="icon"></i> Candidate Moves
                 </button>
                 <button type="button" class="tab-button" data-tab="engine-settings">
-                    🤖 Engine Filters
+                    <i data-lucide="cpu" class="icon"></i> Engine Filters
                 </button>
                 <button type="button" class="tab-button" data-tab="pgn-output-settings">
-                    📄 PGN Output
+                    <i data-lucide="file-output" class="icon"></i> PGN Output
                 </button>
             </div>
 
@@ -1038,7 +1092,7 @@
             <div class="tab-content active" id="tab-pgn-input">
                 <div class="form-section-container" id="pgn-input">
                 <div class="form-section">
-                    <h2 class="section-title">♟️ Chess Game (PGN Format)</h2>
+                    <h2 class="section-title"><i data-lucide="file-text" class="icon"></i> Chess Game (PGN Format)</h2>
 
                     <div class="form-group">
                         <label class="form-label" for="pgn-input-text">
@@ -1078,7 +1132,7 @@
             <div class="tab-content" id="tab-lichess-settings">
                 <div class="form-section-container" id="lichess-settings">
                     <div class="form-section">
-                    <h2 class="section-title">🌐 Lichess Database Settings</h2>
+                    <h2 class="section-title"><i data-lucide="database" class="icon"></i> Lichess Database Settings</h2>
                     <div class="form-help">
                         These settings determine what data from the Lichess opening explorer you wish BookBuilder to consider when creating your repertoire.
                     </div>
@@ -1149,7 +1203,7 @@
             <div class="tab-content" id="tab-opponent-filters">
                 <div class="form-section-container" id="opponent-filters">
                 <div class="form-section">
-                    <h2 class="section-title">🛡️ Your Opponent's Move Filters</h2>
+                    <h2 class="section-title"><i data-lucide="filter" class="icon"></i> Your Opponent's Move Filters</h2>
                     <div class="form-help">
                         These settings determine which of your opponent's moves BookBuilder will include in your repertoire.
                     </div>
@@ -1186,7 +1240,7 @@
             <div class="tab-content" id="tab-candidate-selectors">
                 <div class="form-section-container" id="candidate-selectors">
                 <div class="form-section">
-                    <h2 class="section-title">🎯 Your Candidate Move Selectors</h2>
+                    <h2 class="section-title"><i data-lucide="crosshair" class="icon"></i> Your Candidate Move Selectors</h2>
                     <div class="form-help">
                         These settings determine how BookBuilder will select repertoire moves it recommends you play. BookBuilder will recommend you play the highest winrate moves within these constraints.
                     </div>
@@ -1254,7 +1308,7 @@
             <div class="tab-content" id="tab-engine-settings">
                 <div class="form-section-container" id="engine-settings">
                 <div class="form-section">
-                    <h2 class="section-title">🤖 Engine Filters</h2>
+                    <h2 class="section-title"><i data-lucide="cpu" class="icon"></i> Engine Filters</h2>
                     <div class="form-help">
                         These determine how BookBuilder will use engine analysis when generating your repertoire. Note that high engine depths can significantly increase the length of time BookBuilder takes to make a repertoire.
                     </div>
@@ -1342,7 +1396,7 @@
             <div class="tab-content" id="tab-pgn-output-settings">
                 <div class="form-section-container" id="pgn-output-settings">
                 <div class="form-section">
-                    <h2 class="section-title">📄 PGN Output Configuration</h2>
+                    <h2 class="section-title"><i data-lucide="file-output" class="icon"></i> PGN Output Configuration</h2>
                     <div class="form-help">
                         Choose how you want your chess repertoire to be formatted in the final PGN output.
                     </div>
@@ -1393,7 +1447,7 @@
 
                     <div class="form-group" style="background: var(--background); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
                         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                            <span style="font-size: 1.25rem;">💡</span>
+                            <i data-lucide="lightbulb" class="icon" style="color: var(--warning-color);"></i>
                             <strong style="color: var(--text-primary);">Tip</strong>
                         </div>
                         <div class="form-help" style="margin: 0;">
@@ -1421,14 +1475,14 @@
                         Load Sample Configuration
                     </button>
                     <button type="submit" class="btn btn-primary" style="display: none;">
-                        🚀 Generate Repertoire
+                        <i data-lucide="play" class="icon"></i> Generate Repertoire
                     </button>
                 </div>
             </div>
 
             <div class="progress-container" id="progress-container">
                 <div class="progress-header">
-                    <h2 class="progress-title">🏰 BookBuilder - Generating Repertoire</h2>
+                    <h2 class="progress-title">BookBuilder - Generating Repertoire</h2>
                     <div class="progress-stage" id="progress-stage">Initializing...</div>
                 </div>
 
@@ -1508,13 +1562,13 @@
             <!-- PGN Display Container -->
             <div class="pgn-display-container" id="pgn-display-container" style="display: none;">
                 <div class="pgn-display-header">
-                    <h4>📋 Generated PGN Repertoire</h4>
+                    <h4><i data-lucide="file-text" class="icon"></i> Generated PGN Repertoire</h4>
                     <div class="pgn-display-actions">
                         <button type="button" class="btn btn-primary" id="copy-pgn-btn">
-                            📋 Copy to Clipboard
+                            <i data-lucide="clipboard" class="icon"></i> Copy to Clipboard
                         </button>
                         <button type="button" class="btn btn-secondary" id="download-pgn-btn">
-                            💾 Download File
+                            <i data-lucide="download" class="icon"></i> Download File
                         </button>
                     </div>
                 </div>
@@ -1557,11 +1611,13 @@
                 <!-- The icon and text update dynamically via JavaScript -->
                 <button id="theme-toggle" class="theme-toggle" title="Toggle Theme (System/Light/Dark)"
                         aria-label="Toggle theme mode. Current: System" aria-live="polite">
-                    <span class="theme-toggle-icon" aria-hidden="true">💻</span>
+                    <span class="theme-toggle-icon" aria-hidden="true"><i data-lucide="monitor" class="icon"></i></span>
                     <span class="theme-toggle-text">System</span>
                 </button>
                 <!-- Debug panel toggle (existing functionality) -->
-                <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">🔧</button>
+                <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">
+                    <i data-lucide="settings" class="icon"></i>
+                </button>
             </div>
         </footer>
 
@@ -1688,6 +1744,7 @@
             /**
              * Updates the theme toggle button's icon, text, and ARIA label to reflect current mode.
              * Called after theme changes to keep the UI and accessibility tree in sync.
+             * Uses Lucide icons (SVG) instead of emojis for a cleaner look.
              *
              * @param {string} mode - The current theme mode
              */
@@ -1699,17 +1756,25 @@
 
                 if (!iconEl || !textEl) return;  // Elements not in DOM yet
 
-                // Map each mode to its display icon and label
+                // Map each mode to its Lucide icon name and label
+                // These icon names correspond to Lucide's icon library
                 const modeDisplay = {
-                    system: { icon: '💻', text: 'System' },
-                    light:  { icon: '☀️', text: 'Light' },
-                    dark:   { icon: '🌙', text: 'Dark' }
+                    system: { icon: 'monitor', text: 'System' },
+                    light:  { icon: 'sun', text: 'Light' },
+                    dark:   { icon: 'moon', text: 'Dark' }
                 };
 
                 // Update the button with the current mode's icon and text
                 const display = modeDisplay[mode];
-                iconEl.textContent = display.icon;
+                // Use innerHTML to insert the Lucide icon element
+                iconEl.innerHTML = `<i data-lucide="${display.icon}" class="icon"></i>`;
                 textEl.textContent = display.text;
+
+                // Re-render Lucide icons for the newly added element
+                // This is needed because Lucide replaces <i> tags with SVGs on init
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
 
                 // Update ARIA label for screen readers
                 // This helps users who rely on assistive technology know the current state
@@ -2105,6 +2170,12 @@
 
                 // Initialize debug panel
                 initDebugPanel();
+
+                // Initialize Lucide icons - replaces <i data-lucide="..."> with SVGs
+                // This must be called after all DOM elements are in place
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
 
                 console.log('BookBuilder application initialized successfully');
                 
