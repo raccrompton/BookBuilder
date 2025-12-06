@@ -1,0 +1,38 @@
+{
+  "gitCommitCoAuthor": false,
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "command": ".claude/hooks/on-stop.sh"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+
+      "Bash(python -m pytest:*)",
+      "Bash(python3 -m pytest:*)",
+
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)"
+    ],
+    "deny": []
+  }
+}
