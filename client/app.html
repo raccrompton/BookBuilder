@@ -29,21 +29,69 @@
     </script>
 
     <style>
+        /* =============================================================================
+           COLOR SCHEME / THEME VARIABLES
+           These CSS custom properties define the color palette for the entire app.
+           Light mode is the default; dark mode overrides are defined below.
+           Using CSS custom properties allows us to switch themes by changing one attribute.
+           ============================================================================= */
+
+        /* Light mode colors (default) */
         :root {
-            --primary-color: #2563eb;
-            --primary-hover: #1d4ed8;
-            --secondary-color: #64748b;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --background: #f8fafc;
-            --surface: #ffffff;
-            --border: #e2e8f0;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
+            --primary-color: #2563eb;      /* Blue - primary actions, buttons, links */
+            --primary-hover: #1d4ed8;      /* Darker blue for hover states */
+            --secondary-color: #64748b;    /* Slate gray - secondary elements */
+            --success-color: #10b981;      /* Green - success messages, valid states */
+            --warning-color: #f59e0b;      /* Amber - warning indicators */
+            --danger-color: #ef4444;       /* Red - errors, destructive actions */
+            --background: #f8fafc;         /* Light gray - page background */
+            --surface: #ffffff;            /* White - cards, containers */
+            --border: #e2e8f0;             /* Light border between elements */
+            --text-primary: #1e293b;       /* Dark text - headings, important content */
+            --text-secondary: #64748b;     /* Medium gray text - descriptions */
+            --text-muted: #94a3b8;         /* Light gray text - hints, placeholders */
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            /* Input field colors for form elements */
+            --input-background: #ffffff;
+            --input-text: #1e293b;
+            /* Error state colors - red tones for error messages/containers */
+            --error-background: #fef2f2;
+            --error-border: #fecaca;
+            --error-text: #991b1b;
+            /* Success state colors - green tones for success messages */
+            --success-background: #f0fdf4;
+            --success-border: #bbf7d0;
+            --success-text: #166534;
+        }
+
+        /* Dark mode colors - applied when data-theme="dark" is set on <html> */
+        [data-theme="dark"] {
+            --primary-color: #3b82f6;      /* Slightly brighter blue for dark backgrounds */
+            --primary-hover: #60a5fa;      /* Lighter blue for hover (inverse of light mode) */
+            --secondary-color: #94a3b8;    /* Lighter slate for better contrast */
+            --success-color: #34d399;      /* Brighter green for dark backgrounds */
+            --warning-color: #fbbf24;      /* Brighter amber */
+            --danger-color: #f87171;       /* Lighter red for better visibility */
+            --background: #0f172a;         /* Very dark blue-gray - page background */
+            --surface: #1e293b;            /* Dark slate - cards, containers */
+            --border: #334155;             /* Medium slate border */
+            --text-primary: #f1f5f9;       /* Very light text - headings */
+            --text-secondary: #cbd5e1;     /* Light gray text - descriptions */
+            --text-muted: #64748b;         /* Medium gray text - hints */
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+            /* Input field colors - ensure readability in dark mode */
+            --input-background: #1e293b;
+            --input-text: #f1f5f9;
+            /* Error state colors - dark red tones that work on dark backgrounds */
+            --error-background: #450a0a;
+            --error-border: #7f1d1d;
+            --error-text: #fca5a5;
+            /* Success state colors - dark green tones for dark backgrounds */
+            --success-background: #052e16;
+            --success-border: #166534;
+            --success-text: #86efac;
         }
 
         * {
@@ -129,6 +177,9 @@
             border-radius: 0.5rem;
             font-size: 1rem;
             transition: border-color 0.2s, box-shadow 0.2s;
+            /* Use theme-aware colors so inputs are readable in both modes */
+            background-color: var(--input-background);
+            color: var(--input-text);
         }
 
         .form-input:focus,
@@ -205,7 +256,8 @@
 
         .form-actions {
             padding: 2rem;
-            background: #f8fafc;
+            /* Use variable so background adapts to theme changes */
+            background: var(--background);
             border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -241,7 +293,8 @@
         }
 
         .btn-secondary:hover {
-            background: #f8fafc;
+            /* Use background variable for theme-aware hover state */
+            background: var(--background);
         }
 
         /* Enhanced Progress Container - Full Screen Overlay */
@@ -556,20 +609,22 @@
             display: none;
             margin-top: 1rem;
             padding: 1rem;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            /* Use theme-aware error colors so it's readable in both modes */
+            background: var(--error-background);
+            border: 1px solid var(--error-border);
             border-radius: 0.5rem;
-            color: #991b1b;
+            color: var(--error-text);
         }
 
         .success-container {
             display: none;
             margin-top: 1rem;
             padding: 1rem;
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
+            /* Use theme-aware success colors for dark mode compatibility */
+            background: var(--success-background);
+            border: 1px solid var(--success-border);
             border-radius: 0.5rem;
-            color: #166534;
+            color: var(--success-text);
         }
 
         .pgn-display-container {
@@ -608,7 +663,8 @@
         .pgn-display-content {
             max-height: 60vh;
             overflow-y: auto;
-            background: #fafafa;
+            /* Use background variable for theme-aware styling */
+            background: var(--background);
             border-bottom: 1px solid var(--border);
         }
 
@@ -896,6 +952,44 @@
         }
         .debug-category:last-child {
             border-bottom: none;
+        }
+
+        /* =============================================================================
+           THEME TOGGLE STYLES
+           The theme toggle button allows users to switch between light/dark/system modes.
+           It sits in the footer alongside the debug toggle for easy access.
+           ============================================================================= */
+
+        /* Container for footer controls (debug toggle and theme toggle) */
+        .footer-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;       /* Space between toggle buttons */
+        }
+
+        /* Theme toggle button - cycles through: system → light → dark */
+        .theme-toggle {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;    /* Space between icon and text */
+        }
+
+        .theme-toggle:hover {
+            background: var(--text-primary);
+        }
+
+        /* Icon inside theme toggle button - shows current mode */
+        .theme-toggle-icon {
+            font-size: 1rem;
         }
         .debug-category label {
             font-size: 0.8rem;
@@ -1288,7 +1382,7 @@
                         <div class="form-help">
                             All repertoires include detailed move statistics and playrates in a statistics block after each line.
                         </div>
-                        <div style="margin-top: 0.75rem; padding: 1rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid var(--border);">
+                        <div style="margin-top: 0.75rem; padding: 1rem; background: var(--background); border-radius: 0.5rem; border: 1px solid var(--border);">
                             <div class="form-help" style="margin: 0; color: var(--text-primary);">
                                 <strong>Statistics Format:</strong><br>
                                 <code style="display: block; margin-top: 0.5rem; color: var(--text-muted);">1. e4 c5 2. Nf3 d6<br>{Move playrates:<br>+45.67%&nbsp;&nbsp;&nbsp;&nbsp;c5<br>+78.23%&nbsp;&nbsp;&nbsp;&nbsp;d6<br>Line winrate: +52.4% over 15,234 games}</code>
@@ -1297,7 +1391,7 @@
                         <input type="hidden" id="annotation-endblock" name="annotation-style" value="endBlock">
                     </div>
 
-                    <div class="form-group" style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                    <div class="form-group" style="background: var(--background); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
                         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                             <span style="font-size: 1.25rem;">💡</span>
                             <strong style="color: var(--text-primary);">Tip</strong>
@@ -1455,9 +1549,20 @@
             <p style="margin-top: 1rem; color: #64748b;">Due to engines, API limits, and thinking, this can take a while - stay patient!</p>
         </div>
 
-        <!-- Footer with Debug Toggle -->
+        <!-- Footer with Theme Toggle and Debug Toggle -->
         <footer style="margin-top: 3rem; padding: 1rem; text-align: center; border-top: 1px solid var(--border);">
-            <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">🔧</button>
+            <!-- Container for both toggle buttons, centered with flex -->
+            <div class="footer-controls">
+                <!-- Theme toggle: cycles through system → light → dark modes -->
+                <!-- The icon and text update dynamically via JavaScript -->
+                <button id="theme-toggle" class="theme-toggle" title="Toggle Theme (System/Light/Dark)"
+                        aria-label="Toggle theme mode. Current: System" aria-live="polite">
+                    <span class="theme-toggle-icon" aria-hidden="true">💻</span>
+                    <span class="theme-toggle-text">System</span>
+                </button>
+                <!-- Debug panel toggle (existing functionality) -->
+                <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">🔧</button>
+            </div>
         </footer>
 
         <!-- Debug Panel (hidden by default) -->
@@ -1477,6 +1582,204 @@
 
     <!-- Global utility functions (must be available before module loads) -->
     <script>
+        // =============================================================================
+        // THEME MANAGEMENT
+        // Handles dark/light mode switching with system preference detection.
+        // Theme preference is persisted in localStorage so it survives page reloads.
+        // The theme cycles through: system → light → dark → system
+        // =============================================================================
+
+        /**
+         * ThemeManager - Handles all theme-related functionality
+         *
+         * This is an IIFE (Immediately Invoked Function Expression) that runs as soon
+         * as the script loads. This ensures the theme is applied before the page renders,
+         * preventing a flash of the wrong theme.
+         */
+        (function initThemeManager() {
+            // The three possible theme modes the user can select
+            const THEME_MODES = ['system', 'light', 'dark'];
+
+            // localStorage key for persisting the user's preference
+            const STORAGE_KEY = 'bookbuilder-theme';
+
+            /**
+             * Gets the user's system preference for dark mode.
+             * Uses the CSS media query 'prefers-color-scheme' which reflects
+             * the operating system's dark mode setting.
+             *
+             * @returns {boolean} true if system prefers dark mode
+             */
+            function getSystemPreference() {
+                // window.matchMedia checks if a CSS media query matches
+                // This returns true if the OS is set to dark mode
+                return window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+
+            /**
+             * Retrieves the stored theme preference from localStorage.
+             * Falls back to 'system' if no preference is saved or if access fails.
+             *
+             * localStorage can fail in several scenarios:
+             * - Private/Incognito browsing mode
+             * - Storage disabled by user
+             * - Storage quota exceeded
+             * - Browser security restrictions
+             *
+             * @returns {string} The saved theme mode: 'system', 'light', or 'dark'
+             */
+            function getSavedTheme() {
+                try {
+                    // Try to read from localStorage; default to 'system' if not found
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    return saved || 'system';
+                } catch (error) {
+                    // localStorage access failed (private browsing, disabled, etc.)
+                    // Log for debugging but don't crash the app
+                    console.warn('Failed to read theme from localStorage:', error);
+                    return 'system';  // Safe fallback
+                }
+            }
+
+            /**
+             * Saves the current theme preference to localStorage.
+             * This persists the preference across browser sessions.
+             * Fails silently if localStorage is unavailable.
+             *
+             * @param {string} theme - The theme mode to save
+             */
+            function saveTheme(theme) {
+                try {
+                    localStorage.setItem(STORAGE_KEY, theme);
+                } catch (error) {
+                    // Fail silently - theme still works, just won't persist
+                    console.warn('Failed to save theme to localStorage:', error);
+                }
+            }
+
+            /**
+             * Applies the specified theme to the document.
+             * Sets the 'data-theme' attribute on the <html> element,
+             * which triggers the CSS variable overrides defined in the stylesheet.
+             *
+             * @param {string} mode - The theme mode: 'system', 'light', or 'dark'
+             */
+            function applyTheme(mode) {
+                // Determine the actual theme to apply based on mode
+                let effectiveTheme;
+                if (mode === 'system') {
+                    // Use the OS preference when in 'system' mode
+                    effectiveTheme = getSystemPreference() ? 'dark' : 'light';
+                } else {
+                    // Use the explicit user choice
+                    effectiveTheme = mode;
+                }
+
+                // Set or remove the data-theme attribute on the root element
+                // When data-theme="dark", our CSS [data-theme="dark"] rules activate
+                if (effectiveTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    // Remove the attribute for light mode (falls back to :root defaults)
+                    document.documentElement.removeAttribute('data-theme');
+                }
+            }
+
+            /**
+             * Updates the theme toggle button's icon, text, and ARIA label to reflect current mode.
+             * Called after theme changes to keep the UI and accessibility tree in sync.
+             *
+             * @param {string} mode - The current theme mode
+             */
+            function updateToggleButton(mode) {
+                // Find the button and its child elements
+                const button = document.getElementById('theme-toggle');
+                const iconEl = document.querySelector('.theme-toggle-icon');
+                const textEl = document.querySelector('.theme-toggle-text');
+
+                if (!iconEl || !textEl) return;  // Elements not in DOM yet
+
+                // Map each mode to its display icon and label
+                const modeDisplay = {
+                    system: { icon: '💻', text: 'System' },
+                    light:  { icon: '☀️', text: 'Light' },
+                    dark:   { icon: '🌙', text: 'Dark' }
+                };
+
+                // Update the button with the current mode's icon and text
+                const display = modeDisplay[mode];
+                iconEl.textContent = display.icon;
+                textEl.textContent = display.text;
+
+                // Update ARIA label for screen readers
+                // This helps users who rely on assistive technology know the current state
+                if (button) {
+                    button.setAttribute('aria-label', `Toggle theme mode. Current: ${display.text}`);
+                }
+            }
+
+            /**
+             * Cycles to the next theme mode in the sequence: system → light → dark → system
+             * This is called when the user clicks the theme toggle button.
+             */
+            function cycleTheme() {
+                // Get current mode and find its position in the array
+                const currentMode = getSavedTheme();
+                const currentIndex = THEME_MODES.indexOf(currentMode);
+
+                // Move to the next mode, wrapping around at the end
+                // The modulo operator (%) ensures we cycle back to 0 after the last item
+                const nextIndex = (currentIndex + 1) % THEME_MODES.length;
+                const nextMode = THEME_MODES[nextIndex];
+
+                // Save and apply the new theme
+                saveTheme(nextMode);
+                applyTheme(nextMode);
+                updateToggleButton(nextMode);
+            }
+
+            // --- INITIALIZATION ---
+
+            // Apply the saved theme immediately (before DOM is fully loaded)
+            // This prevents a flash of the wrong theme color
+            const savedTheme = getSavedTheme();
+            applyTheme(savedTheme);
+
+            // Listen for system preference changes (e.g., OS switches to dark mode)
+            // This only affects users in 'system' mode
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                // Only re-apply if user is in 'system' mode
+                if (getSavedTheme() === 'system') {
+                    applyTheme('system');
+                }
+            });
+
+            // Wait for DOM to be ready before attaching button listener
+            document.addEventListener('DOMContentLoaded', () => {
+                // Update button to show current mode
+                updateToggleButton(savedTheme);
+
+                // Attach click handler to the theme toggle button
+                const toggleBtn = document.getElementById('theme-toggle');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', cycleTheme);
+                }
+            });
+
+            // Expose theme functions globally for potential external use
+            window.ThemeManager = {
+                cycleTheme,
+                applyTheme,
+                getSavedTheme,
+                getSystemPreference
+            };
+        })();
+
+        // =============================================================================
+        // TAB SYSTEM MANAGEMENT
+        // Handles navigation between the form's tabbed sections.
+        // =============================================================================
+
         // Tab System Management
         let currentTab = 0;
         const tabs = ['pgn-input', 'lichess-settings', 'opponent-filters', 'candidate-selectors', 'engine-settings', 'pgn-output-settings'];
