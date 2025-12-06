@@ -1362,6 +1362,19 @@
 
                 <div class="progress-details">
                     <div class="progress-current" id="progress-current">Ready to begin analysis...</div>
+                    <div class="progress-log" id="progress-log" style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.75rem;
+                        color: var(--text-muted);
+                        margin-top: 0.5rem;
+                        padding: 0.5rem;
+                        background: rgba(0,0,0,0.03);
+                        border-radius: 0.25rem;
+                        max-width: 100%;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    ">Waiting for activity...</div>
                     <div class="progress-stats">
                         <span class="stat-item">
                             <span class="stat-label">Lines Found:</span>
@@ -1424,6 +1437,21 @@
         <div id="generation-status" style="display: none; padding: 3rem; text-align: center;">
             <h2 style="color: #2563eb; margin-bottom: 1rem;">Generating Repertoire...</h2>
             <p id="generation-status-text" style="font-size: 1.5rem; font-weight: 600;">0 positions processed</p>
+            <p id="generation-log" style="
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 0.75rem;
+                color: #64748b;
+                margin-top: 1rem;
+                padding: 0.5rem 1rem;
+                background: rgba(0,0,0,0.03);
+                border-radius: 0.25rem;
+                max-width: 600px;
+                margin-left: auto;
+                margin-right: auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            ">Waiting for activity...</p>
             <p style="margin-top: 1rem; color: #64748b;">Due to engines, API limits, and thinking, this can take a while - stay patient!</p>
         </div>
 
@@ -1546,61 +1574,13 @@
         }
 
         // Simple 3-page system: Config > Progress > Results
+        // showProgressContainer now delegates to the simple generation status display
         function showProgressContainer() {
-            console.log('🎬 showProgressContainer() called');
-
-            // Hide config page
-            const formContainer = document.querySelector('.form-container');
-            const tabNavigation = document.querySelector('.tab-navigation');
-            const tabNavigationButtons = document.querySelector('.tab-navigation-buttons');
-
-            console.log('📦 Hiding form elements:', {
-                formContainer: !!formContainer,
-                tabNavigation: !!tabNavigation,
-                tabNavigationButtons: !!tabNavigationButtons
-            });
-
-            if (formContainer) formContainer.style.display = 'none';
-            if (tabNavigation) tabNavigation.style.display = 'none';
-            if (tabNavigationButtons) tabNavigationButtons.style.display = 'none';
-
-            // Show progress page - use both class and style to be sure
-            const progressContainer = document.getElementById('progress-container');
-            console.log('🔍 Progress container found:', !!progressContainer);
-
-            if (progressContainer) {
-                progressContainer.classList.add('active');
-                progressContainer.style.display = 'flex';
-
-                console.log('✅ Progress container should now be visible with:', {
-                    hasActiveClass: progressContainer.classList.contains('active'),
-                    displayStyle: progressContainer.style.display,
-                    computedDisplay: window.getComputedStyle(progressContainer).display
-                });
-            }
-
-            // Reset progress display
-            const progressPosition = document.getElementById('progress-position');
-            if (progressPosition) {
-                progressPosition.textContent = '0 positions processed';
-                console.log('📊 Reset progress display');
-            }
+            showGenerationStatus();
         }
 
         function hideProgressContainer() {
-            const formContainer = document.querySelector('.form-container');
-            const progressContainer = document.getElementById('progress-container');
-            const tabNavigation = document.querySelector('.tab-navigation');
-            const tabNavigationButtons = document.querySelector('.tab-navigation-buttons');
-
-            // Hide progress page
-            progressContainer.classList.remove('active');
-            progressContainer.style.display = 'none';
-
-            // Show config page
-            formContainer.style.display = 'block';
-            tabNavigation.style.display = 'flex';
-            tabNavigationButtons.style.display = 'flex';
+            hideGenerationStatus();
         }
 
         // Simple generation status functions
@@ -1610,6 +1590,12 @@
             document.querySelector('.tab-navigation-buttons').style.display = 'none';
             document.getElementById('generation-status').style.display = 'block';
             document.getElementById('generation-status-text').textContent = '0 positions processed';
+            document.getElementById('generation-log').textContent = 'Waiting for activity...';
+
+            // Enable Logger UI broadcasting to show console logs in the overlay
+            if (window.Logger) {
+                window.Logger.setUIElement('generation-log');
+            }
         }
 
         function updateGenerationStatus(count) {
@@ -1617,7 +1603,26 @@
         }
 
         function hideGenerationStatus() {
+            // Disable Logger UI broadcasting
+            if (window.Logger) {
+                window.Logger.setUIElement(null);
+            }
+
+            // Hide the generation status overlay
             document.getElementById('generation-status').style.display = 'none';
+
+            // Restore the form and navigation
+            document.querySelector('.form-container').style.display = 'block';
+            document.querySelector('.tab-navigation').style.display = 'flex';
+            document.querySelector('.tab-navigation-buttons').style.display = 'flex';
+
+            // Scroll to the output display if it's visible (after DOM settles)
+            const pgnDisplay = document.getElementById('pgn-display-container');
+            if (pgnDisplay && pgnDisplay.style.display !== 'none') {
+                setTimeout(() => {
+                    pgnDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
         }
 
         // Progress Update Functions
