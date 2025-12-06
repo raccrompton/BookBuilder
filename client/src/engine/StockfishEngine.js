@@ -16,12 +16,25 @@
  * HOW DOES IT RUN IN A BROWSER?
  * Stockfish is written in C++, but it's been compiled to WebAssembly (WASM).
  * WebAssembly is a binary format that runs at near-native speed in browsers.
- * We load Stockfish in a Web Worker to avoid blocking the main UI thread.
+ * We use the 'stockfish' npm package (by nmrugg/Chess.com) which provides
+ * a single-threaded WASM build that works without SharedArrayBuffer/CORS.
  *
- * WHAT IS A WEB WORKER?
- * Web Workers allow JavaScript to run in background threads. Since Stockfish
- * calculations are CPU-intensive (can take seconds), we run it in a Worker
- * so the UI stays responsive. Communication happens via message passing.
+ * STOCKFISH NPM PACKAGE:
+ * We use the official 'stockfish' npm package which is:
+ * - Maintained by Chess.com
+ * - Updated to Stockfish 17.1 (with NNUE neural network)
+ * - Well-documented with browser examples
+ * - Available in multiple variants (we use single-threaded for simplicity)
+ * - Note: v17.1+ uses filename hashes that change per release
+ * - Note: The large WASM files are split into parts (part-0.wasm, part-1.wasm, etc.)
+ *
+ * API (Stockfish 17.1):
+ * The stockfish npm package v17.1 uses this factory-based API:
+ * - Factory function accepts options: { listener: callback, locateFile: fn }
+ * - listener: callback function that receives all UCI output messages
+ * - locateFile: function to resolve paths for WASM part files
+ * - engine.processCommand(command) - send UCI commands
+ * - engine.terminate() - clean up resources
  *
  * UCI PROTOCOL:
  * Stockfish uses the UCI (Universal Chess Interface) protocol for communication.
@@ -38,8 +51,8 @@
  * - Configurable depth, threads, and hash table size
  *
  * DEPENDENCIES:
- * - Web Worker API (built into browsers)
- * - Stockfish WASM file (in src/vendor/stockfish-web/)
+ * - stockfish npm package (npm install stockfish)
+ * - CSP must allow 'wasm-unsafe-eval' for WebAssembly compilation
  *
  * EXAMPLE USAGE:
  * ```javascript
@@ -56,6 +69,10 @@
 import Logger from '../utils/Logger.js';
 const log = Logger.get('StockfishEngine');
 
+// Chess.js: Used for FEN validation before sending positions to Stockfish WASM
+// Invalid FEN positions can crash the WASM engine with "RuntimeError: unreachable"
+import { Chess } from 'chess.js';
+
 class StockfishEngine {
     /**
      * Constructor - Initialize Stockfish engine configuration
@@ -68,9 +85,9 @@ class StockfishEngine {
      */
     constructor(config = {}) {
         // =====================================================================
-        // Web Worker State
+        // Engine State
         // =====================================================================
-        // The worker runs Stockfish in a background thread
+        // The Stockfish engine runs in a dedicated Web Worker
         this.worker = null;           // Web Worker instance (null until initialized)
         this.isReady = false;         // True when engine is ready to accept commands
 
@@ -113,53 +130,99 @@ class StockfishEngine {
 
         // Stores the initialization Promise to prevent multiple init calls
         this.initializationPromise = null;
+
+        // Reference to our message handler function (needed for cleanup)
+        this.messageHandler = null;
     }
 
     /**
-     * Initialize the Stockfish engine via WebAssembly Worker
+     * Initialize the Stockfish engine via Web Worker
+     *
+     * Stockfish 17.1 npm package is designed to run as a Web Worker in browsers.
+     * The JS file self-initializes when loaded as a worker and communicates via:
+     * - worker.postMessage(command) - send UCI commands
+     * - worker.onmessage = (e) => {} - receive UCI responses in e.data
+     *
+     * We use the single-threaded version which doesn't require SharedArrayBuffer/CORS.
      */
     async initialize() {
+        // If already initialized, return immediately
         if (this.isReady) {
             return;
         }
 
+        // If initialization is in progress, return the existing promise
+        // This prevents multiple simultaneous initialization attempts
         if (this.initializationPromise) {
             return this.initializationPromise;
         }
 
         this.initializationPromise = new Promise((resolve, reject) => {
             try {
-                // Create Web Worker using Stockfish WebAssembly build directly
-                // The { type: 'module' } option is required because the Stockfish WASM file
-                // uses ES module features like import.meta.url for loading resources
-                this.worker = new Worker('./src/vendor/stockfish-web/sf171-79.js', { type: 'module' });
+                log.info('Loading Stockfish via Web Worker (stockfish npm package v17.1)...');
 
-                // Set up direct UCI message handling
-                this.worker.onmessage = (event) => {
-                    this.handleUCIMessage(event.data);
-                };
-
-                this.worker.onerror = (error) => {
-                    log.error('Stockfish WebAssembly worker error:', error);
-                    reject(new Error(`WebAssembly worker error: ${error.message}`));
-                };
-
-                // Store initialization resolver
+                // Store initialization resolver for later (called when 'readyok' received)
                 this.initResolver = resolve;
                 this.initRejecter = reject;
 
-                // Initialize UCI protocol
+                // Create a Web Worker with the Stockfish JS file
+                // The stockfish npm package is designed to self-initialize when loaded as a worker
+                // We use the single-threaded version which doesn't require SharedArrayBuffer/CORS
+                // Note: The WASM is split into 6 parts (~80MB total) which takes time to load
+                // When loaded as a worker, stockfish automatically finds the WASM files
+                // in the same directory by deriving the path from the JS file location
+                const stockfishPath = '/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js';
+
+                this.worker = new Worker(stockfishPath);
+
+                // Set up message handler to receive UCI responses from the worker
+                this.worker.onmessage = (event) => {
+                    // The worker sends UCI output as message data
+                    const message = event.data;
+                    this.handleUCIMessage(message);
+                };
+
+                // Handle worker errors
+                // When the WASM crashes (e.g., illegal move), we need to:
+                // 1. Reject all pending operations so they don't hang
+                // 2. Mark engine as not ready so it can be reinitialized
+                this.worker.onerror = (error) => {
+                    log.error('Stockfish worker error:', error);
+
+                    // Reject initialization if still in progress
+                    if (this.initRejecter) {
+                        this.initRejecter(new Error(`Worker error: ${error.message}`));
+                    }
+
+                    // Reject all pending operations to prevent hanging promises
+                    // This is critical - WASM crashes leave operations unresolved
+                    for (const [id, operation] of this.pendingOperations.entries()) {
+                        log.warn(`Rejecting pending operation ${id} due to worker crash`);
+                        operation.reject(new Error(`Worker crashed: ${error.message || 'unknown error'}`));
+                    }
+                    this.pendingOperations.clear();
+
+                    // Mark engine as not ready - it needs reinitialization
+                    this.isReady = false;
+                };
+
+                log.info('Stockfish worker created, initializing UCI protocol...');
+
+                // Initialize UCI protocol by sending 'uci' command
+                // Engine will respond with 'uciok' when ready
                 this.sendUCICommand('uci');
 
-                // Timeout after 10 seconds
+                // Timeout after 60 seconds (WASM loading can take time, especially
+                // for the full version which is ~80MB split into 6 parts)
                 setTimeout(() => {
                     if (!this.isReady) {
                         reject(new Error('Engine initialization timeout'));
                     }
-                }, 10000);
+                }, 60000);
 
             } catch (error) {
-                reject(new Error(`Failed to create Stockfish WebAssembly worker: ${error.message}`));
+                log.error('Failed to initialize Stockfish:', error);
+                reject(new Error(`Failed to create Stockfish engine: ${error.message}`));
             }
         });
 
@@ -167,10 +230,17 @@ class StockfishEngine {
     }
 
     /**
-     * Send UCI command directly to WebAssembly engine
+     * Send UCI command to the Stockfish engine
+     *
+     * Uses the Web Worker's postMessage() to send commands to Stockfish.
+     * The worker will process the command and respond via onmessage.
+     *
+     * @param {string} command - UCI command to send (e.g., "go depth 20")
      */
     sendUCICommand(command) {
         if (this.worker) {
+            // postMessage(cmd) sends a UCI command string to the worker
+            // The worker will process it and send responses via onmessage
             this.worker.postMessage(command);
         }
     }
@@ -219,16 +289,30 @@ class StockfishEngine {
 
     /**
      * Handle best move response from engine
+     *
+     * This is the UCI completion signal for ANY `go` command.
+     * We resolve ALL pending operations here (both 'bestmove' and 'evaluation')
+     * to ensure we fully consume engine output before starting next operation.
      */
     handleBestMove(message) {
         const match = message.match(/bestmove\s+(\S+)/);
         if (match) {
             const bestMove = match[1];
 
-            // Find pending operation waiting for best move
+            // Find and resolve the pending operation (should only be one at a time)
             for (const [id, operation] of this.pendingOperations.entries()) {
                 if (operation.type === 'bestmove') {
+                    // For getBestMove() - return the move
                     operation.resolve(bestMove);
+                    this.pendingOperations.delete(id);
+                    break;
+                } else if (operation.type === 'evaluation') {
+                    // For evaluatePosition() - return the stored evaluation
+                    // lastEvaluation was set by handleEngineInfo as info messages arrived
+                    const evaluation = operation.lastEvaluation !== undefined
+                        ? operation.lastEvaluation
+                        : 0;
+                    operation.resolve(evaluation);
                     this.pendingOperations.delete(id);
                     break;
                 }
@@ -238,6 +322,13 @@ class StockfishEngine {
 
     /**
      * Handle engine analysis info
+     *
+     * IMPORTANT: We do NOT resolve operations here!
+     * After `go depth N`, the engine sends info messages THEN `bestmove`.
+     * If we resolve on info, the bestmove arrives after we start the next
+     * operation and gets matched to the WRONG operation (causing bugs).
+     *
+     * We store the evaluation here; resolution happens in handleBestMove.
      */
     handleEngineInfo(message) {
         // Parse UCI info for depth, score, and principal variation
@@ -257,9 +348,13 @@ class StockfishEngine {
                 evaluation = mateIn > 0 ? 10000 - mateIn : -10000 - mateIn;
             }
 
-            // Report progress for ongoing operations
-            for (const [id, operation] of this.pendingOperations.entries()) {
+            // Store evaluation for pending operations (resolved in handleBestMove)
+            for (const operation of this.pendingOperations.values()) {
                 if (operation.type === 'evaluation' && evaluation !== null) {
+                    // Store the latest evaluation - used when bestmove arrives
+                    operation.lastEvaluation = evaluation;
+
+                    // Report progress
                     if (this.progressCallback) {
                         this.progressCallback(`Analyzing depth ${depth}`, (depth / operation.targetDepth) * 100, {
                             depth,
@@ -267,12 +362,7 @@ class StockfishEngine {
                             pv: pvMatch ? pvMatch[1] : null
                         });
                     }
-
-                    // Complete evaluation when target depth reached
-                    if (depth >= operation.targetDepth) {
-                        operation.resolve(evaluation);
-                        this.pendingOperations.delete(id);
-                    }
+                    // NOTE: Do NOT resolve here - wait for bestmove in handleBestMove
                 }
             }
         }
@@ -292,6 +382,10 @@ class StockfishEngine {
         if (!this.isReady) {
             throw new Error('Engine not initialized');
         }
+
+        // Validate FEN before sending to WASM to prevent crashes
+        // Invalid positions can cause "RuntimeError: unreachable"
+        this.validateFen(fen);
 
         const targetDepth = depth || this.depth;
 
@@ -327,6 +421,10 @@ class StockfishEngine {
         if (!this.isReady) {
             throw new Error('Engine not initialized');
         }
+
+        // Validate FEN before sending to WASM to prevent crashes
+        // Invalid positions can cause "RuntimeError: unreachable"
+        this.validateFen(fen);
 
         const targetDepth = depth || this.depth;
 
@@ -390,9 +488,78 @@ class StockfishEngine {
     }
 
     /**
+     * Validate that a move is in UCI format
+     *
+     * UCI format: source square + destination square + optional promotion
+     * Examples: e2e4, g1f3, e7e8q (pawn promotion to queen)
+     *
+     * This is a defense-in-depth check to prevent WASM crashes when
+     * SAN format moves (like "e4", "Nf3", "O-O") are accidentally passed.
+     *
+     * @param {string} move - Move string to validate
+     * @returns {boolean} True if move is in valid UCI format
+     */
+    isUciFormat(move) {
+        // UCI format: [a-h][1-8][a-h][1-8][qrbn]?
+        // Examples: e2e4, g1f3, e7e8q, a7a8n
+        return /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move);
+    }
+
+    /**
+     * Validate that a FEN string represents a legal chess position
+     *
+     * This is a defense-in-depth check to prevent WASM crashes when
+     * corrupted or impossible positions are passed to the engine.
+     * Invalid FEN can cause Stockfish WASM to crash with "RuntimeError: unreachable".
+     *
+     * Common causes of invalid FEN in BookBuilder:
+     * - ChessEngine.undoMove() failing silently, leaving state corrupted
+     * - Race conditions in position tracking during line expansion
+     *
+     * @param {string} fen - FEN string to validate
+     * @throws {Error} If the FEN is invalid or represents an illegal position
+     */
+    validateFen(fen) {
+        // Use chess.js load() to validate the FEN
+        // load() throws an error if the FEN is invalid, checking:
+        // - Basic FEN structure (8 ranks, valid piece characters)
+        // - King placement (exactly one king per side)
+        // - Pawn placement (no pawns on 1st or 8th rank)
+        // - Castling rights consistency
+        // - En passant square validity
+        try {
+            // Create a temporary Chess instance to validate the FEN
+            // This doesn't affect any game state - it's just for validation
+            const tempChess = new Chess();
+            tempChess.load(fen);
+        } catch (error) {
+            // load() throws with a descriptive error message
+            log.error(`Invalid FEN detected: ${fen}`);
+            log.error(`Validation error: ${error.message}`);
+            throw new Error(
+                `Invalid FEN position cannot be analyzed: ${error.message}. ` +
+                `FEN: ${fen}. This may indicate a bug in position tracking.`
+            );
+        }
+    }
+
+    /**
      * Evaluate position after a specific move
      */
     async evaluatePositionAfterMove(fen, move, depth) {
+        // Validate FEN before sending to WASM to prevent crashes
+        // Invalid positions can cause "RuntimeError: unreachable"
+        this.validateFen(fen);
+
+        // Validate move format before sending to Stockfish
+        // SAN format (e.g., "e4", "Nf3", "O-O") will crash Stockfish WASM!
+        if (!this.isUciFormat(move)) {
+            throw new Error(
+                `Invalid move format: expected UCI (e.g., 'e2e4'), got '${move}'. ` +
+                `SAN format moves like 'e4' or 'Nf3' are not supported by Stockfish UCI.`
+            );
+        }
+
         return new Promise((resolve, reject) => {
             const operationId = this.operationId++;
 
@@ -444,16 +611,35 @@ class StockfishEngine {
 
     /**
      * Shutdown engine and clean up resources
+     *
+     * Properly cleans up by:
+     * 1. Stopping any ongoing analysis
+     * 2. Sending 'quit' command to terminate the engine gracefully
+     * 3. Terminating the Web Worker
+     * 4. Clearing all references
      */
     shutdown() {
+        // Stop any ongoing analysis first
         this.stopAnalysis();
 
         if (this.worker) {
+            // Send quit command to terminate the engine gracefully
+            // This tells Stockfish to stop all processing and exit
             this.sendUCICommand('quit');
-            this.worker.terminate();
+
+            // Terminate the Web Worker to release resources
+            // This immediately stops all worker execution
+            try {
+                this.worker.terminate();
+            } catch (e) {
+                // Ignore errors during termination - worker may already be stopped
+            }
+
+            // Clear our reference to the worker
             this.worker = null;
         }
 
+        // Reset all state
         this.isReady = false;
         this.progressCallback = null;
         this.initializationPromise = null;
