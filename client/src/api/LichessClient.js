@@ -38,10 +38,15 @@
  *   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',  // Starting FEN
  *   { speeds: 'blitz,rapid', ratings: '2000,2200' }
  * );
- * console.log(stats.moves);  // Array of moves with statistics
+ * log.log(stats.moves);  // Array of moves with statistics
  * ```
  * =============================================================================
  */
+
+// Logger: Configurable logging - toggle with Logger.setEnabled('LichessClient', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('LichessClient');
+
 class LichessClient {
     /**
      * Constructor - Initialize the Lichess API client
@@ -155,18 +160,18 @@ class LichessClient {
         // ---------------------------------------------------------------------
         // Detailed logging helps developers debug API issues
         // These logs appear in browser's developer console (F12 → Console tab)
-        console.log('🌐 [LichessClient] API Call Details:');
-        console.log('═'.repeat(60));  // .repeat() creates a string of repeated characters
-        console.log(`📍 FEN Position: ${fen}`);
-        console.log(`🎯 Full URL: ${url}`);
-        console.log('📊 Parameters Breakdown:');
-        console.log(`   • Variant: ${params.get('variant')}`);     // .get() retrieves a parameter value
-        console.log(`   • Speeds: ${params.get('speeds')}`);
-        console.log(`   • Ratings: ${params.get('ratings')}`);
-        console.log(`   • Max Moves: ${params.get('moves')}`);
-        console.log('🔧 Options Object Received:');
-        console.log(`   • Raw Options:`, options);
-        console.log('═'.repeat(60));
+        log.log('🌐 [LichessClient] API Call Details:');
+        log.log('═'.repeat(60));  // .repeat() creates a string of repeated characters
+        log.log(`📍 FEN Position: ${fen}`);
+        log.log(`🎯 Full URL: ${url}`);
+        log.log('📊 Parameters Breakdown:');
+        log.log(`   • Variant: ${params.get('variant')}`);     // .get() retrieves a parameter value
+        log.log(`   • Speeds: ${params.get('speeds')}`);
+        log.log(`   • Ratings: ${params.get('ratings')}`);
+        log.log(`   • Max Moves: ${params.get('moves')}`);
+        log.log('🔧 Options Object Received:');
+        log.log(`   • Raw Options:`, options);
+        log.log('═'.repeat(60));
 
         // Make the actual HTTP request with retry logic
         // The underscore prefix (_makeRequestWithRetry) indicates a "private" method
@@ -261,7 +266,7 @@ class LichessClient {
         // Keep trying until we've exhausted all retry attempts
         while (attempt <= this.maxRetries) {
             try {
-                console.log(`Lichess API ${operation}: Attempt ${attempt}/${this.maxRetries}`);
+                log.log(`Lichess API ${operation}: Attempt ${attempt}/${this.maxRetries}`);
 
                 // -------------------------------------------------------------
                 // Create Timeout Controller
@@ -295,7 +300,7 @@ class LichessClient {
                 // Rate limiting is when the server says "slow down, too many requests"
                 // HTTP 429 is the standard status code for this
                 if (response.status === 429) {
-                    console.log(`🚨 [LichessClient] Rate limited - waiting ${this.rateLimitDelay/1000}s...`);
+                    log.log(`🚨 [LichessClient] Rate limited - waiting ${this.rateLimitDelay/1000}s...`);
                     await this._sleep(this.rateLimitDelay);
                     continue; // "continue" skips to next loop iteration WITHOUT incrementing attempt
                 }
@@ -323,7 +328,7 @@ class LichessClient {
                     transformedData = this._transformPositionStats(data);
                 }
 
-                console.log(`Lichess API ${operation}: Success`);
+                log.log(`Lichess API ${operation}: Success`);
                 return transformedData;  // SUCCESS! Return the data
 
             } catch (error) {
@@ -333,8 +338,8 @@ class LichessClient {
                 lastError = error;  // Store for final error message
 
                 // Log detailed error information for debugging
-                console.warn(`❌ [LichessClient] ${operation}: Attempt ${attempt}/${this.maxRetries} failed:`, error.message);
-                console.warn(`   Error details:`, {
+                log.warn(`❌ [LichessClient] ${operation}: Attempt ${attempt}/${this.maxRetries} failed:`, error.message);
+                log.warn(`   Error details:`, {
                     url: url,
                     status: error.status || 'unknown',
                     statusText: error.statusText || 'unknown',
@@ -347,19 +352,19 @@ class LichessClient {
                     // Calculate delay with exponential backoff
                     // Math.pow(2, attempt-1) = 2^(attempt-1): 1, 2, 4, 8, 16...
                     const delay = this.retryDelay * Math.pow(2, attempt - 1);
-                    console.log(`   🔄 Retrying in ${delay}ms... (exponential backoff, attempt ${attempt + 1}/${this.maxRetries})`);
+                    log.log(`   🔄 Retrying in ${delay}ms... (exponential backoff, attempt ${attempt + 1}/${this.maxRetries})`);
                     await this._sleep(delay);
                 } else {
-                    console.error(`❌ [LichessClient] ${operation}: All ${this.maxRetries} attempts exhausted!`);
+                    log.error(`❌ [LichessClient] ${operation}: All ${this.maxRetries} attempts exhausted!`);
                 }
                 attempt++;  // Increment attempt counter for next iteration
             }
         }
 
         // If we get here, all attempts failed - throw the final error
-        console.error(`❌ [LichessClient] ${operation}: Final failure after ${this.maxRetries} attempts`);
-        console.error(`   Last error:`, lastError.message);
-        console.error(`   Request details:`, { url, operation });
+        log.error(`❌ [LichessClient] ${operation}: Final failure after ${this.maxRetries} attempts`);
+        log.error(`   Last error:`, lastError.message);
+        log.error(`   Request details:`, { url, operation });
         throw new Error(`Lichess API ${operation} failed after ${this.maxRetries} attempts: ${lastError.message}`);
     }
 
@@ -426,7 +431,7 @@ class LichessClient {
      *
      * @example
      * await this._sleep(1000);  // Pause for 1 second
-     * console.log('One second later...');
+     * log.log('One second later...');
      *
      * @private
      */

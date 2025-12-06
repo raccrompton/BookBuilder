@@ -54,6 +54,11 @@
 // (Not actively used in current code but imported for future use)
 import { DeterministicMode } from '../config/DeterministicMode.js';
 
+// Logger: Configurable logging system - can be toggled on/off per category
+// Use Logger.setEnabled('MoveSelector', true/false) in browser console to toggle
+import Logger from '../utils/Logger.js';
+const log = Logger.get('MoveSelector');
+
 /**
  * MoveSelector Class - Picks the best move from candidates
  */
@@ -155,7 +160,7 @@ class MoveSelector {
      */
     async selectBestMove(position, candidates, engineClient, statisticsEngine) {
         // Log entry point for debugging
-        console.log(`🎯 [MoveSelector] selectBestMove called with ${candidates?.length || 0} candidates for position:`, position?.fen || 'no-fen');
+        log.log(`🎯 selectBestMove called with ${candidates?.length || 0} candidates for position:`, position?.fen || 'no-fen');
 
         // ---------------------------------------------------------------------
         // GUARD CLAUSE: Return early if no candidates
@@ -163,13 +168,13 @@ class MoveSelector {
         // Guard clauses handle edge cases at the top of the function
         // This prevents nested if-statements and makes code cleaner
         if (!candidates || candidates.length === 0) {
-            console.log(`❌ [MoveSelector] No candidates provided, returning null`);
+            log.log(`❌ No candidates provided, returning null`);
             return null;
         }
 
         // Log overview of all candidates for debugging
         // .map() transforms each candidate into a simpler object for logging
-        console.log(`📊 [MoveSelector] Candidate moves overview:`, candidates.map(c => ({
+        log.log(`📊 Candidate moves overview:`, candidates.map(c => ({
             san: c.san || c.uci,                                                   // Move notation
             games: c.white + c.black + c.draws,                                    // Total games
             playrate: c.playrate,                                                  // How often played (0-1)
@@ -181,7 +186,7 @@ class MoveSelector {
         // =====================================================================
         // Filter out moves that don't have enough data for reliable statistics.
         // This prevents recommending obscure moves based on just a few games.
-        console.log(`🔍 [MoveSelector] Starting data quality validation...`);
+        log.log(`🔍 Starting data quality validation...`);
 
         // .filter() creates a new array with only elements that pass the test
         // The callback receives (element, index) - we use both for logging
@@ -190,46 +195,46 @@ class MoveSelector {
             const isValid = this._validateMoveDataQuality(move, statisticsEngine);
 
             // Log result for each candidate (helps debug why moves were rejected)
-            console.log(`   ${isValid ? '✅' : '❌'} [MoveSelector] Candidate ${index + 1}: ${move.san || move.uci} - ${isValid ? 'PASSED' : 'FAILED'} quality check (games: ${move.white + move.black + move.draws}, playrate: ${move.playrate})`);
+            log.log(`   ${isValid ? '✅' : '❌'} [MoveSelector] Candidate ${index + 1}: ${move.san || move.uci} - ${isValid ? 'PASSED' : 'FAILED'} quality check (games: ${move.white + move.black + move.draws}, playrate: ${move.playrate})`);
 
             return isValid;  // Return true to keep, false to filter out
         });
 
-        console.log(`📊 [MoveSelector] Quality filter results: ${qualityCandidates.length}/${candidates.length} candidates passed`);
+        log.log(`📊 Quality filter results: ${qualityCandidates.length}/${candidates.length} candidates passed`);
 
         // If all candidates failed quality check, we can't recommend anything
         if (qualityCandidates.length === 0) {
-            console.log(`❌ [MoveSelector] No candidates passed quality filter, returning null`);
+            log.log(`❌ No candidates passed quality filter, returning null`);
             return null;
         }
 
         // Get engine evaluation if engine care is enabled
         let engineAnalysis = null;
-        console.log(`🔧 [MoveSelector] Engine configuration: CAREABOUTENGINE=${this.config.CAREABOUTENGINE}, engineClient=${!!engineClient}`);
+        log.log(`🔧 Engine configuration: CAREABOUTENGINE=${this.config.CAREABOUTENGINE}, engineClient=${!!engineClient}`);
 
         if (this.config.CAREABOUTENGINE === 1 && engineClient) {
-            console.log(`⚙️ [MoveSelector] Starting engine analysis for position: ${position.fen}`);
+            log.log(`⚙️ Starting engine analysis for position: ${position.fen}`);
             engineAnalysis = await this._getEngineAnalysis(position.fen, qualityCandidates, engineClient);
 
             if (engineAnalysis) {
-                console.log(`✅ [MoveSelector] Engine analysis completed:`, {
+                log.log(`✅ Engine analysis completed:`, {
                     bestMove: engineAnalysis.bestMove,
                     positionEval: engineAnalysis.positionEval,
                     analyzedMoves: Object.keys(engineAnalysis.moveAnalyses || {})
                 });
             } else {
-                console.log(`⚠️ [MoveSelector] Engine analysis failed or returned null`);
+                log.log(`⚠️ Engine analysis failed or returned null`);
             }
         } else {
-            console.log(`🚫 [MoveSelector] Skipping engine analysis (CAREABOUTENGINE=${this.config.CAREABOUTENGINE}, engineClient=${!!engineClient})`);
+            log.log(`🚫 Skipping engine analysis (CAREABOUTENGINE=${this.config.CAREABOUTENGINE}, engineClient=${!!engineClient})`);
         }
 
         // Filter by engine soundness if engine analysis available
         let viableCandidates = qualityCandidates;
         if (engineAnalysis && this.config.CAREABOUTENGINE === 1) {
-            console.log(`🔍 [MoveSelector] Starting engine soundness filtering...`);
-            console.log(`   Engine best move: ${engineAnalysis.bestMove}`);
-            console.log(`   Move analyses available for: ${Object.keys(engineAnalysis.moveAnalyses || {})}`);
+            log.log(`🔍 Starting engine soundness filtering...`);
+            log.log(`   Engine best move: ${engineAnalysis.bestMove}`);
+            log.log(`   Move analyses available for: ${Object.keys(engineAnalysis.moveAnalyses || {})}`);
 
             viableCandidates = this._filterCandidatesByEngine(
                 qualityCandidates,
@@ -237,33 +242,33 @@ class MoveSelector {
                 engineAnalysis.moveAnalyses
             );
 
-            console.log(`📊 [MoveSelector] Engine filter results: ${viableCandidates.length}/${qualityCandidates.length} candidates passed soundness check`);
+            log.log(`📊 Engine filter results: ${viableCandidates.length}/${qualityCandidates.length} candidates passed soundness check`);
         } else {
-            console.log(`🚫 [MoveSelector] Skipping engine filtering (no analysis or CAREABOUTENGINE != 1)`);
+            log.log(`🚫 Skipping engine filtering (no analysis or CAREABOUTENGINE != 1)`);
         }
 
         if (viableCandidates.length === 0) {
             // When CAREABOUTENGINE=1 and no moves pass engine validation, fall back to statistical selection
             if (this.config.CAREABOUTENGINE === 1 && engineAnalysis) {
-                console.log(`⚠️ [MoveSelector] Engine rejected all ${qualityCandidates.length} candidate moves, falling back to statistical selection`);
+                log.log(`⚠️ Engine rejected all ${qualityCandidates.length} candidate moves, falling back to statistical selection`);
             }
             // Fall back to statistical selection (non-blocking approach matching Python behavior)
             viableCandidates = qualityCandidates;
         }
 
         // Select best move based on win rate confidence intervals
-        console.log(`📈 [MoveSelector] Starting statistical selection from ${viableCandidates.length} viable candidates...`);
+        log.log(`📈 Starting statistical selection from ${viableCandidates.length} viable candidates...`);
         const selectedMove = this._selectByStatistics(position, viableCandidates, statisticsEngine);
 
         if (selectedMove) {
-            console.log(`✅ [MoveSelector] Selected move: ${selectedMove.san || selectedMove.uci}`, {
+            log.log(`✅ Selected move: ${selectedMove.san || selectedMove.uci}`, {
                 winRate: selectedMove.winRate?.toFixed(3),
                 confidence: selectedMove.confidence,
                 totalGames: selectedMove.totalGames,
                 playrate: selectedMove.playrate
             });
         } else {
-            console.log(`❌ [MoveSelector] Statistical selection failed to find a move`);
+            log.log(`❌ Statistical selection failed to find a move`);
         }
 
         const result = {
@@ -275,7 +280,7 @@ class MoveSelector {
             selectionReason: this._getSelectionReason(selectedMove, engineAnalysis)
         };
 
-        console.log(`🎯 [MoveSelector] Final selection summary:`, {
+        log.log(`🎯 Final selection summary:`, {
             selectedMove: selectedMove?.san || selectedMove?.uci || 'NONE',
             candidateCount: result.candidateCount,
             qualityFiltered: result.qualityFiltered,
@@ -295,36 +300,36 @@ class MoveSelector {
    * @returns {boolean} True if move passes soundness check
    */
     async validateMoveSoundness(fen, move, engineBestMove, moveAnalysis) {
-        console.log(`      🎯 [MoveSelector] validateMoveSoundness for ${move}:`);
-        console.log(`         CAREABOUTENGINE: ${this.config.CAREABOUTENGINE}`);
+        log.log(`      🎯 [MoveSelector] validateMoveSoundness for ${move}:`);
+        log.log(`         CAREABOUTENGINE: ${this.config.CAREABOUTENGINE}`);
 
         if (this.config.CAREABOUTENGINE !== 1) {
-            console.log(`         ✅ Skipping engine validation (CAREABOUTENGINE != 1)`);
+            log.log(`         ✅ Skipping engine validation (CAREABOUTENGINE != 1)`);
             return true; // Skip engine validation if not caring about engine
         }
 
         // Check if it's the engine's best move
         if (move === engineBestMove) {
-            console.log(`         ✅ Move ${move} is engine's best move`);
+            log.log(`         ✅ Move ${move} is engine's best move`);
             return true;
         }
 
         // Check centipawn loss against limits
         const centipawnLoss = moveAnalysis ? moveAnalysis.moveLoss : 0;
-        console.log(`         Centipawn loss: ${centipawnLoss}, evaluation: ${moveAnalysis?.evaluation}`);
-        console.log(`         Limits - SOUNDNESSLIMIT: ${this.config.SOUNDNESSLIMIT}, LOSSLIMIT: ${this.config.LOSSLIMIT}, IGNORELOSSLIMIT: ${this.config.IGNORELOSSLIMIT}`);
+        log.log(`         Centipawn loss: ${centipawnLoss}, evaluation: ${moveAnalysis?.evaluation}`);
+        log.log(`         Limits - SOUNDNESSLIMIT: ${this.config.SOUNDNESSLIMIT}, LOSSLIMIT: ${this.config.LOSSLIMIT}, IGNORELOSSLIMIT: ${this.config.IGNORELOSSLIMIT}`);
 
         // Handle mate scenarios specially
         if (this._isMateScore(moveAnalysis?.evaluation)) {
-            console.log(`         🏁 Mate score detected, handling specially`);
+            log.log(`         🏁 Mate score detected, handling specially`);
             const mateResult = this._handleMateScenarios(moveAnalysis);
-            console.log(`         Mate scenario result: ${mateResult ? '✅ ACCEPTED' : '❌ REJECTED'}`);
+            log.log(`         Mate scenario result: ${mateResult ? '✅ ACCEPTED' : '❌ REJECTED'}`);
             return mateResult;
         }
 
         // Apply soundness limit
         if (centipawnLoss > Math.abs(this.config.SOUNDNESSLIMIT)) {
-            console.log(`         ❌ Failed soundness limit: ${centipawnLoss} > ${Math.abs(this.config.SOUNDNESSLIMIT)}`);
+            log.log(`         ❌ Failed soundness limit: ${centipawnLoss} > ${Math.abs(this.config.SOUNDNESSLIMIT)}`);
             return false;
         }
 
@@ -332,16 +337,16 @@ class MoveSelector {
         if (centipawnLoss > Math.abs(this.config.LOSSLIMIT)) {
             // Check if we're above ignore threshold (where loss limit doesn't apply)
             const absoluteEval = Math.abs(moveAnalysis?.evaluation || 0);
-            console.log(`         Loss limit check: ${centipawnLoss} > ${Math.abs(this.config.LOSSLIMIT)}, absoluteEval: ${absoluteEval}`);
+            log.log(`         Loss limit check: ${centipawnLoss} > ${Math.abs(this.config.LOSSLIMIT)}, absoluteEval: ${absoluteEval}`);
             if (absoluteEval < this.config.IGNORELOSSLIMIT) {
-                console.log(`         ❌ Failed loss limit (below ignore threshold): ${absoluteEval} < ${this.config.IGNORELOSSLIMIT}`);
+                log.log(`         ❌ Failed loss limit (below ignore threshold): ${absoluteEval} < ${this.config.IGNORELOSSLIMIT}`);
                 return false;
             } else {
-                console.log(`         ✅ Loss limit ignored (above threshold): ${absoluteEval} >= ${this.config.IGNORELOSSLIMIT}`);
+                log.log(`         ✅ Loss limit ignored (above threshold): ${absoluteEval} >= ${this.config.IGNORELOSSLIMIT}`);
             }
         }
 
-        console.log(`         ✅ Passed all soundness checks`);
+        log.log(`         ✅ Passed all soundness checks`);
         return true;
     }
 
@@ -353,15 +358,15 @@ class MoveSelector {
    * @returns {Array} Filtered candidate moves
    */
     _filterCandidatesByEngine(candidates, engineBestMove, moveAnalyses) {
-        console.log(`🔧 [MoveSelector] Engine filtering: engineBestMove=${engineBestMove}`);
-        console.log(`   Available analyses: ${Object.keys(moveAnalyses || {}).join(', ')}`);
+        log.log(`🔧 Engine filtering: engineBestMove=${engineBestMove}`);
+        log.log(`   Available analyses: ${Object.keys(moveAnalyses || {}).join(', ')}`);
 
         return candidates.filter((candidate, index) => {
             const moveUci = candidate.uci || candidate.san;
             const analysis = moveAnalyses[moveUci];
 
-            console.log(`   🔍 [MoveSelector] Validating candidate ${index + 1}: ${moveUci}`);
-            console.log(`      Analysis available: ${!!analysis}, centipawn loss: ${analysis?.moveLoss || 'N/A'}`);
+            log.log(`   🔍 [MoveSelector] Validating candidate ${index + 1}: ${moveUci}`);
+            log.log(`      Analysis available: ${!!analysis}, centipawn loss: ${analysis?.moveLoss || 'N/A'}`);
 
             const isValid = this.validateMoveSoundness(
                 null, // FEN not needed for this validation
@@ -370,7 +375,7 @@ class MoveSelector {
                 analysis
             );
 
-            console.log(`      Result: ${isValid ? '✅ PASSED' : '❌ FAILED'} soundness check`);
+            log.log(`      Result: ${isValid ? '✅ PASSED' : '❌ FAILED'} soundness check`);
             return isValid;
         });
     }
@@ -424,28 +429,28 @@ class MoveSelector {
    */
     async _getEngineAnalysis(fen, candidates, engineClient) {
         try {
-            console.log(`⚙️ [MoveSelector] Starting engine analysis for ${candidates.length} candidates`);
+            log.log(`⚙️ Starting engine analysis for ${candidates.length} candidates`);
 
             // Get best move for position
-            console.log(`   Getting engine best move for position...`);
+            log.log(`   Getting engine best move for position...`);
             const bestMove = await engineClient.getBestMove(fen);
-            console.log(`   Engine best move: ${bestMove}`);
+            log.log(`   Engine best move: ${bestMove}`);
 
             // Analyze each candidate move
             const moveAnalyses = {};
-            console.log(`   Analyzing individual candidate moves...`);
+            log.log(`   Analyzing individual candidate moves...`);
             for (let i = 0; i < candidates.length; i++) {
                 const candidate = candidates[i];
                 const moveUci = candidate.uci || candidate.san;
-                console.log(`      Analyzing move ${i + 1}/${candidates.length}: ${moveUci}`);
+                log.log(`      Analyzing move ${i + 1}/${candidates.length}: ${moveUci}`);
                 const analysis = await engineClient.analyzeMove(fen, moveUci);
-                console.log(`         Analysis result:`, analysis);
+                log.log(`         Analysis result:`, analysis);
                 moveAnalyses[moveUci] = analysis;
             }
 
-            console.log(`   Getting position evaluation...`);
+            log.log(`   Getting position evaluation...`);
             const positionEval = await engineClient.evaluatePosition(fen);
-            console.log(`   Position evaluation: ${positionEval}`);
+            log.log(`   Position evaluation: ${positionEval}`);
 
             const result = {
                 bestMove,
@@ -453,10 +458,10 @@ class MoveSelector {
                 positionEval
             };
 
-            console.log(`✅ [MoveSelector] Engine analysis completed successfully`);
+            log.log(`✅ Engine analysis completed successfully`);
             return result;
         } catch (error) {
-            console.warn(`❌ [MoveSelector] Engine analysis failed:`, error.message);
+            log.warn(`❌ Engine analysis failed:`, error.message);
             return null;
         }
     }
@@ -481,10 +486,10 @@ class MoveSelector {
    * @private
    */
     _selectByStatistics(position, candidates, statisticsEngine) {
-        console.log(`📈 [MoveSelector] Statistical selection from ${candidates.length} candidates:`);
+        log.log(`📈 Statistical selection from ${candidates.length} candidates:`);
         // Extract current turn from FEN (3rd field after spaces)
         const currentTurn = position.fen.split(' ')[1]; // 'w' or 'b'
-        console.log(`   Current turn: ${currentTurn}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
+        log.log(`   Current turn: ${currentTurn}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
 
         let bestMove = null;
         let bestLowerBound = -1;
@@ -495,8 +500,8 @@ class MoveSelector {
             const totalGames = candidate.white + candidate.black + candidate.draws;
             let winRate;
 
-            console.log(`   📋 [MoveSelector] Analyzing candidate ${i + 1}: ${candidate.san || candidate.uci}`);
-            console.log(`      Games: W:${candidate.white} B:${candidate.black} D:${candidate.draws} (Total: ${totalGames})`);
+            log.log(`   📋 [MoveSelector] Analyzing candidate ${i + 1}: ${candidate.san || candidate.uci}`);
+            log.log(`      Games: W:${candidate.white} B:${candidate.black} D:${candidate.draws} (Total: ${totalGames})`);
 
             if (currentTurn === 'w') {
                 winRate = statisticsEngine.calculateWinRate(
@@ -514,7 +519,7 @@ class MoveSelector {
                 ).blackPerc;
             }
 
-            console.log(`      Win rate (${currentTurn === 'w' ? 'white' : 'black'} to move): ${winRate?.toFixed(4)}`);
+            log.log(`      Win rate (${currentTurn === 'w' ? 'white' : 'black'} to move): ${winRate?.toFixed(4)}`);
 
             // Calculate confidence interval
             const confidence = statisticsEngine.calculateConfidenceInterval(
@@ -523,11 +528,11 @@ class MoveSelector {
                 this.config.ALPHA
             );
 
-            console.log(`      Confidence interval: [${confidence.lowerBound?.toFixed(6)}, ${confidence.upperBound?.toFixed(6)}] (α=${this.config.ALPHA})`);
+            log.log(`      Confidence interval: [${confidence.lowerBound?.toFixed(6)}, ${confidence.upperBound?.toFixed(6)}] (α=${this.config.ALPHA})`);
 
             // Select move with highest lower bound (most conservative estimate)
             if (confidence.lowerBound > bestLowerBound) {
-                console.log(`      🎆 New best candidate! Lower bound: ${confidence.lowerBound?.toFixed(4)} > ${bestLowerBound?.toFixed(4)}`);
+                log.log(`      🎆 New best candidate! Lower bound: ${confidence.lowerBound?.toFixed(4)} > ${bestLowerBound?.toFixed(4)}`);
                 bestLowerBound = confidence.lowerBound;
                 bestMove = {
                     ...candidate,
@@ -536,14 +541,14 @@ class MoveSelector {
                     totalGames
                 };
             } else {
-                console.log(`      Lower bound: ${confidence.lowerBound?.toFixed(4)} <= ${bestLowerBound?.toFixed(4)} (not better)`);
+                log.log(`      Lower bound: ${confidence.lowerBound?.toFixed(4)} <= ${bestLowerBound?.toFixed(4)} (not better)`);
             }
         }
 
         if (bestMove) {
-            console.log(`✅ [MoveSelector] Statistical winner: ${bestMove.san || bestMove.uci} with lower bound ${bestLowerBound?.toFixed(4)}`);
+            log.log(`✅ Statistical winner: ${bestMove.san || bestMove.uci} with lower bound ${bestLowerBound?.toFixed(4)}`);
         } else {
-            console.log(`❌ [MoveSelector] No statistical winner found`);
+            log.log(`❌ No statistical winner found`);
         }
 
         return bestMove;

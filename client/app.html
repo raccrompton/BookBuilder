@@ -823,6 +823,90 @@
                 gap: 0.5rem;
             }
         }
+
+        /* Debug Panel Styles */
+        .debug-toggle {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        .debug-toggle:hover {
+            background: var(--text-primary);
+        }
+        .debug-toggle.active {
+            background: var(--primary-color);
+        }
+
+        .debug-panel {
+            position: fixed;
+            bottom: 5rem;
+            right: 50%;
+            transform: translateX(50%);
+            width: 280px;
+            max-height: 400px;
+            background: var(--surface);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            z-index: 999;
+            display: none;
+            overflow: hidden;
+        }
+        .debug-panel.open {
+            display: block;
+        }
+        .debug-panel-header {
+            padding: 0.75rem 1rem;
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .debug-panel-header button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .debug-panel-header button:hover {
+            background: var(--border);
+        }
+        .debug-panel-content {
+            padding: 0.75rem;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .debug-category {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .debug-category:last-child {
+            border-bottom: none;
+        }
+        .debug-category label {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .debug-category input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -979,11 +1063,11 @@
                     <div class="form-group">
                         <label class="form-label" for="games-likelihood">Prepare for moves your opponents will play</label>
                         <select id="games-likelihood" name="games-likelihood" class="form-select">
-                            <option value="0.02">1 in 50 games (testing)</option>
+                            <option value="0.02"selected>1 in 50 games (testing)</option>
                             <option value="0.01">1 in 100 games (beginner)</option>
                             <option value="0.005">1 in 200 games (small)</option>
                             <option value="0.0033">1 in 300 games (average)</option>
-                            <option value="0.002" selected>1 in 500 games (thorough)</option>
+                            <option value="0.002" >1 in 500 games (thorough)</option>
                             <option value="0.001">1 in 1000 games (comprehensive)</option>
                             <option value="0.001">1 in 2000 games (excessive!)</option>
                         </select>
@@ -1342,6 +1426,25 @@
             <p id="generation-status-text" style="font-size: 1.5rem; font-weight: 600;">0 positions processed</p>
             <p style="margin-top: 1rem; color: #64748b;">Due to engines, API limits, and thinking, this can take a while - stay patient!</p>
         </div>
+
+        <!-- Footer with Debug Toggle -->
+        <footer style="margin-top: 3rem; padding: 1rem; text-align: center; border-top: 1px solid var(--border);">
+            <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">🔧</button>
+        </footer>
+
+        <!-- Debug Panel (hidden by default) -->
+        <div id="debug-panel" class="debug-panel">
+            <div class="debug-panel-header">
+                <span>Console Log Categories</span>
+                <div>
+                    <button id="debug-all-on">All On</button>
+                    <button id="debug-all-off">All Off</button>
+                </div>
+            </div>
+            <div class="debug-panel-content" id="debug-categories">
+                <!-- Categories populated by JavaScript -->
+            </div>
+        </div>
     </div>
 
     <!-- Global utility functions (must be available before module loads) -->
@@ -1613,10 +1716,68 @@
         import FormController from './src/ui/FormController.js';
         import ErrorHandler from './src/ui/ErrorHandler.js';
         import ProgressTracker from './src/ui/ProgressTracker.js';
+        import Logger from './src/utils/Logger.js';
+
+        // Debug Panel initialization
+        function initDebugPanel() {
+            const toggle = document.getElementById('debug-toggle');
+            const panel = document.getElementById('debug-panel');
+            const categoriesContainer = document.getElementById('debug-categories');
+            const allOnBtn = document.getElementById('debug-all-on');
+            const allOffBtn = document.getElementById('debug-all-off');
+
+            if (!toggle || !panel) return;
+
+            // Toggle panel visibility
+            toggle.addEventListener('click', () => {
+                panel.classList.toggle('open');
+                toggle.classList.toggle('active');
+            });
+
+            // Populate categories
+            const config = Logger.getConfig();
+            const categories = Object.keys(config.categories);
+
+            categoriesContainer.innerHTML = categories.map(cat => `
+                <div class="debug-category">
+                    <label for="debug-${cat}">${cat}</label>
+                    <input type="checkbox" id="debug-${cat}"
+                           data-category="${cat}"
+                           ${config.categories[cat] ? 'checked' : ''}>
+                </div>
+            `).join('');
+
+            // Handle checkbox changes
+            categoriesContainer.addEventListener('change', (e) => {
+                if (e.target.type === 'checkbox') {
+                    const category = e.target.dataset.category;
+                    Logger.setEnabled(category, e.target.checked);
+                }
+            });
+
+            // All On / All Off buttons
+            allOnBtn.addEventListener('click', () => {
+                Logger.setAllEnabled(true);
+                categoriesContainer.querySelectorAll('input').forEach(cb => cb.checked = true);
+            });
+
+            allOffBtn.addEventListener('click', () => {
+                Logger.setAllEnabled(false);
+                categoriesContainer.querySelectorAll('input').forEach(cb => cb.checked = false);
+            });
+
+            // Close panel when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!panel.contains(e.target) && !toggle.contains(e.target)) {
+                    panel.classList.remove('open');
+                    toggle.classList.remove('active');
+                }
+            });
+        }
 
         // Initialize application
         let formController, errorHandler, progressTracker;
-        
+
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 // Initialize tab system first
@@ -1633,6 +1794,9 @@
                 // Initialize form controller
                 formController = new FormController();
                 window.formController = formController;
+
+                // Initialize debug panel
+                initDebugPanel();
 
                 console.log('BookBuilder application initialized successfully');
                 

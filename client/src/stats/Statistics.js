@@ -44,6 +44,10 @@
  * =============================================================================
  */
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('Statistics', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('Statistics');
+
 /**
  * =============================================================================
  * Normal Distribution Inverse CDF (Quantile Function)
@@ -257,13 +261,13 @@ class Statistics {
         const minGames = config.MINGAMES || 19;
         const minPlayRate = config.MINPLAYRATE || 0.001;
 
-        console.log(`📊 [Statistics] Quality validation: games=${gamesPlayed} > ${minGames}, playRate=${playRate?.toFixed(4)} > ${minPlayRate}`);
-        console.log(`📊 [Statistics] Config values: MINGAMES=${config.MINGAMES}, MINPLAYRATE=${config.MINPLAYRATE}`);
+        log.log(`📊 [Statistics] Quality validation: games=${gamesPlayed} > ${minGames}, playRate=${playRate?.toFixed(4)} > ${minPlayRate}`);
+        log.log(`📊 [Statistics] Config values: MINGAMES=${config.MINGAMES}, MINPLAYRATE=${config.MINPLAYRATE}`);
 
         // Total games move was played must be more than min games
         // AND min percentage play rate (otherwise data is bad)
         const result = (gamesPlayed > minGames) && (playRate > minPlayRate);
-        console.log(`📊 [Statistics] Validation result: ${result ? 'PASSED' : 'FAILED'}`);
+        log.log(`📊 [Statistics] Validation result: ${result ? 'PASSED' : 'FAILED'}`);
         return result;
     }
 

@@ -62,9 +62,8 @@ import ChessEngine from './chess/ChessEngine.js';
 // Returns statistics like "e4 was played in 1 million games with 55% white wins"
 import LichessClient from './api/LichessClient.js';
 
-// StockfishEngine: Interface to Stockfish chess engine (runs in WebAssembly)
-// Used when database has no good moves - asks computer for best move instead
-import StockfishEngine from './engine/StockfishEngine.js';
+// Note: StockfishEngine is now passed via config from FormController
+// (FormController creates and initializes it, then passes to BookBuilder)
 
 // Statistics: Mathematical calculations for win rates and confidence intervals
 // Converts raw game counts into meaningful percentages
@@ -76,6 +75,10 @@ import MoveSelector from './algorithm/MoveSelector.js';
 
 // PgnGenerator: Formats our analysis into PGN (Portable Game Notation)
 // PGN is the standard text format for sharing chess games
+
+// Logger: Configurable logging - toggle with Logger.setEnabled('BookBuilder', true/false)
+import Logger from './utils/Logger.js';
+const log = Logger.get('BookBuilder');
 import PgnGenerator from './pgn/PgnGenerator.js';
 
 /**
@@ -153,9 +156,9 @@ class BookBuilder {
         this.pgnGenerator = new PgnGenerator(config);
 
         // StockfishEngine: Chess computer for positions with no database data
-        // Only created if user enabled engine analysis (saves resources)
-        // The "? :" is a ternary operator - shorthand for if/else
-        this.stockfishEngine = config.CAREABOUTENGINE ? new StockfishEngine() : null;
+        // Use the pre-initialized engine from FormController (passed via config)
+        // This avoids creating and initializing a second engine instance
+        this.stockfishEngine = config.stockfishEngine || null;
 
         // ---------------------------------------------------------------------
         // STEP 3: Progress tracking system
@@ -167,7 +170,7 @@ class BookBuilder {
         this.progressCallback = progressCallback;
 
         // Debug logging helps developers understand what's happening
-        console.log('🔧 [BookBuilder] Constructor called with progress callback:', {
+        log.log('🔧 [BookBuilder] Constructor called with progress callback:', {
             hasCallback: !!progressCallback,        // !! converts to boolean (true if exists)
             callbackType: typeof progressCallback,  // Should be 'function' or 'object'
             isFunction: typeof progressCallback === 'function'
@@ -206,7 +209,7 @@ class BookBuilder {
             variant: 'standard'
         };
 
-        console.log('🔧 [BookBuilder] Lichess API options created:', this.lichessApiOptions);
+        log.log('🔧 [BookBuilder] Lichess API options created:', this.lichessApiOptions);
 
         // ---------------------------------------------------------------------
         // STEP 5: State management for processing
@@ -274,11 +277,11 @@ class BookBuilder {
 
         // Log startup banner for debugging and user feedback
         // These logs appear in the browser's developer console (F12)
-        console.log(`[BookBuilder] ========================================`);
-        console.log(`[BookBuilder] STARTING CHESS ENGINE STATE FIXED VERSION`);
-        console.log(`[BookBuilder] Processing ${config.openings.length} opening(s)`);
-        console.log(`[BookBuilder] Enhanced with move validation & isolated engines`);
-        console.log(`[BookBuilder] ========================================`);
+        log.log(`[BookBuilder] ========================================`);
+        log.log(`[BookBuilder] STARTING CHESS ENGINE STATE FIXED VERSION`);
+        log.log(`[BookBuilder] Processing ${config.openings.length} opening(s)`);
+        log.log(`[BookBuilder] Enhanced with move validation & isolated engines`);
+        log.log(`[BookBuilder] ========================================`);
 
         // Loop through each opening in the configuration
         // We start at chapter 1 (not 0) for human-readable chapter numbers
@@ -286,7 +289,7 @@ class BookBuilder {
             // Array indices are 0-based, so subtract 1 to get correct opening
             // Example: chapter 1 → config.openings[0]
             const opening = config.openings[chapter - 1];
-            console.log(`Processing Chapter ${chapter}: ${opening.name}`);
+            log.log(`Processing Chapter ${chapter}: ${opening.name}`);
 
             try {
                 // Generate the full analysis for this opening
@@ -301,25 +304,25 @@ class BookBuilder {
                 // Store the chapter content in results object
                 results[fileName] = chapterContent;
 
-                console.log(`✅ Completed Chapter ${chapter}: ${opening.name} - ${this.finalLines.length} lines generated`);
+                log.log(`✅ Completed Chapter ${chapter}: ${opening.name} - ${this.finalLines.length} lines generated`);
 
             } catch (error) {
                 // If anything goes wrong, log the error and re-throw
                 // Re-throwing allows the calling code to handle the error too
-                console.error(`❌ Failed to generate Chapter ${chapter}: ${error.message}`);
+                log.error(`❌ Failed to generate Chapter ${chapter}: ${error.message}`);
                 throw new Error(`Chapter ${chapter} generation failed: ${error.message}`);
             }
         }
 
         // Log completion summary
         // Object.keys(results).length counts how many chapters we generated
-        console.log(`[BookBuilder] ========================================`);
-        console.log(`[BookBuilder] 🎉 ALL CHAPTERS COMPLETED SUCCESSFULLY!`);
-        console.log(`[BookBuilder] ✅ Chess engine state fixes implemented`);
-        console.log(`[BookBuilder] ✅ Move validation pipeline active`);
-        console.log(`[BookBuilder] ✅ Engine isolation preventing contamination`);
-        console.log(`[BookBuilder] Generated ${Object.keys(results).length} chapter files`);
-        console.log(`[BookBuilder] ========================================`);
+        log.log(`[BookBuilder] ========================================`);
+        log.log(`[BookBuilder] 🎉 ALL CHAPTERS COMPLETED SUCCESSFULLY!`);
+        log.log(`[BookBuilder] ✅ Chess engine state fixes implemented`);
+        log.log(`[BookBuilder] ✅ Move validation pipeline active`);
+        log.log(`[BookBuilder] ✅ Engine isolation preventing contamination`);
+        log.log(`[BookBuilder] Generated ${Object.keys(results).length} chapter files`);
+        log.log(`[BookBuilder] ========================================`);
 
         // Return the complete results object with all chapters
         return results;
@@ -385,7 +388,7 @@ class BookBuilder {
             // initial position(s) for further analysis.
             // Equivalent to Python's Rooter class
 
-            console.log(`  Phase 1: Root analysis for ${opening.name}`);
+            log.log(`  Phase 1: Root analysis for ${opening.name}`);
 
             // Emit progress update for UI
             // "emit" means "send out" - we're sending data to whoever is listening
@@ -401,7 +404,7 @@ class BookBuilder {
             // Add root results to processing queue using spread operator (...)
             // The spread operator "unpacks" the array: [a, b] → a, b
             this.processingQueue.push(...rootResults);
-            console.log(`  Found ${rootResults.length} initial continuations`);
+            log.log(`  Found ${rootResults.length} initial continuations`);
 
             // Update progress
             this.emitProgress({
@@ -417,7 +420,7 @@ class BookBuilder {
             // more valid continuations exist.
             // Equivalent to Python's Leafer loop
 
-            console.log('  Phase 2: Iterative line expansion');
+            log.log('  Phase 2: Iterative line expansion');
             this.emitProgress({
                 stage: 'Line Expansion',
                 currentMessage: 'Starting iterative position analysis...'
@@ -426,7 +429,7 @@ class BookBuilder {
             // expandAllLines() processes the queue until empty
             // Each processed line may add new lines to the queue
             await this.expandAllLines();
-            console.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
+            log.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
 
             this.emitProgress({
                 linesGenerated: this.finalLines.length,
@@ -439,7 +442,7 @@ class BookBuilder {
             // This phase prepares the analyzed lines for formatting.
             // Note: Actual PGN formatting is done by FileGenerator (separation of concerns)
 
-            console.log('  Phase 3: Generating line data (NEW ARCHITECTURE)');
+            log.log('  Phase 3: Generating line data (NEW ARCHITECTURE)');
             this.emitProgress({
                 stage: 'Output Generation',
                 currentMessage: 'Generating final PGN output...'
@@ -450,7 +453,7 @@ class BookBuilder {
 
             // Log output details for debugging
             // The ?. is "optional chaining" - safely access properties that might not exist
-            console.log('  📊 BookBuilder.generateChapter() returning:', {
+            log.log('  📊 BookBuilder.generateChapter() returning:', {
                 type: typeof output,
                 isObject: typeof output === 'object',
                 hasLines: output?.lines ? true : false,
@@ -491,8 +494,8 @@ class BookBuilder {
                 throw new Error(`Failed to initialize starting position`);
             }
 
-            console.log(`    Root analysis: ${moveSequence.length} moves in sequence, perspective: ${perspective}`);
-            console.log(`    Move sequence:`, moveSequence);
+            log.log(`    Root analysis: ${moveSequence.length} moves in sequence, perspective: ${perspective}`);
+            log.log(`    Move sequence:`, moveSequence);
 
             // Initialize probability tracking
             let cumulativeLikelihood = 1.0;
@@ -501,8 +504,8 @@ class BookBuilder {
             // Convert perspective to engine format for comparison
             const ourPerspectiveColor = perspective === 'white' ? 'w' : 'b';
 
-            console.log(`    Calculating cumulative likelihood using Python iterative approach`);
-            console.log(`    Our perspective: ${perspective} (${ourPerspectiveColor}), tracking opponent moves only`);
+            log.log(`    Calculating cumulative likelihood using Python iterative approach`);
+            log.log(`    Our perspective: ${perspective} (${ourPerspectiveColor}), tracking opponent moves only`);
 
             // Iterate through each move in the sequence (Python Rooter approach)
             if (moveSequence.length > 0) {
@@ -511,11 +514,11 @@ class BookBuilder {
                     const move = moveSequence[i];
                     const currentTurn = this.chessEngine.getTurn();
 
-                    console.log(`    Move ${i + 1}: ${move}, current turn: ${currentTurn}, our perspective: ${ourPerspectiveColor}`);
+                    log.log(`    Move ${i + 1}: ${move}, current turn: ${currentTurn}, our perspective: ${ourPerspectiveColor}`);
 
                     // Check if this is an opponent's move (matches Python: if board.turn != perspective)
                     if (currentTurn !== ourPerspectiveColor) {
-                        console.log(`      → This is opponent's move, calculating probability`);
+                        log.log(`      → This is opponent's move, calculating probability`);
 
                         // Get position stats for current position (only for opponent moves)
                         const currentFen = this.chessEngine.getFen();
@@ -537,9 +540,9 @@ class BookBuilder {
                             san: move,
                             playrate: moveProb
                         });
-                        console.log(`      → Move probability: ${moveProb}, cumulative: ${cumulativeLikelihood}`);
+                        log.log(`      → Move probability: ${moveProb}, cumulative: ${cumulativeLikelihood}`);
                     } else {
-                        console.log(`      → This is our move, skipping probability calculation (100%)`);
+                        log.log(`      → This is our move, skipping probability calculation (100%)`);
                     }
 
                     // Make the move on the board (equivalent to Python's board.push(move))
@@ -548,15 +551,15 @@ class BookBuilder {
                         throw new Error(`Failed to make move: ${move} at position ${i + 1}`);
                     }
 
-                    console.log(`      → Move ${move} executed successfully`);
+                    log.log(`      → Move ${move} executed successfully`);
                 }
             } else {
-                console.log(`    Starting position (no moves), using cumulative likelihood: 1.0`);
+                log.log(`    Starting position (no moves), using cumulative likelihood: 1.0`);
             }
 
-            console.log(`    Final cumulative likelihood: ${cumulativeLikelihood}`);
-            console.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate})`).join(' '));
-            console.log(`    Opponent moves tracked: ${likelihoodPath.length}, Our moves skipped: ${moveSequence.length - likelihoodPath.length}`);
+            log.log(`    Final cumulative likelihood: ${cumulativeLikelihood}`);
+            log.log(`    Likelihood path:`, likelihoodPath.map(p => `${p.san}(${p.playrate})`).join(' '));
+            log.log(`    Opponent moves tracked: ${likelihoodPath.length}, Our moves skipped: ${moveSequence.length - likelihoodPath.length}`);
 
             // Create single line object representing the input sequence (matches Python Rooter behavior)
             const finalFen = this.chessEngine.getFen();
@@ -568,8 +571,8 @@ class BookBuilder {
                 likelihoodPath: likelihoodPath
             };
 
-            console.log(`    Root analysis complete: 1 initial line representing input sequence`);
-            console.log(`    Line: "${singleLine.pgn}" with likelihood ${cumulativeLikelihood.toFixed(6)}`);
+            log.log(`    Root analysis complete: 1 initial line representing input sequence`);
+            log.log(`    Line: "${singleLine.pgn}" with likelihood ${cumulativeLikelihood.toFixed(6)}`);
             return [singleLine];
 
         } catch (error) {
@@ -589,7 +592,7 @@ class BookBuilder {
             iterationCount++;
             const currentBatch = this.processingQueue.splice(0, this.BATCH_SIZE);
 
-            console.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
+            log.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
 
             // Update progress with current position processing
             this.emitProgress({
@@ -598,11 +601,11 @@ class BookBuilder {
             });
 
             // Process batch in parallel with isolated engines for each line
-            console.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines with isolated engines`);
+            log.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines with isolated engines`);
             const batchResults = await Promise.all(
                 currentBatch.map(line => this.expandLine(line))
             );
-            console.log(`[BookBuilder] Batch processing completed, engines cleaned up`);
+            log.log(`[BookBuilder] Batch processing completed, engines cleaned up`);
 
             // Add new lines to queue (flattened and filtered)
             const newLines = batchResults.flat().filter(Boolean);
@@ -615,10 +618,10 @@ class BookBuilder {
         }
 
         if (iterationCount >= maxIterations) {
-            console.warn(`    Maximum iterations (${maxIterations}) reached. Some lines may be incomplete.`);
+            log.warn(`    Maximum iterations (${maxIterations}) reached. Some lines may be incomplete.`);
         }
 
-        console.log(`    Expansion completed after ${iterationCount} iterations`);
+        log.log(`    Expansion completed after ${iterationCount} iterations`);
     }
 
     /**
@@ -640,11 +643,11 @@ class BookBuilder {
 
         // **CREATE ISOLATED ENGINE INSTANCE**
         const isolatedEngine = this.createIsolatedEngine();
-        console.log(`[BookBuilder] Created isolated engine for line expansion`);
+        log.log(`[BookBuilder] Created isolated engine for line expansion`);
 
         try {
             // Parse position with enhanced debugging using isolated engine
-            console.log(`[BookBuilder] Expanding line with FEN: ${fen}`);
+            log.log(`[BookBuilder] Expanding line with FEN: ${fen}`);
             const success = isolatedEngine.parsePositionWithDebug(fen);
             if (!success) {
                 throw new Error(`Invalid FEN: ${fen}`);
@@ -657,7 +660,7 @@ class BookBuilder {
 
             // Get initial position debug info
             const initialPosition = isolatedEngine.debugPosition();
-            console.log(`[BookBuilder] Initial position state:`, initialPosition);
+            log.log(`[BookBuilder] Initial position state:`, initialPosition);
 
             // Find opponent continuations (use high limit to get all opponent options)
             const continuations = await this.lichessClient.getPositionStats(fen, {
@@ -680,9 +683,9 @@ class BookBuilder {
             );
 
             if (validContinuations.length === 0) {
-                console.log(`    [DEBUG] No valid continuations found. Original moves: ${continuations.moves?.length || 0}, filtered to: 0`);
+                log.log(`    [DEBUG] No valid continuations found. Original moves: ${continuations.moves?.length || 0}, filtered to: 0`);
                 if (continuations.moves) {
-                    console.log(`    [DEBUG] First move analysis:`, continuations.moves[0]);
+                    log.log(`    [DEBUG] First move analysis:`, continuations.moves[0]);
                 }
                 // Empty results after filtering are valid - moves may not meet quality thresholds
                 // This is expected behavior for maintaining repertoire quality
@@ -699,29 +702,29 @@ class BookBuilder {
                     this.progressState.continuationsFound = validContinuations.length;
 
                     // **ENHANCED MOVE VALIDATION PIPELINE**
-                    console.log(`[BookBuilder] Processing opponent move: ${move.san}`);
-                    console.log(`[BookBuilder] Position before move:`, isolatedEngine.debugPosition());
+                    log.log(`[BookBuilder] Processing opponent move: ${move.san}`);
+                    log.log(`[BookBuilder] Position before move:`, isolatedEngine.debugPosition());
 
                     // Validate move against current legal moves
                     if (!isolatedEngine.validateMoveBeforeExecution(move.san)) {
-                        console.warn(`[BookBuilder] Skipping invalid opponent move: ${move.san}`);
-                        console.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
+                        log.warn(`[BookBuilder] Skipping invalid opponent move: ${move.san}`);
+                        log.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
                         continue;
                     }
 
                     // Make opponent's move with enhanced validation
                     const moveResult = isolatedEngine.makeMove(move.san);
                     if (!moveResult) {
-                        console.warn(`[BookBuilder] Move execution failed for: ${move.san}`);
+                        log.warn(`[BookBuilder] Move execution failed for: ${move.san}`);
                         continue;
                     }
 
-                    console.log(`[BookBuilder] Opponent move ${move.san} executed successfully:`, moveResult);
+                    log.log(`[BookBuilder] Opponent move ${move.san} executed successfully:`, moveResult);
 
                     // **CAPTURE MOVE NUMBER AT CORRECT TIMING**
                     // Get move number AFTER opponent's move but BEFORE our response (matches Python behavior)
                     const correctMoveNumber = isolatedEngine.getMoveNumber();
-                    console.log(`[BookBuilder] Move number after opponent's move: ${correctMoveNumber}`);
+                    log.log(`[BookBuilder] Move number after opponent's move: ${correctMoveNumber}`);
 
                     const newFen = isolatedEngine.getFen();
 
@@ -741,46 +744,48 @@ class BookBuilder {
                         continue;
                     }
 
-                    console.log(`[BookBuilder] Position after opponent move has ${positionData.moves.length} candidate responses`);
-                    console.log(`   Top 3 candidates:`, positionData.moves.slice(0, 3).map(m => ({
+                    log.log(`[BookBuilder] Position after opponent move has ${positionData.moves.length} candidate responses`);
+                    log.log(`   Top 3 candidates:`, positionData.moves.slice(0, 3).map(m => ({
                         san: m.san,
                         games: m.white + m.black + m.draws,
                         playrate: m.playrate?.toFixed(4)
                     })));
 
-                    console.log(`[BookBuilder] Calling MoveSelector to find our best response...`);
+                    log.log(`[BookBuilder] Calling MoveSelector to find our best response...`);
+                    // Pass stockfishEngine for engine validation of candidate moves
+                    // (was incorrectly passing lichessClient which doesn't have engine methods)
                     const bestResponse = await this.moveSelector.selectBestMove(
                         { fen: newFen, perspective: lineData.perspective },
                         positionData.moves,
-                        this.lichessClient,
+                        this.stockfishEngine,
                         this.statisticsEngine
                     );
 
                     if (bestResponse?.selectedMove) {
-                        console.log(`[BookBuilder] MoveSelector returned: ${bestResponse.selectedMove.san || bestResponse.selectedMove.uci}`);
-                        console.log(`   Selection details:`, {
+                        log.log(`[BookBuilder] MoveSelector returned: ${bestResponse.selectedMove.san || bestResponse.selectedMove.uci}`);
+                        log.log(`   Selection details:`, {
                             reason: bestResponse.selectionReason,
                             candidateCount: bestResponse.candidateCount,
                             qualityFiltered: bestResponse.qualityFiltered,
                             engineFiltered: bestResponse.engineFiltered
                         });
                     } else {
-                        console.log(`[BookBuilder] MoveSelector returned no valid response`);
+                        log.log(`[BookBuilder] MoveSelector returned no valid response`);
                     }
 
                     const selectedMove = bestResponse?.selectedMove;
-                    console.log(`[BookBuilder] Validating selected response: ${selectedMove?.san || selectedMove?.uci || 'NONE'}`);
+                    log.log(`[BookBuilder] Validating selected response: ${selectedMove?.san || selectedMove?.uci || 'NONE'}`);
 
                     if (selectedMove && this.isValidResponse(selectedMove, move)) {
-                        console.log(`[BookBuilder] ✅ Response validation passed`);
+                        log.log(`[BookBuilder] ✅ Response validation passed`);
                         // **VALIDATE OUR RESPONSE MOVE**
-                        console.log(`[BookBuilder] Processing our response move: ${selectedMove.san}`);
-                        console.log(`[BookBuilder] Position before our move:`, isolatedEngine.debugPosition());
+                        log.log(`[BookBuilder] Processing our response move: ${selectedMove.san}`);
+                        log.log(`[BookBuilder] Position before our move:`, isolatedEngine.debugPosition());
 
                         // Validate our response move
                         if (!isolatedEngine.validateMoveBeforeExecution(selectedMove.san)) {
-                            console.warn(`[BookBuilder] Skipping invalid response move: ${selectedMove.san}`);
-                            console.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
+                            log.warn(`[BookBuilder] Skipping invalid response move: ${selectedMove.san}`);
+                            log.warn(`[BookBuilder] Available moves were:`, isolatedEngine.getLegalMoves().map(m => m.san || m));
                             isolatedEngine.undoMove(); // Undo opponent's move
                             continue;
                         }
@@ -788,13 +793,13 @@ class BookBuilder {
                         // Make our response
                         const ourMoveResult = isolatedEngine.makeMove(selectedMove.san);
                         if (!ourMoveResult) {
-                            console.warn(`[BookBuilder] Our move execution failed: ${selectedMove.san}`);
+                            log.warn(`[BookBuilder] Our move execution failed: ${selectedMove.san}`);
                             isolatedEngine.undoMove(); // Undo opponent's move
                             continue;
                         }
 
-                        console.log(`[BookBuilder] Our response move ${selectedMove.san} executed successfully:`, ourMoveResult);
-                        console.log(`[BookBuilder] Final position after both moves:`, isolatedEngine.debugPosition());
+                        log.log(`[BookBuilder] Our response move ${selectedMove.san} executed successfully:`, ourMoveResult);
+                        log.log(`[BookBuilder] Final position after both moves:`, isolatedEngine.debugPosition());
 
                         const finalFen = isolatedEngine.getFen();
 
@@ -804,7 +809,7 @@ class BookBuilder {
                         }];
 
                         const newPgn = this.updatePgn(pgn, move.san, selectedMove.san, perspective, correctMoveNumber);
-                        console.log(`[BookBuilder] PGN updated: "${pgn}" -> "${newPgn}"`);
+                        log.log(`[BookBuilder] PGN updated: "${pgn}" -> "${newPgn}"`);
 
                         const newLine = {
                             fen: finalFen,
@@ -814,7 +819,7 @@ class BookBuilder {
                             likelihoodPath: newLikelihoodPath
                         };
 
-                        console.log(`[BookBuilder] ➕ Created new line:`, {
+                        log.log(`[BookBuilder] ➕ Created new line:`, {
                             pgn: newLine.pgn,
                             perspective: newLine.perspective,
                             cumulativeLikelihood: newLine.cumulativeLikelihood?.toFixed(6),
@@ -828,37 +833,37 @@ class BookBuilder {
                         isolatedEngine.undoMove(); // Undo opponent's move
 
                     } else {
-                        console.log(`[BookBuilder] ❌ No valid response found for opponent move: ${move.san}`);
+                        log.log(`[BookBuilder] ❌ No valid response found for opponent move: ${move.san}`);
                         if (selectedMove) {
-                            console.log(`   Selected move failed validation:`, {
+                            log.log(`   Selected move failed validation:`, {
                                 move: selectedMove.san || selectedMove.uci,
                                 reason: 'Failed isValidResponse check'
                             });
                         } else {
-                            console.log(`   No move was selected by MoveSelector`);
+                            log.log(`   No move was selected by MoveSelector`);
                         }
 
                         // No good response - try engine completion or finalize
                         isolatedEngine.undoMove(); // Undo opponent's move
-                        console.log(`[BookBuilder] Trying engine completion or line finalization...`);
+                        log.log(`[BookBuilder] Trying engine completion or line finalization...`);
                         const completed = await this.handleNoGoodResponse(lineData, move, newFen, isolatedEngine);
                         if (completed) {
-                            console.log(`[BookBuilder] ➕ Engine completion created new line: ${completed.pgn}`);
+                            log.log(`[BookBuilder] ➕ Engine completion created new line: ${completed.pgn}`);
                             newLines.push(completed);
                         } else {
-                            console.log(`[BookBuilder] Line finalized without extension`);
+                            log.log(`[BookBuilder] Line finalized without extension`);
                         }
                     }
 
                 } catch (moveError) {
-                    console.warn(`Error processing move ${move.san}: ${moveError.message}`);
+                    log.warn(`Error processing move ${move.san}: ${moveError.message}`);
                     continue;
                 }
             }
 
-            console.log(`[BookBuilder] Line expansion completed: Generated ${newLines.length} new lines`);
+            log.log(`[BookBuilder] Line expansion completed: Generated ${newLines.length} new lines`);
             if (newLines.length > 0) {
-                console.log(`   New lines summary:`, newLines.map(line => ({
+                log.log(`   New lines summary:`, newLines.map(line => ({
                     pgn: line.pgn,
                     likelihood: line.cumulativeLikelihood?.toFixed(6)
                 })));
@@ -877,12 +882,12 @@ class BookBuilder {
 
             // Recoverable errors during line expansion (invalid moves, etc.)
             // Log warning and finalize the line gracefully
-            console.warn(`Error expanding line: ${error.message}`);
+            log.warn(`Error expanding line: ${error.message}`);
             await this.finalizeLine(lineData, isolatedEngine);
             return [];
         } finally {
             // Engine cleanup logging
-            console.log(`[BookBuilder] Completed line expansion, isolated engine discarded`);
+            log.log(`[BookBuilder] Completed line expansion, isolated engine discarded`);
         }
     }
 
@@ -899,23 +904,23 @@ class BookBuilder {
     async handleNoGoodResponse(lineData, opponentMove, positionFen, engine = null) {
         if (this.config.ENGINEFINISH && this.stockfishEngine) {
             try {
-                console.log(`[BookBuilder] Engine completion: fixing position analysis and move numbering`);
+                log.log(`[BookBuilder] Engine completion: fixing position analysis and move numbering`);
 
                 // **STEP 1: Make opponent's move to get to correct position for engine analysis**
-                console.log(`[BookBuilder] Making opponent move for proper position: ${opponentMove.san}`);
+                log.log(`[BookBuilder] Making opponent move for proper position: ${opponentMove.san}`);
                 const opponentMoveResult = this.chessEngine.makeMove(opponentMove.san);
                 if (!opponentMoveResult) {
-                    console.warn(`[BookBuilder] Opponent move ${opponentMove.san} failed in engine completion`);
+                    log.warn(`[BookBuilder] Opponent move ${opponentMove.san} failed in engine completion`);
                     return null;
                 }
 
                 // **STEP 2: Capture correct move number (after opponent's move, before our response)**
                 const correctMoveNumber = this.chessEngine.getMoveNumber();
-                console.log(`[BookBuilder] Captured correct move number: ${correctMoveNumber}`);
+                log.log(`[BookBuilder] Captured correct move number: ${correctMoveNumber}`);
 
                 // **STEP 3: Get engine analysis from the position AFTER opponent's move**
                 const positionAfterOpponent = this.chessEngine.getFen();
-                console.log(`[BookBuilder] Getting engine move from correct position: ${positionAfterOpponent}`);
+                log.log(`[BookBuilder] Getting engine move from correct position: ${positionAfterOpponent}`);
                 const engineMove = await this.stockfishEngine.getBestMove(
                     positionAfterOpponent,
                     this.config.ENGINEDEPTH
@@ -923,10 +928,10 @@ class BookBuilder {
 
                 if (engineMove) {
                     // **STEP 4: Make the engine move**
-                    console.log(`[BookBuilder] Making engine response move: ${engineMove}`);
+                    log.log(`[BookBuilder] Making engine response move: ${engineMove}`);
                     const engineMoveResult = this.chessEngine.makeMove(engineMove);
                     if (!engineMoveResult) {
-                        console.warn(`[BookBuilder] Engine move ${engineMove} failed`);
+                        log.warn(`[BookBuilder] Engine move ${engineMove} failed`);
                         this.chessEngine.undoMove(); // Clean up opponent's move
                         return null;
                     }
@@ -943,7 +948,7 @@ class BookBuilder {
                     );
 
                     // **STEP 6: Undo both moves to restore original position**
-                    console.log(`[BookBuilder] Restoring position: undoing engine and opponent moves`);
+                    log.log(`[BookBuilder] Restoring position: undoing engine and opponent moves`);
                     this.chessEngine.undoMove(); // Undo engine move
                     this.chessEngine.undoMove(); // Undo opponent move
 
@@ -959,7 +964,7 @@ class BookBuilder {
                     };
                 }
             } catch (error) {
-                console.warn(`Engine completion failed: ${error.message}`);
+                log.warn(`Engine completion failed: ${error.message}`);
             }
         }
 
@@ -1003,31 +1008,31 @@ class BookBuilder {
      * @param {ChessEngine} engine - Optional isolated engine instance
      */
     async finalizeLine(lineData, engine = null) {
-        console.log(`🏁 [BookBuilder] Finalizing line: "${lineData.pgn}"`);
-        console.log(`   FEN: ${lineData.fen}`);
-        console.log(`   Perspective: ${lineData.perspective}`);
-        console.log(`   Cumulative likelihood: ${lineData.cumulativeLikelihood?.toFixed(6)}`);
-        console.log(`   Likelihood path length: ${lineData.likelihoodPath?.length || 0}`);
+        log.log(`🏁 [BookBuilder] Finalizing line: "${lineData.pgn}"`);
+        log.log(`   FEN: ${lineData.fen}`);
+        log.log(`   Perspective: ${lineData.perspective}`);
+        log.log(`   Cumulative likelihood: ${lineData.cumulativeLikelihood?.toFixed(6)}`);
+        log.log(`   Likelihood path length: ${lineData.likelihoodPath?.length || 0}`);
 
         // Use provided engine or fall back to main engine
         const chessEngine = engine || this.chessEngine;
         try {
             // Load the position into the chess engine
-            console.log(`   Loading position into chess engine...`);
+            log.log(`   Loading position into chess engine...`);
             chessEngine.loadPosition(lineData.fen);
 
-            console.log(`   Getting position statistics from Lichess...`);
+            log.log(`   Getting position statistics from Lichess...`);
             const stats = await this.lichessClient.getPositionStats(lineData.fen, this.lichessApiOptions);
 
             if (stats) {
-                console.log(`   Position stats:`, {
+                log.log(`   Position stats:`, {
                     white: stats.white,
                     black: stats.black,
                     draws: stats.draws,
                     total: stats.white + stats.draws + stats.black
                 });
             } else {
-                console.log(`   No position stats available`);
+                log.log(`   No position stats available`);
             }
 
             let winRate = 0;
@@ -1060,15 +1065,15 @@ class BookBuilder {
             }
 
             // Validate winRate is a proper number (should not be NaN after proper extraction)
-            console.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
-            console.log(`   Total games: ${totalGames}`);
+            log.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
+            log.log(`   Total games: ${totalGames}`);
 
             if (isNaN(winRate) || !isFinite(winRate)) {
-                console.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
+                log.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
                 throw new Error(`Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
             }
 
-            console.log(`   ✅ Adding line to finalLines collection`);
+            log.log(`   ✅ Adding line to finalLines collection`);
             this.finalLines.push({
                 pgn: lineData.pgn,
                 moves: this.extractMovesFromPgn(lineData.pgn),
@@ -1082,8 +1087,8 @@ class BookBuilder {
             });
 
         } catch (error) {
-            console.warn(`⚠️ [BookBuilder] Error finalizing line: ${error.message}`);
-            console.log(`   Adding line with default values instead`);
+            log.warn(`⚠️ [BookBuilder] Error finalizing line: ${error.message}`);
+            log.log(`   Adding line with default values instead`);
             // Add line anyway with default values
             this.finalLines.push({
                 pgn: lineData.pgn,
@@ -1098,7 +1103,7 @@ class BookBuilder {
             });
         }
 
-        console.log(`🏁 [BookBuilder] Line finalization completed. Total final lines: ${this.finalLines.length}`);
+        log.log(`🏁 [BookBuilder] Line finalization completed. Total final lines: ${this.finalLines.length}`);
     }
 
     /**
@@ -1109,18 +1114,18 @@ class BookBuilder {
      * @returns {Object} - Clean line data for FileGenerator formatting
      */
     async generateOutput(openingName, _chapterNumber) {
-        console.log(`📋 [BookBuilder] generateOutput() - DATA GENERATION ONLY`);
-        console.log(`   📖 Opening: ${openingName}`);
-        console.log(`   📊 Starting with ${this.finalLines.length} final lines`);
+        log.log(`📋 [BookBuilder] generateOutput() - DATA GENERATION ONLY`);
+        log.log(`   📖 Opening: ${openingName}`);
+        log.log(`   📊 Starting with ${this.finalLines.length} final lines`);
 
         // Remove duplicates and subsets (essential for preventing loops)
-        console.log(`   🧹 Deduplicating lines (prevents infinite loops)...`);
+        log.log(`   🧹 Deduplicating lines (prevents infinite loops)...`);
         const uniqueLines = this.removeDuplicateLines(this.finalLines);
-        console.log(`   ✅ After deduplication: ${uniqueLines.length} unique lines`);
+        log.log(`   ✅ After deduplication: ${uniqueLines.length} unique lines`);
 
-        console.log(`   📦 Returning clean line data for FileGenerator`);
-        console.log(`   🎯 BookBuilder role: DATA GENERATION complete`);
-        console.log(`   ➡️  Next: FileGenerator will handle SORTING + FORMATTING`);
+        log.log(`   📦 Returning clean line data for FileGenerator`);
+        log.log(`   🎯 BookBuilder role: DATA GENERATION complete`);
+        log.log(`   ➡️  Next: FileGenerator will handle SORTING + FORMATTING`);
 
         // Return clean line data - all sorting and formatting handled by FileGenerator
         const result = {
@@ -1133,7 +1138,7 @@ class BookBuilder {
             }
         };
 
-        console.log(`   📋 Returning clean line data:`, {
+        log.log(`   📋 Returning clean line data:`, {
             linesCount: result.lines.length,
             openingName: result.openingName,
             metadata: result.metadata
@@ -1163,9 +1168,9 @@ class BookBuilder {
         const currentFen = engine.getFen();
         const isConsistent = currentFen === expectedFen;
         if (!isConsistent) {
-            console.error(`[BookBuilder] Engine state inconsistency!`);
-            console.error(`[BookBuilder] Expected: ${expectedFen}`);
-            console.error(`[BookBuilder] Actual: ${currentFen}`);
+            log.error(`[BookBuilder] Engine state inconsistency!`);
+            log.error(`[BookBuilder] Expected: ${expectedFen}`);
+            log.error(`[BookBuilder] Actual: ${currentFen}`);
         }
         return isConsistent;
     }
@@ -1183,7 +1188,7 @@ class BookBuilder {
     determinePerspective(moveCount) {
         // Python: even moves = black, odd moves = white
         const perspective = moveCount % 2 === 0 ? 'black' : 'white';
-        console.log(`    📋 [BookBuilder] Perspective calculation: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
+        log.log(`    📋 [BookBuilder] Perspective calculation: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
         return perspective;
     }
 
@@ -1195,14 +1200,14 @@ class BookBuilder {
      */
     emitProgress(updates = {}) {
         // DEBUG: Always log that emitProgress was called
-        console.log('🚀 [BookBuilder] emitProgress called:', {
+        log.log('🚀 [BookBuilder] emitProgress called:', {
             hasCallback: !!this.progressCallback,
             callbackType: typeof this.progressCallback,
             updates
         });
 
         if (!this.progressCallback) {
-            console.warn('⚠️ [BookBuilder] No progress callback available - skipping emit');
+            log.warn('⚠️ [BookBuilder] No progress callback available - skipping emit');
             return;
         }
 
@@ -1246,12 +1251,12 @@ class BookBuilder {
             continuations: this.progressState.continuationsFound
         };
 
-        console.log(`📊 [BookBuilder] Progress: ${progressData.stage} - ${progressData.current}/${progressData.total} (${progressData.percentage.toFixed(1)}%)`);
+        log.log(`📊 [BookBuilder] Progress: ${progressData.stage} - ${progressData.current}/${progressData.total} (${progressData.percentage.toFixed(1)}%)`);
 
         try {
             this.progressCallback(progressData);
         } catch (error) {
-            console.warn('Progress callback error:', error.message);
+            log.warn('Progress callback error:', error.message);
         }
     }
 
@@ -1302,7 +1307,7 @@ class BookBuilder {
             estimate = Math.max(10, estimate * 0.5); // Quick analysis = fewer positions
         }
 
-        console.log(`📊 [BookBuilder] Estimated ${estimate} positions for opening: ${opening.name}`);
+        log.log(`📊 [BookBuilder] Estimated ${estimate} positions for opening: ${opening.name}`);
         return Math.round(estimate);
     }
 
@@ -1345,13 +1350,13 @@ class BookBuilder {
         // FIXED: Remove MINPLAYRATE check for opponent moves - only use DEPTHLIKELIHOOD + CONTINUATIONGAMES
         const isValid = depthCheck && gamesCheck;
 
-        console.log(`🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
-        console.log(`      Raw playrate: ${move.playrate?.toFixed(4)} (${(move.playrate * 100)?.toFixed(2)}%)`);
-        console.log(`      Cumulative likelihood to reach position prior to continuation: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
-        console.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
-        console.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
-        console.log(`      Playrate check: REMOVED (only applies to our responses, not opponent moves)`);
-        console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+        log.log(`🔍 [BookBuilder] Continuation validation: ${move.san || move.uci}`);
+        log.log(`      Raw playrate: ${move.playrate?.toFixed(4)} (${(move.playrate * 100)?.toFixed(2)}%)`);
+        log.log(`      Cumulative likelihood to reach position prior to continuation: ${cumulativeLikelihood?.toFixed(6)} (${(cumulativeLikelihood * 100)?.toFixed(4)}%)`);
+        log.log(`      Continuation likelihood: ${continuationLikelihood?.toFixed(6)} >= ${this.config.DEPTHLIKELIHOOD} = ${depthCheck ? '✅' : '❌'}`);
+        log.log(`      Games check: ${move.totalGames} > ${this.config.CONTINUATIONGAMES} = ${gamesCheck ? '✅' : '❌'}`);
+        log.log(`      Playrate check: REMOVED (only applies to our responses, not opponent moves)`);
+        log.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
 
         return isValid;
     }
@@ -1360,8 +1365,8 @@ class BookBuilder {
      * Check if our response meets the quality thresholds
      */
     isValidResponse(response, opponentMove) {
-        console.log(`   🔍 [BookBuilder] Response validation for ${response?.san || response?.uci}:`);
-        console.log(`      🔧 [BookBuilder] Config values: MINGAMES=${this.config.MINGAMES}, MINPLAYRATE=${this.config.MINPLAYRATE}, CONTINUATIONGAMES=${this.config.CONTINUATIONGAMES}`);
+        log.log(`   🔍 [BookBuilder] Response validation for ${response?.san || response?.uci}:`);
+        log.log(`      🔧 [BookBuilder] Config values: MINGAMES=${this.config.MINGAMES}, MINPLAYRATE=${this.config.MINPLAYRATE}, CONTINUATIONGAMES=${this.config.CONTINUATIONGAMES}`);
 
         const hasResponse = !!response;
         // FIXED: Remove opponent playrate check - already validated in isValidContinuation
@@ -1369,13 +1374,13 @@ class BookBuilder {
         const responseWinRateCheck = response?.winRate > 0;
         const responsePlayrateCheck = response?.playrate > this.config.MINPLAYRATE;
 
-        console.log(`      Has response: ${hasResponse ? '✅' : '❌'}`);
-        console.log(`      Response games: ${response?.totalGames} > ${this.config.MINGAMES} = ${responseGamesCheck ? '✅' : '❌'}`);
-        console.log(`      Response win rate: ${response?.winRate?.toFixed(3)} > 0 = ${responseWinRateCheck ? '✅' : '❌'}`);
-        console.log(`      Response playrate: ${response?.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${responsePlayrateCheck ? '✅' : '❌'}`);
+        log.log(`      Has response: ${hasResponse ? '✅' : '❌'}`);
+        log.log(`      Response games: ${response?.totalGames} > ${this.config.MINGAMES} = ${responseGamesCheck ? '✅' : '❌'}`);
+        log.log(`      Response win rate: ${response?.winRate?.toFixed(3)} > 0 = ${responseWinRateCheck ? '✅' : '❌'}`);
+        log.log(`      Response playrate: ${response?.playrate?.toFixed(4)} > ${this.config.MINPLAYRATE} = ${responsePlayrateCheck ? '✅' : '❌'}`);
 
         const isValid = hasResponse && responseGamesCheck && responseWinRateCheck && responsePlayrateCheck;
-        console.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+        log.log(`      Overall result: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
 
         return isValid;
     }
@@ -1385,11 +1390,11 @@ class BookBuilder {
      * Uses explicit move number captured at correct timing
      */
     updatePgn(currentPgn, opponentMove, ourMove, perspective, moveNumber = null) {
-        console.log(`[BookBuilder] updatePgn called:`);
-        console.log(`   currentPgn: "${currentPgn}"`);
-        console.log(`   opponentMove: "${opponentMove}"`);
-        console.log(`   ourMove: "${ourMove}"`);
-        console.log(`   perspective: "${perspective}"`);
+        log.log(`[BookBuilder] updatePgn called:`);
+        log.log(`   currentPgn: "${currentPgn}"`);
+        log.log(`   opponentMove: "${opponentMove}"`);
+        log.log(`   ourMove: "${ourMove}"`);
+        log.log(`   perspective: "${perspective}"`);
 
         try {
             // Create a new chess instance and load current position
@@ -1401,24 +1406,24 @@ class BookBuilder {
                 tempChess.loadPgn(currentPgn);
             }
 
-            console.log(`   Chess.js state before moves: turn=${tempChess.turn()}, moveNumber=${tempChess.moveNumber()}`);
+            log.log(`   Chess.js state before moves: turn=${tempChess.turn()}, moveNumber=${tempChess.moveNumber()}`);
 
             // Make both moves in sequence
             const opponentMoveResult = tempChess.move(opponentMove);
             if (!opponentMoveResult) {
                 throw new Error(`Invalid opponent move: ${opponentMove}`);
             }
-            console.log(`   Opponent move executed: ${opponentMoveResult.san}`);
+            log.log(`   Opponent move executed: ${opponentMoveResult.san}`);
 
             const ourMoveResult = tempChess.move(ourMove);
             if (!ourMoveResult) {
                 throw new Error(`Invalid our move: ${ourMove}`);
             }
-            console.log(`   Our move executed: ${ourMoveResult.san}`);
+            log.log(`   Our move executed: ${ourMoveResult.san}`);
 
             // Get the properly formatted PGN from chess.js
             const result = tempChess.pgn();
-            console.log(`   Chess.js generated PGN: "${result}"`);
+            log.log(`   Chess.js generated PGN: "${result}"`);
             return result;
 
         } catch (error) {
@@ -1568,8 +1573,8 @@ class BookBuilder {
         } catch (error) {
             // Log warning but return empty array to maintain backwards compatibility
             // This prevents crashes when encountering malformed PGN
-            console.warn(`[BookBuilder] Failed to parse PGN: ${error.message}`);
-            console.warn(`[BookBuilder] PGN input was: "${pgn.substring(0, 100)}..."`);
+            log.warn(`[BookBuilder] Failed to parse PGN: ${error.message}`);
+            log.warn(`[BookBuilder] PGN input was: "${pgn.substring(0, 100)}..."`);
             return []; // Return empty array as fallback
         }
     }

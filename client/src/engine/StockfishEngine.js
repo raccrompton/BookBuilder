@@ -51,6 +51,11 @@
  * ```
  * =============================================================================
  */
+
+// Logger: Configurable logging - toggle with Logger.setEnabled('StockfishEngine', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('StockfishEngine');
+
 class StockfishEngine {
     /**
      * Constructor - Initialize Stockfish engine configuration
@@ -125,7 +130,9 @@ class StockfishEngine {
         this.initializationPromise = new Promise((resolve, reject) => {
             try {
                 // Create Web Worker using Stockfish WebAssembly build directly
-                this.worker = new Worker('./src/vendor/stockfish-web/sf171-79.js');
+                // The { type: 'module' } option is required because the Stockfish WASM file
+                // uses ES module features like import.meta.url for loading resources
+                this.worker = new Worker('./src/vendor/stockfish-web/sf171-79.js', { type: 'module' });
 
                 // Set up direct UCI message handling
                 this.worker.onmessage = (event) => {
@@ -133,7 +140,7 @@ class StockfishEngine {
                 };
 
                 this.worker.onerror = (error) => {
-                    console.error('Stockfish WebAssembly worker error:', error);
+                    log.error('Stockfish WebAssembly worker error:', error);
                     reject(new Error(`WebAssembly worker error: ${error.message}`));
                 };
 

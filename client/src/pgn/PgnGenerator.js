@@ -55,6 +55,10 @@
  * =============================================================================
  */
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('PgnGenerator', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('PgnGenerator');
+
 class PgnGenerator {
     /**
      * Constructor - Initialize PGN generator with configuration
@@ -145,7 +149,7 @@ class PgnGenerator {
 
             // Create a simple PGN string from moves array
             const movesOnly = line.moves.map(move => move.san).join(' ');
-            console.log(`[PgnGenerator] Raw moves: ${movesOnly}`);
+            log.log(`[PgnGenerator] Raw moves: ${movesOnly}`);
 
             // Let chess.js parse and reformat it properly
             if (movesOnly.trim()) {
@@ -160,7 +164,7 @@ class PgnGenerator {
                     for (const completionMove of completion) {
                         const result = chess.move(completionMove.san);
                         if (!result) {
-                            console.warn(`[PgnGenerator] Invalid engine completion move: ${completionMove.san}`);
+                            log.warn(`[PgnGenerator] Invalid engine completion move: ${completionMove.san}`);
                             break;
                         }
                     }
@@ -169,11 +173,11 @@ class PgnGenerator {
 
             // Get properly formatted PGN from chess.js
             const properPgn = chess.pgn();
-            console.log(`[PgnGenerator] Chess.js formatted PGN: ${properPgn}`);
+            log.log(`[PgnGenerator] Chess.js formatted PGN: ${properPgn}`);
             return properPgn;
 
         } catch (error) {
-            console.error(`[PgnGenerator] Error with chess.js PGN generation: ${error.message}`);
+            log.error(`[PgnGenerator] Error with chess.js PGN generation: ${error.message}`);
             // Re-throw to surface the error rather than falling back silently
             throw error;
         }
@@ -185,21 +189,21 @@ class PgnGenerator {
    * @returns {string} Formatted annotations block
    */
     formatMoveAnnotations(line) {
-        console.log(`   📈 [PgnGenerator] formatMoveAnnotations called`); // Log function entry for debugging
+        log.log(`   📈 [PgnGenerator] formatMoveAnnotations called`); // Log function entry for debugging
         let annotations = '{Move playrates:\n'; // Start annotation block with header
 
         // Add individual move playrates from likelihoodPath (contains {san, playrate} objects)
         // Format: "e4 55.79%, d4 48.12%." - readable on one line with commas between moves
         if (line.likelihoodPath && line.likelihoodPath.length > 0) { // Check if we have move data
-            console.log(`      Processing ${line.likelihoodPath.length} moves from likelihood path:`); // Log move count
+            log.log(`      Processing ${line.likelihoodPath.length} moves from likelihood path:`); // Log move count
             const moveAnnotations = []; // Collect move annotations to join with commas
             for (let i = 0; i < line.likelihoodPath.length; i++) { // Loop through each move
                 const move = line.likelihoodPath[i]; // Get current move object
-                console.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`); // Log move details
+                log.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`); // Log move details
                 if (move.playrate !== undefined && move.san) { // Only add if we have both playrate and move notation
                     const playratePercent = (move.playrate * 100).toFixed(2); // Convert decimal to percentage
                     const moveAnnotation = `+${playratePercent}% ${move.san}`; // Format: "+55.79% e4" (+ prefix, percentage before move)
-                    console.log(`            Adding annotation: "${moveAnnotation}"`); // Log the annotation
+                    log.log(`            Adding annotation: "${moveAnnotation}"`); // Log the annotation
                     moveAnnotations.push(moveAnnotation); // Add to collection
                 }
             }
@@ -208,22 +212,22 @@ class PgnGenerator {
                 annotations += moveAnnotations.join(', ') + '.\n'; // "e4 55.79%, d4 48.12%."
             }
         } else {
-            console.log(`      No likelihood path available (${line.likelihoodPath?.length || 0} moves)`); // Log missing data
+            log.log(`      No likelihood path available (${line.likelihoodPath?.length || 0} moves)`); // Log missing data
         }
 
         // Add line statistics - separated by period from move playrates
-        console.log(`      Adding line statistics...`); // Log statistics section start
+        log.log(`      Adding line statistics...`); // Log statistics section start
         if (line.statistics) { // Check if statistics object exists
-            console.log(`         Using line.statistics:`, line.statistics); // Log raw statistics
+            log.log(`         Using line.statistics:`, line.statistics); // Log raw statistics
             const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2); // Convert to percentage
             const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`; // + sign prefix, no period
-            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
+            log.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
 
             if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) { // Check for winrate data
                 const winratePercent = (line.statistics.winrate * 100).toFixed(2); // Convert to percentage
                 const gamesFormatted = line.statistics.totalGames.toLocaleString(); // Format with commas (eg "1,234")
-                console.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`); // Log values
+                log.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`); // Log values
 
                 let winrateDescription; // Build description based on draw handling setting
                 if (this.config.DRAWSAREHALF === 0) { // If draws are excluded from winrate
@@ -233,24 +237,24 @@ class PgnGenerator {
                 }
 
                 const winrateAnnotation = `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`; // + sign prefix
-                console.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
+                log.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
                 annotations += winrateAnnotation; // Add to output (no newline before closing brace)
             } else {
-                console.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`); // Log missing data
+                log.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`); // Log missing data
             }
         } else if (line.cumulativeLikelihood) { // Fallback if no statistics object but have cumulative likelihood
-            console.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`); // Log fallback source
+            log.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`); // Log fallback source
             // Use cumulativeLikelihood from line object if no statistics
             const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2); // Convert to percentage
             const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%`; // + sign prefix
-            console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
+            log.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
         } else {
-            console.log(`         No statistics or cumulative likelihood available`); // Log missing data
+            log.log(`         No statistics or cumulative likelihood available`); // Log missing data
         }
 
         annotations += '}'; // Close annotation block
-        console.log(`      Final annotations block: ${annotations.split('\n').length} lines`); // Log line count
+        log.log(`      Final annotations block: ${annotations.split('\n').length} lines`); // Log line count
         return annotations; // Return complete annotation string
     }
 
@@ -298,7 +302,7 @@ class PgnGenerator {
                 }
             }
         } catch (error) {
-            console.warn('Engine completion failed:', error.message);
+            log.warn('Engine completion failed:', error.message);
         }
 
         return completionMoves;
@@ -312,28 +316,28 @@ class PgnGenerator {
    * @returns {string} Single PGN line
    */
     generateSingleLine(line, eventName) {
-        console.log(`📋 [PgnGenerator] generateSingleLine called:`);
-        console.log(`   Event name: ${eventName}`);
-        console.log(`   Line PGN: "${line.pgn || 'EMPTY'}"`);
-        console.log(`   Line data:`, {
+        log.log(`📋 [PgnGenerator] generateSingleLine called:`);
+        log.log(`   Event name: ${eventName}`);
+        log.log(`   Line PGN: "${line.pgn || 'EMPTY'}"`);
+        log.log(`   Line data:`, {
             cumulativeLikelihood: line.cumulativeLikelihood?.toFixed(6),
             likelihoodPathLength: line.likelihoodPath?.length || 0,
             hasStatistics: !!line.statistics
         });
 
         const header = `[Event "${eventName}"]`;
-        console.log(`   Generated header: ${header}`);
+        log.log(`   Generated header: ${header}`);
 
         // Use the pgn string directly - it contains the actual move sequence
         const moves = line.pgn || '';
-        console.log(`   Moves section: "${moves}"`);
+        log.log(`   Moves section: "${moves}"`);
 
-        console.log(`   Generating move annotations...`);
+        log.log(`   Generating move annotations...`);
         const annotations = this.formatMoveAnnotations(line);
-        console.log(`   Generated annotations: ${annotations.split('\n')[0]}... (${annotations.split('\n').length} lines)`);
+        log.log(`   Generated annotations: ${annotations.split('\n')[0]}... (${annotations.split('\n').length} lines)`);
 
         const result = `${header}\n\n${moves}\n${annotations}`;
-        console.log(`✅ [PgnGenerator] Single line generated (${result.length} characters)`);
+        log.log(`✅ [PgnGenerator] Single line generated (${result.length} characters)`);
 
         return result;
     }
