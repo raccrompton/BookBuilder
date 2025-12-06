@@ -1,59 +1,203 @@
 /**
- * Move Selection Algorithm for BookBuilder
+ * =============================================================================
+ * MoveSelector.js - Move Selection Algorithm for BookBuilder
+ * =============================================================================
  *
- * Implements engine-validated move filtering with soundness limits
- * matching the Python legacy system's move selection logic.
+ * PURPOSE:
+ * This class is the "brain" that decides which chess move to recommend in the
+ * repertoire. Given a list of candidate moves (from the Lichess database),
+ * it picks the best one using a combination of:
+ *
+ * 1. DATA QUALITY FILTERING: Remove moves with too few games (unreliable stats)
+ * 2. ENGINE VALIDATION: Optionally check that moves aren't tactically bad
+ * 3. STATISTICAL SELECTION: Pick the move with the best win rate confidence
+ *
+ * THE SELECTION PROBLEM:
+ * How do you pick a chess move? There are competing factors:
+ * - Popular moves: Played often, lots of data, but might be "safe" not "best"
+ * - High win rate: Looks good, but might have few games (unreliable)
+ * - Engine-approved: Computer says it's good, but might be unpractical for humans
+ *
+ * OUR APPROACH (matches Python legacy system):
+ * 1. Filter out moves with poor data quality (too few games, too low play rate)
+ * 2. If engine validation is enabled, filter out tactically unsound moves
+ * 3. Among remaining moves, pick the one with the best "lower bound" win rate
+ *    (Using confidence intervals - see Statistics.js for explanation)
+ *
+ * KEY CONCEPTS:
+ * - SOUNDNESS LIMIT: Maximum allowed "centipawn loss" from the best move
+ *   If engine says e4 is +50 and d4 is +20, d4 has 30 centipawn loss
+ *   (100 centipawns = 1 pawn advantage in chess evaluation)
+ *
+ * - CONFIDENCE INTERVAL: Statistical range where the true win rate likely falls
+ *   With few games, we're less confident, so the "lower bound" is lower
+ *   This naturally prefers moves with more games (more confidence)
+ *
+ * DEPENDENCIES:
+ * - DeterministicMode: For testing with reproducible results
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const selector = new MoveSelector({ MINGAMES: 50, CAREABOUTENGINE: 1 });
+ * const result = await selector.selectBestMove(
+ *   { fen: '...', perspective: 'white' },
+ *   candidateMoves,
+ *   stockfishEngine,
+ *   statisticsEngine
+ * );
+ * console.log(result.selectedMove.san);  // 'e4'
+ * ```
+ * =============================================================================
  */
 
+// DeterministicMode: Used for testing to get reproducible results
+// (Not actively used in current code but imported for future use)
 import { DeterministicMode } from '../config/DeterministicMode.js';
 
+/**
+ * MoveSelector Class - Picks the best move from candidates
+ */
 class MoveSelector {
+    /**
+     * Constructor - Initialize the move selector with configuration
+     *
+     * @param {Object} config - Configuration object with selection parameters
+     *   @param {number} config.CAREABOUTENGINE - 1 to use engine validation, 0 to skip
+     *   @param {number} config.SOUNDNESSLIMIT - Max centipawn loss allowed (negative = stricter)
+     *   @param {number} config.LOSSLIMIT - Secondary loss threshold
+     *   @param {number} config.IGNORELOSSLIMIT - Eval threshold above which loss limit is ignored
+     *   @param {number} config.MINPLAYRATE - Minimum play rate for move consideration (0-1)
+     *   @param {number} config.MINGAMES - Minimum games required for statistical significance
+     *   @param {number} config.ALPHA - Confidence level for statistical intervals (e.g., 0.05 = 95%)
+     */
     constructor(config = {}) {
+        // Merge provided config with defaults
+        // The spread operator (...config) at the end ensures user values override defaults
         this.config = {
-            CAREABOUTENGINE: config.CAREABOUTENGINE || 1,
+            // ENGINE VALIDATION SETTINGS
+            // ---------------------------
+            CAREABOUTENGINE: config.CAREABOUTENGINE || 1,  // 1 = validate with engine, 0 = skip
+
+            // Maximum allowed centipawn loss from best move
+            // -99 means moves can be up to 99 centipawns worse than engine's best
+            // Negative value is used because we compare: if (loss > Math.abs(SOUNDNESSLIMIT))
             SOUNDNESSLIMIT: config.SOUNDNESSLIMIT || -99,
+
+            // Secondary loss limit (for moves that aren't the engine's best)
             LOSSLIMIT: config.LOSSLIMIT || -99,
+
+            // Evaluation threshold where LOSSLIMIT is ignored
+            // If position eval > 300 centipawns, we're winning so much that small losses don't matter
             IGNORELOSSLIMIT: config.IGNORELOSSLIMIT || 300,
+
+            // DATA QUALITY THRESHOLDS
+            // -----------------------
+            // Minimum play rate (as decimal, not percentage)
+            // 0.001 = 0.1% of games at this position must play this move
             MINPLAYRATE: config.MINPLAYRATE || 0.001,
+
+            // Minimum number of games for statistical significance
+            // With fewer games, win rate statistics are unreliable
             MINGAMES: config.MINGAMES || 19,
+
+            // STATISTICAL SELECTION SETTINGS
+            // ------------------------------
+            // Alpha for confidence interval (0.001 = 99.9% confidence)
+            // Lower alpha = wider confidence interval = more conservative
             ALPHA: config.ALPHA || 0.001,
+
+            // Include all other config properties passed by user
             ...config
         };
     }
 
     /**
-   * Select the best move from candidates using statistics and engine validation
-   * @param {Object} position - Current chess position with FEN
-   * @param {Array} candidates - Array of candidate moves with statistics
-   * @param {Object} engineClient - Stockfish engine client
-   * @param {Object} statisticsEngine - Statistics calculation engine
-   * @returns {Promise<Object>} Selected move with analysis
-   */
+     * =========================================================================
+     * SELECT BEST MOVE - Main entry point for move selection
+     * =========================================================================
+     *
+     * WHAT THIS METHOD DOES:
+     * This is the main method that picks the best move from a list of candidates.
+     * It runs through a pipeline of filters:
+     *
+     * STEP 1: DATA QUALITY FILTER
+     * Remove moves with too few games or too low play rate.
+     * Moves with sparse data have unreliable statistics.
+     *
+     * STEP 2: ENGINE VALIDATION (optional)
+     * If CAREABOUTENGINE=1, ask Stockfish to evaluate moves.
+     * Remove moves that are tactically unsound (too much centipawn loss).
+     *
+     * STEP 3: STATISTICAL SELECTION
+     * Among remaining moves, pick the one with the highest "lower bound"
+     * win rate from confidence interval analysis.
+     *
+     * @param {Object} position - Current chess position
+     *   @param {string} position.fen - Position in FEN notation
+     *   @param {string} position.perspective - 'white' or 'black' (whose repertoire)
+     *
+     * @param {Array} candidates - Array of candidate move objects from Lichess
+     *   Each candidate has: {san, uci, white, black, draws, playrate, totalGames}
+     *
+     * @param {Object} engineClient - Stockfish engine instance (or null to skip engine)
+     *   Should have methods: getBestMove(), analyzeMove(), evaluatePosition()
+     *
+     * @param {Object} statisticsEngine - Statistics calculation utility
+     *   Should have methods: calculateWinRate(), calculateConfidenceInterval()
+     *
+     * @returns {Promise<Object>} Selection result containing:
+     *   - selectedMove: The chosen move object with added statistics
+     *   - engineAnalysis: Engine evaluation data (if used)
+     *   - candidateCount: Original number of candidates
+     *   - qualityFiltered: How many moves failed data quality check
+     *   - engineFiltered: How many moves failed engine check
+     *   - selectionReason: Human-readable explanation
+     */
     async selectBestMove(position, candidates, engineClient, statisticsEngine) {
+        // Log entry point for debugging
         console.log(`🎯 [MoveSelector] selectBestMove called with ${candidates?.length || 0} candidates for position:`, position?.fen || 'no-fen');
 
+        // ---------------------------------------------------------------------
+        // GUARD CLAUSE: Return early if no candidates
+        // ---------------------------------------------------------------------
+        // Guard clauses handle edge cases at the top of the function
+        // This prevents nested if-statements and makes code cleaner
         if (!candidates || candidates.length === 0) {
             console.log(`❌ [MoveSelector] No candidates provided, returning null`);
             return null;
         }
 
+        // Log overview of all candidates for debugging
+        // .map() transforms each candidate into a simpler object for logging
         console.log(`📊 [MoveSelector] Candidate moves overview:`, candidates.map(c => ({
-            san: c.san || c.uci,
-            games: c.white + c.black + c.draws,
-            playrate: c.playrate,
-            winRate: ((c.white || 0) / ((c.white || 0) + (c.black || 0) + (c.draws || 0))).toFixed(3)
+            san: c.san || c.uci,                                                   // Move notation
+            games: c.white + c.black + c.draws,                                    // Total games
+            playrate: c.playrate,                                                  // How often played (0-1)
+            winRate: ((c.white || 0) / ((c.white || 0) + (c.black || 0) + (c.draws || 0))).toFixed(3)  // Quick win rate calc
         })));
 
-        // Filter candidates by data quality first
+        // =====================================================================
+        // STEP 1: DATA QUALITY FILTERING
+        // =====================================================================
+        // Filter out moves that don't have enough data for reliable statistics.
+        // This prevents recommending obscure moves based on just a few games.
         console.log(`🔍 [MoveSelector] Starting data quality validation...`);
+
+        // .filter() creates a new array with only elements that pass the test
+        // The callback receives (element, index) - we use both for logging
         const qualityCandidates = candidates.filter((move, index) => {
+            // Check if this move meets minimum data quality thresholds
             const isValid = this._validateMoveDataQuality(move, statisticsEngine);
+
+            // Log result for each candidate (helps debug why moves were rejected)
             console.log(`   ${isValid ? '✅' : '❌'} [MoveSelector] Candidate ${index + 1}: ${move.san || move.uci} - ${isValid ? 'PASSED' : 'FAILED'} quality check (games: ${move.white + move.black + move.draws}, playrate: ${move.playrate})`);
-            return isValid;
+
+            return isValid;  // Return true to keep, false to filter out
         });
 
         console.log(`📊 [MoveSelector] Quality filter results: ${qualityCandidates.length}/${candidates.length} candidates passed`);
 
+        // If all candidates failed quality check, we can't recommend anything
         if (qualityCandidates.length === 0) {
             console.log(`❌ [MoveSelector] No candidates passed quality filter, returning null`);
             return null;

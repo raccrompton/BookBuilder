@@ -1,110 +1,318 @@
 /**
+ * =============================================================================
  * BookBuilder.js - Main orchestrator for chess opening repertoire generation
+ * =============================================================================
  *
- * This class implements the complete workflow for analyzing chess openings using
- * Lichess database statistics and generating annotated PGN files. It coordinates
- * all components to replicate the Python BookBuilder behavior exactly.
+ * PURPOSE:
+ * This is the "brain" of the entire application. It coordinates all the different
+ * components to build a chess opening repertoire - a collection of recommended
+ * moves for various chess positions.
+ *
+ * WHAT IS A CHESS REPERTOIRE?
+ * Think of it like a playbook in sports. Instead of improvising every move,
+ * chess players prepare specific responses to common opponent moves. This file
+ * helps generate those responses by:
+ * 1. Looking up what moves are popular in real games (via Lichess database)
+ * 2. Analyzing which responses give the best winning chances
+ * 3. Generating a PGN file (chess notation format) with all the recommended lines
+ *
+ * HOW IT WORKS (HIGH LEVEL):
+ * 1. User provides a starting position (e.g., "1. e4" for King's Pawn opening)
+ * 2. We query Lichess to see what opponents typically play
+ * 3. For each opponent response, we find our best counter-move
+ * 4. We continue this process, building a "tree" of variations
+ * 5. Finally, we output everything as a PGN file
+ *
+ * ARCHITECTURE PATTERN:
+ * This class follows the "Orchestrator" pattern - it doesn't do the actual work
+ * itself, but coordinates other specialized classes:
+ * - ChessEngine: Validates moves and tracks board state
+ * - LichessClient: Fetches real game statistics from Lichess API
+ * - MoveSelector: Chooses the best moves based on statistics
+ * - PgnGenerator: Formats output into standard chess notation
+ *
+ * DEPENDENCIES (what other files this needs):
+ * - DeterministicMode: Testing utility for reproducible results
+ * - ChessEngine: Chess move validation using chess.js library
+ * - LichessClient: HTTP client for Lichess Explorer API
+ * - StockfishEngine: Optional computer analysis for deep positions
+ * - Statistics: Win rate and probability calculations
+ * - MoveSelector: Move selection algorithm
+ * - PgnGenerator: PGN formatting utilities
  *
  * Based on comprehensive Python analysis and refactoring strategy from:
  * - @client/claudedocs/step6-analysis/python-bookbuilder-analysis.md
  * - @client/claudedocs/step6-analysis/javascript-refactoring-strategy.md
+ * =============================================================================
  */
 
+// =============================================================================
+// IMPORTS - Loading the modules (classes) this file depends on
+// =============================================================================
+
+// DeterministicMode: Used for testing - makes random operations predictable
+// In production: does nothing. In tests: ensures consistent, reproducible results
 import { DeterministicMode } from './config/DeterministicMode.js';
+
+// ChessEngine: Wrapper around chess.js library for move validation
+// Tracks the board state, validates moves, generates FEN strings
 import ChessEngine from './chess/ChessEngine.js';
+
+// LichessClient: Makes HTTP requests to Lichess's game database API
+// Returns statistics like "e4 was played in 1 million games with 55% white wins"
 import LichessClient from './api/LichessClient.js';
+
+// StockfishEngine: Interface to Stockfish chess engine (runs in WebAssembly)
+// Used when database has no good moves - asks computer for best move instead
 import StockfishEngine from './engine/StockfishEngine.js';
+
+// Statistics: Mathematical calculations for win rates and confidence intervals
+// Converts raw game counts into meaningful percentages
 import Statistics from './stats/Statistics.js';
+
+// MoveSelector: The "decision brain" - chooses which move to recommend
+// Uses statistics + engine evaluation to pick the best response
 import MoveSelector from './algorithm/MoveSelector.js';
+
+// PgnGenerator: Formats our analysis into PGN (Portable Game Notation)
+// PGN is the standard text format for sharing chess games
 import PgnGenerator from './pgn/PgnGenerator.js';
 
 /**
+ * =============================================================================
  * Main BookBuilder class that orchestrates all components
- * Replaces Python's Grower, Rooter, Leafer, and Printer classes
+ * =============================================================================
+ *
+ * DESIGN PATTERN: Orchestrator / Facade
+ * This class coordinates multiple specialized components without doing
+ * the detailed work itself. Think of it as a "general manager" that
+ * delegates tasks to specialists.
+ *
+ * REPLACES PYTHON CLASSES:
+ * The original Python codebase had separate classes (Grower, Rooter, Leafer, Printer).
+ * This JavaScript version consolidates them into one class for simplicity,
+ * while keeping the same logical flow.
  */
 class BookBuilder {
+    /**
+     * Constructor - Initialize the BookBuilder with configuration and dependencies
+     *
+     * WHAT IS A CONSTRUCTOR?
+     * In JavaScript classes, the constructor() method runs automatically when you
+     * create a new instance with "new BookBuilder(config)". It sets up the initial
+     * state of the object.
+     *
+     * DESIGN PATTERN: Dependency Injection
+     * Instead of creating dependencies inside methods (tight coupling), we create
+     * them once in the constructor and store them as instance properties (this.xxx).
+     * This makes the code easier to test and modify.
+     *
+     * @param {Object} config - Configuration object containing all user settings
+     *   - speeds: Array of time controls to include (e.g., ['blitz', 'rapid'])
+     *   - ratings: Array of rating bands to include (e.g., ['2000', '2200'])
+     *   - DEPTHLIKELIHOOD: Minimum probability threshold for exploring moves
+     *   - MINGAMES: Minimum games required for statistical significance
+     *   - CAREABOUTENGINE: Boolean - whether to use Stockfish for analysis
+     *   - etc.
+     *
+     * @param {Function|null} progressCallback - Optional callback function for progress updates
+     *   Called with progress data object: {stage, current, total, percentage, message}
+     *   Useful for updating a progress bar in the UI
+     */
     constructor(config, progressCallback = null) {
-        // Dependency injection instead of Python's global variables
+        // ---------------------------------------------------------------------
+        // STEP 1: Store configuration
+        // ---------------------------------------------------------------------
+        // "this.config" makes the config accessible to all methods in this class
+        // The "this" keyword refers to the current instance of BookBuilder
         this.config = config;
-        this.chessEngine = new ChessEngine(); // Main engine for root analysis
+
+        // ---------------------------------------------------------------------
+        // STEP 2: Create helper instances (Dependency Injection)
+        // ---------------------------------------------------------------------
+        // Each of these is a specialized class that handles one responsibility
+
+        // ChessEngine: Validates moves and tracks the board position
+        // Used for the root position analysis at the start
+        this.chessEngine = new ChessEngine();
+
+        // LichessClient: HTTP client for fetching game statistics from Lichess API
+        // Returns data like "1. e4 was played in 3 million games"
         this.lichessClient = new LichessClient();
+
+        // MoveSelector: Algorithm that chooses the best move from candidates
+        // Takes statistics and returns the recommended move
         this.moveSelector = new MoveSelector(config);
+
+        // Statistics: Math utilities for win rate calculations
+        // Converts game counts into percentages with confidence intervals
         this.statisticsEngine = new Statistics();
+
+        // PgnGenerator: Formats output into PGN (chess notation) format
+        // Creates properly formatted chess game records
         this.pgnGenerator = new PgnGenerator(config);
+
+        // StockfishEngine: Chess computer for positions with no database data
+        // Only created if user enabled engine analysis (saves resources)
+        // The "? :" is a ternary operator - shorthand for if/else
         this.stockfishEngine = config.CAREABOUTENGINE ? new StockfishEngine() : null;
 
-        // Progress tracking system
+        // ---------------------------------------------------------------------
+        // STEP 3: Progress tracking system
+        // ---------------------------------------------------------------------
+        // Allows the UI to show progress bars and status messages
+
+        // Store the callback function for later use
+        // A "callback" is a function passed as an argument to be called later
         this.progressCallback = progressCallback;
 
-        // DEBUG: Log progress callback setup
+        // Debug logging helps developers understand what's happening
         console.log('🔧 [BookBuilder] Constructor called with progress callback:', {
-            hasCallback: !!progressCallback,
-            callbackType: typeof progressCallback,
+            hasCallback: !!progressCallback,        // !! converts to boolean (true if exists)
+            callbackType: typeof progressCallback,  // Should be 'function' or 'object'
             isFunction: typeof progressCallback === 'function'
         });
 
+        // Initialize progress state object to track various metrics
+        // This object gets updated as processing progresses
         this.progressState = {
-            stage: 'Initializing',
-            currentPosition: 0,
-            totalEstimated: 0,
-            startTime: null,
-            lastUpdate: null,
-            positionsProcessed: 0,
-            linesGenerated: 0,
-            movesAnalyzed: 0,
-            continuationsFound: 0
+            stage: 'Initializing',           // Current phase of processing
+            currentPosition: 0,              // Which position we're analyzing
+            totalEstimated: 0,               // Estimated total positions
+            startTime: null,                 // When processing started (for ETA calc)
+            lastUpdate: null,                // Timestamp of last progress update
+            positionsProcessed: 0,           // Counter of positions analyzed
+            linesGenerated: 0,               // Counter of complete lines created
+            movesAnalyzed: 0,                // Counter of individual moves evaluated
+            continuationsFound: 0            // Counter of valid continuations found
         };
 
-        // Create Lichess API options from user configuration (fixes parameter consistency bug)
+        // ---------------------------------------------------------------------
+        // STEP 4: Create Lichess API options from user configuration
+        // ---------------------------------------------------------------------
+        // These options are passed with every Lichess API request
+        // They filter which games to include in the statistics
+
         this.lichessApiOptions = {
+            // Array.isArray() checks if speeds is an array (could be string too)
+            // .join(',') converts ['blitz', 'rapid'] to 'blitz,rapid' (API format)
+            // The || operator provides a default value if the first part is falsy
             speeds: Array.isArray(config.speeds) ? config.speeds.join(',') : (config.speeds || 'blitz,rapid,classical,correspondence'),
+
+            // Same pattern for ratings - convert array to comma-separated string
             ratings: Array.isArray(config.ratings) ? config.ratings.join(',') : (config.ratings || '1600,1800,2000,2200,2500'),
+
+            // We only support standard chess (not Chess960, etc.)
             variant: 'standard'
         };
 
         console.log('🔧 [BookBuilder] Lichess API options created:', this.lichessApiOptions);
 
-        // State management (replaces Python's global finalLine and pgnsreturned)
+        // ---------------------------------------------------------------------
+        // STEP 5: State management for processing
+        // ---------------------------------------------------------------------
+        // These arrays track our work as we build the repertoire
+
+        // finalLines: Completed analysis lines ready for output
+        // Each item contains: pgn, moves, statistics, etc.
         this.finalLines = [];
+
+        // processingQueue: Lines that still need more analysis
+        // We process this queue until it's empty (breadth-first search pattern)
         this.processingQueue = [];
 
-        // Performance and error handling (use config values)
-        this.BATCH_SIZE = config.BATCH_SIZE || 5; // Process moves in batches to avoid overwhelming API
-        this.API_DELAY = config.API_DELAY || 100; // Milliseconds between API calls
+        // ---------------------------------------------------------------------
+        // STEP 6: Performance tuning parameters
+        // ---------------------------------------------------------------------
+        // These prevent us from overwhelming the Lichess API with too many requests
+
+        // BATCH_SIZE: How many positions to analyze in parallel
+        // Too high = API rate limiting, too low = slow processing
+        this.BATCH_SIZE = config.BATCH_SIZE || 5;
+
+        // API_DELAY: Milliseconds to wait between API request batches
+        // Respects Lichess rate limits and prevents being blocked
+        this.API_DELAY = config.API_DELAY || 100;
     }
 
     /**
-     * Main orchestration method (replaces Python's Grower.run())
-     * Processes all openings from configuration and generates PGN files
+     * =========================================================================
+     * Main orchestration method - Entry point for processing openings
+     * =========================================================================
      *
-     * @param {Object} config - Configuration object with openings array
-     * @returns {Object} - Results object with chapter names as keys and PGN content as values
+     * WHAT THIS METHOD DOES:
+     * This is the main entry point for generating a chess repertoire. It:
+     * 1. Loops through all the openings the user wants to analyze
+     * 2. Generates a "chapter" (PGN file) for each opening
+     * 3. Returns all chapters as a results object
+     *
+     * REPLACES: Python's Grower.run() method
+     *
+     * WHY "async"?
+     * The "async" keyword means this function can use "await" to pause for
+     * asynchronous operations (like API calls) without blocking the browser.
+     * Without async/await, we'd need complex callback chains or .then() calls.
+     *
+     * @param {Object} config - Configuration object containing:
+     *   - openings: Array of opening objects, each with {name, moves, perspective}
+     *   - Various threshold settings (MINGAMES, DEPTHLIKELIHOOD, etc.)
+     *
+     * @returns {Promise<Object>} - Results object where:
+     *   - Keys are filename strings like "Chapter_1_Italian_Game.pgn"
+     *   - Values are the PGN content for each chapter
+     *
+     * @example
+     * const results = await bookBuilder.processOpening({
+     *   openings: [{ name: 'Italian Game', moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'] }]
+     * });
+     * // results = { 'Chapter_1_Italian_Game.pgn': '[Event "Italian Game"]\n1. e4 e5...' }
      */
     async processOpening(config) {
+        // Initialize empty results object to collect all chapter outputs
+        // JavaScript objects can use strings as keys, making them like dictionaries
         const results = {};
 
+        // Log startup banner for debugging and user feedback
+        // These logs appear in the browser's developer console (F12)
         console.log(`[BookBuilder] ========================================`);
         console.log(`[BookBuilder] STARTING CHESS ENGINE STATE FIXED VERSION`);
         console.log(`[BookBuilder] Processing ${config.openings.length} opening(s)`);
         console.log(`[BookBuilder] Enhanced with move validation & isolated engines`);
         console.log(`[BookBuilder] ========================================`);
 
+        // Loop through each opening in the configuration
+        // We start at chapter 1 (not 0) for human-readable chapter numbers
         for (let chapter = 1; chapter <= config.openings.length; chapter++) {
+            // Array indices are 0-based, so subtract 1 to get correct opening
+            // Example: chapter 1 → config.openings[0]
             const opening = config.openings[chapter - 1];
             console.log(`Processing Chapter ${chapter}: ${opening.name}`);
 
             try {
+                // Generate the full analysis for this opening
+                // "await" pauses here until generateChapter() completes
                 const chapterContent = await this.generateChapter(opening, chapter);
+
+                // Create a filename-safe version of the opening name
+                // .replace(/\s+/g, '_') converts spaces to underscores
+                // The 'g' flag means "global" - replace ALL spaces, not just first
                 const fileName = `Chapter_${chapter}_${opening.name.replace(/\s+/g, '_')}.pgn`;
+
+                // Store the chapter content in results object
                 results[fileName] = chapterContent;
 
                 console.log(`✅ Completed Chapter ${chapter}: ${opening.name} - ${this.finalLines.length} lines generated`);
+
             } catch (error) {
+                // If anything goes wrong, log the error and re-throw
+                // Re-throwing allows the calling code to handle the error too
                 console.error(`❌ Failed to generate Chapter ${chapter}: ${error.message}`);
                 throw new Error(`Chapter ${chapter} generation failed: ${error.message}`);
             }
         }
 
+        // Log completion summary
+        // Object.keys(results).length counts how many chapters we generated
         console.log(`[BookBuilder] ========================================`);
         console.log(`[BookBuilder] 🎉 ALL CHAPTERS COMPLETED SUCCESSFULLY!`);
         console.log(`[BookBuilder] ✅ Chess engine state fixes implemented`);
@@ -113,53 +321,110 @@ class BookBuilder {
         console.log(`[BookBuilder] Generated ${Object.keys(results).length} chapter files`);
         console.log(`[BookBuilder] ========================================`);
 
+        // Return the complete results object with all chapters
         return results;
     }
 
     /**
-     * Chapter generation method (replaces Python's Grower.iterator())
-     * Coordinates the complete analysis workflow for a single opening
+     * =========================================================================
+     * Chapter generation method - Creates one chapter of the repertoire
+     * =========================================================================
      *
-     * @param {Object} opening - Opening configuration with name and fen
-     * @param {number} chapterNumber - Chapter number for output naming
-     * @returns {string} - Complete PGN content for the chapter
+     * WHAT THIS METHOD DOES:
+     * This is the core workflow for analyzing a single opening. It runs in
+     * three phases, like building a tree:
+     *
+     * PHASE 1 - ROOT ANALYSIS:
+     * Start from the user's input moves and find what opponents typically play.
+     * Example: User inputs "1. e4" → We find that opponents play e5, c5, e6, etc.
+     *
+     * PHASE 2 - LINE EXPANSION:
+     * For each opponent response, find our best counter-move, then find their
+     * responses to that, and so on. This builds a "tree" of variations.
+     *
+     * PHASE 3 - OUTPUT GENERATION:
+     * Convert all the analyzed lines into a structured format for the PGN generator.
+     *
+     * REPLACES: Python's Grower.iterator() method
+     *
+     * @param {Object} opening - Opening configuration containing:
+     *   - name: Human-readable name like "Italian Game"
+     *   - moves: Array of starting moves like ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4']
+     *   - perspective: 'white' or 'black' - which side we're building the repertoire for
+     *
+     * @param {number} chapterNumber - Chapter number (1-based) for labeling output
+     *
+     * @returns {Promise<Object>} - Chapter data object containing:
+     *   - lines: Array of analyzed lines with statistics
+     *   - openingName: The opening's name
+     *   - metadata: Processing information
      */
     async generateChapter(opening, chapterNumber) {
-        // Reset state for each chapter (replaces Python's global resets)
-        this.finalLines = [];
-        this.processingQueue = [];
+        // =====================================================================
+        // RESET STATE for each chapter
+        // =====================================================================
+        // Clear previous results - each chapter starts fresh
+        // This prevents data from one opening "leaking" into another
+        this.finalLines = [];       // Completed lines ready for output
+        this.processingQueue = [];  // Lines waiting to be analyzed
 
-        // Store the opening perspective for consistent winrate calculations
+        // Store the opening perspective at class level for consistent winrate calculations
+        // "perspective" determines whose win rate we care about (white or black)
         this.openingPerspective = opening.perspective;
 
-        // Initialize progress tracking with estimated positions
+        // Initialize progress tracking for UI updates
+        // We estimate how many positions we'll analyze to show progress %
         const estimatedPositions = this.estimatePositionCount(opening);
         this.initializeProgress(estimatedPositions);
 
         try {
-            // Phase 1: Root analysis (replaces Python's Rooter class)
+            // =================================================================
+            // PHASE 1: ROOT ANALYSIS
+            // =================================================================
+            // This phase processes the user's input moves and sets up the
+            // initial position(s) for further analysis.
+            // Equivalent to Python's Rooter class
+
             console.log(`  Phase 1: Root analysis for ${opening.name}`);
+
+            // Emit progress update for UI
+            // "emit" means "send out" - we're sending data to whoever is listening
             this.emitProgress({
                 stage: 'Root Analysis',
                 currentMessage: `Analyzing opening moves for ${opening.name}...`
             });
 
+            // Analyze the root position and get initial continuations
+            // opening.moves might be empty [] for starting position, or have moves
             const rootResults = await this.analyzeRoot(opening.moves || [], opening.perspective);
+
+            // Add root results to processing queue using spread operator (...)
+            // The spread operator "unpacks" the array: [a, b] → a, b
             this.processingQueue.push(...rootResults);
             console.log(`  Found ${rootResults.length} initial continuations`);
 
+            // Update progress
             this.emitProgress({
                 positionsProcessed: 1,
                 currentMessage: `Root analysis complete. Found ${rootResults.length} continuations.`
             });
 
-            // Phase 2: Iterative expansion (replaces Python's Leafer loop)
+            // =================================================================
+            // PHASE 2: ITERATIVE LINE EXPANSION
+            // =================================================================
+            // This phase repeatedly processes positions from the queue,
+            // finding opponent responses and our counter-moves, until no
+            // more valid continuations exist.
+            // Equivalent to Python's Leafer loop
+
             console.log('  Phase 2: Iterative line expansion');
             this.emitProgress({
                 stage: 'Line Expansion',
                 currentMessage: 'Starting iterative position analysis...'
             });
 
+            // expandAllLines() processes the queue until empty
+            // Each processed line may add new lines to the queue
             await this.expandAllLines();
             console.log(`  Expansion complete. Final lines: ${this.finalLines.length}`);
 
@@ -168,14 +433,23 @@ class BookBuilder {
                 currentMessage: `Line expansion complete. Generated ${this.finalLines.length} lines.`
             });
 
-            // Phase 3: Output generation (NEW ARCHITECTURE - returns line data)
+            // =================================================================
+            // PHASE 3: OUTPUT GENERATION
+            // =================================================================
+            // This phase prepares the analyzed lines for formatting.
+            // Note: Actual PGN formatting is done by FileGenerator (separation of concerns)
+
             console.log('  Phase 3: Generating line data (NEW ARCHITECTURE)');
             this.emitProgress({
                 stage: 'Output Generation',
                 currentMessage: 'Generating final PGN output...'
             });
 
+            // Generate structured output data (not formatted PGN yet)
             const output = await this.generateOutput(opening.name, chapterNumber);
+
+            // Log output details for debugging
+            // The ?. is "optional chaining" - safely access properties that might not exist
             console.log('  📊 BookBuilder.generateChapter() returning:', {
                 type: typeof output,
                 isObject: typeof output === 'object',
@@ -183,7 +457,7 @@ class BookBuilder {
                 linesCount: output?.lines?.length || 'N/A'
             });
 
-            // Mark as complete
+            // Mark processing as 100% complete
             this.emitProgress({
                 positionsProcessed: this.progressState.totalEstimated,
                 percentage: 100,
@@ -193,6 +467,7 @@ class BookBuilder {
             return output;
 
         } catch (error) {
+            // Re-throw with additional context for debugging
             throw new Error(`Failed to generate chapter ${chapterNumber}: ${error.message}`);
         }
     }
@@ -592,6 +867,16 @@ class BookBuilder {
             return newLines;
 
         } catch (error) {
+            // Infrastructure failures should be re-thrown (not silently swallowed)
+            // These indicate real problems that need to be reported, not gracefully handled
+            if (error.message.includes('Failed to get position continuations') ||
+                error.message.includes('Invalid FEN') ||
+                error.message.includes('Engine state inconsistency')) {
+                throw error;
+            }
+
+            // Recoverable errors during line expansion (invalid moves, etc.)
+            // Log warning and finalize the line gracefully
             console.warn(`Error expanding line: ${error.message}`);
             await this.finalizeLine(lineData, isolatedEngine);
             return [];
