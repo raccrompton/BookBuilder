@@ -320,13 +320,15 @@ describe('MoveSelector - Step 4: Move Selection Algorithm', () => {
             });
             const selector = new MoveSelector(config);
 
-            const position = { fen: TestUtils.createTestPosition('kings-indian').fen };
+            // Use a FEN where black is to move (note 'b' for black's turn)
+            // Position after 1.e4 - black to respond
+            const position = { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1' };
             const candidates = [
                 {
-                    san: 'Nf6',
-                    uci: 'g8f6',
-                    white: 800000, // White wins more
-                    black: 1000000, // But black wins are what we care about
+                    san: 'e5',
+                    uci: 'e7e5',
+                    white: 800000, // White wins
+                    black: 1000000, // Black wins - what we care about from black's perspective
                     draws: 200000,
                     playrate: 0.4
                 }
@@ -339,8 +341,9 @@ describe('MoveSelector - Step 4: Move Selection Algorithm', () => {
                 statistics
             );
 
-            // Should calculate win rate from black's perspective
-            expect(result.selectedMove.winRate).toBeCloseTo(0.5, 2); // 1M/(0.8M+1M+0.2M)
+            // Should calculate win rate from black's perspective (black to move)
+            // blackPerc = 1M/(0.8M+1M+0.2M) = 0.5
+            expect(result.selectedMove.winRate).toBeCloseTo(0.5, 2);
         });
     });
 

@@ -9,9 +9,8 @@
     "test:coverage": "jest --coverage",
     "test:integration": "jest tests/integration.test.js",
     "test:ui": "jest tests/ui-automation.test.js",
-    "test:e2e": "jest tests/e2e-headless.test.js",
-    "test:all": "jest --testPathPattern='(integration|ui-automation|e2e-headless)'",
-    "test:quick": "jest --testPathPattern='ui-automation'",
+    "test:all": "jest --testPathPattern='(integration|ui-automation|bookbuilder)'",
+    "test:quick": "jest --testPathPattern='(unit|chess-engine)'",
     "dev": "http-server . -p 3000 -c-1 --ext js",
     "build": "npm run test:quick && npm run build:dist",
     "build:dist": "mkdir -p dist && cp app.html dist/index.html && cp -r src dist/",
@@ -20,16 +19,15 @@
     "serve": "http-server dist -p 8080 -c-1",
     "validate": "npm run lint && npm run test:all",
     "test:manual": "echo 'Open http://localhost:3000/app.html for manual testing' && npm run dev",
-    "test:algorithm": "node tests/run-algorithm-tests.js",
-    "test:algorithm:quick": "node tests/run-algorithm-tests.js --quick",
-    "test:algorithm:full": "node tests/run-algorithm-tests.js --full",
     "test:cross-system": "jest tests/cross-system-validation.test.js",
     "test:cross-system:coverage": "jest tests/cross-system-validation.test.js --coverage",
-    "test:validation": "npm run test:cross-system && npm run test:algorithm:full",
     "test:performance": "jest tests/engine-performance.test.js",
     "test:performance:quick": "jest tests/engine-performance.test.js --testNamePattern='measures engine timing at configured depths'",
     "test:performance:browser": "jest --config jest.browser.config.js tests/browser/engine-browser-performance.test.js",
-    "test:performance:real": "jest --config jest.browser.config.js tests/browser/engine-browser-performance.test.js --testNamePattern='real engine performance'"
+    "test:performance:real": "jest --config jest.browser.config.js tests/browser/engine-browser-performance.test.js --testNamePattern='real engine performance'",
+    "test:browser": "npx playwright test",
+    "test:browser:headed": "npx playwright test --headed",
+    "test:browser:debug": "npx playwright test --debug"
   },
   "keywords": [
     "chess",
@@ -45,11 +43,12 @@
     "@mliebelt/pgn-parser": "^1.4.18",
     "chess.js": "^1.4.0",
     "chessops": "^0.15.0",
-    "stockfish": "^16.0.0"
+    "stockfish": "^17.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
+    "@playwright/test": "^1.57.0",
     "@types/jest": "^29.5.0",
     "babel-jest": "^30.1.2",
     "eslint": "^8.57.0",
@@ -62,6 +61,10 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/browser/"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ],

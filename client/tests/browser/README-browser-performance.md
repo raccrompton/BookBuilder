@@ -6,7 +6,7 @@ This directory contains tests that run **actual Stockfish WebAssembly** in a rea
 
 Unlike the mock tests in the main test suite, these tests:
 
-- ✅ **Use real Stockfish WebAssembly** (sf171-79.js + sf171-79.wasm)
+- ✅ **Use real Stockfish WebAssembly** (stockfish npm package)
 - ✅ **Run in actual browser environment** (headless Chrome via Playwright)
 - ✅ **Measure real engine computation time** at depths [5, 10, 15, 20]
 - ✅ **Validate against 60-second time limits** for each depth
@@ -97,20 +97,21 @@ Test server running at http://localhost:3001
 ## Technical Details
 
 ### WebAssembly Loading
-The test page uses ES6 modules to load Stockfish:
+The test page uses ES6 modules to load the stockfish npm package:
 ```javascript
-import('../../src/vendor/stockfish-web/sf171-79.js').then(module => {
-    window.Sf17179Web = module.default || module.Sf17179Web;
+// Note: The hash in the filename changes with each release
+import('/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js').then(module => {
+    window.StockfishFactory = module.default || module.Stockfish;
     window.dispatchEvent(new Event('stockfish-loaded'));
 });
 ```
 
 ### UCI Protocol Communication
-Direct UCI command communication with real engine:
+Direct UCI command communication with real engine using the stockfish npm package API:
 ```javascript
-stockfishEngine.uci('position fen [position]');
-stockfishEngine.uci('go depth [depth]');
-// Listens for 'bestmove' response with timing measurement
+stockfishEngine.postMessage('position fen [position]', true);
+stockfishEngine.postMessage('go depth [depth]', true);
+// Uses addMessageListener for 'bestmove' response with timing measurement
 ```
 
 ### Browser Configuration
@@ -130,7 +131,7 @@ args: [
 **Module Loading Errors**
 If you see "Cannot use 'import.meta' outside a module":
 - Ensure the test server is serving files with correct MIME types
-- Check that sf171-79.js exists in `/src/vendor/stockfish-web/`
+- Check that stockfish package exists in `/node_modules/stockfish/`
 
 **Engine Initialization Timeout**
 If engine fails to initialize within 45 seconds:

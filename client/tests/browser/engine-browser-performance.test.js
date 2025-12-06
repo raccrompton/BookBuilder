@@ -31,8 +31,8 @@ describe('Real Browser Engine Performance', () => {
                 // Route requests to appropriate files
                 if (filePath === '/' || filePath === '/test') {
                     filePath = '/tests/browser/stockfish-test-page.html';
-                } else if (filePath.startsWith('/src/vendor/stockfish-web/')) {
-                    // Serve Stockfish WebAssembly files
+                } else if (filePath.startsWith('/node_modules/stockfish/')) {
+                    // Serve Stockfish WebAssembly files from npm package
                     filePath = filePath;
                 } else {
                     // Default routing

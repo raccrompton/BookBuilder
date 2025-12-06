@@ -346,6 +346,14 @@ class FormController {
             this.progressTracker.updatePhase('Initializing components...', 5);
             await this.initializeComponents(config);
 
+            // Update config with the initialized engine instance
+            // (config was created before initializeComponents, so stockfishEngine was null)
+            // Now that the engine is initialized, we need to pass it to BookBuilder
+            if (this.stockfishEngine) {
+                config.stockfishEngine = this.stockfishEngine;
+                log.log('✅ [FormController] Engine attached to config for BookBuilder');
+            }
+
             // =========================================================================
             // Phase 2: Validate Connections (10% progress)
             // =========================================================================
@@ -528,22 +536,26 @@ class FormController {
                 }
 
                 log.log(`✅ [FormController] BookBuilder returned OBJECT (new format)`);
-                log.log(`🎯 [FormController] About to call FileGenerator.generateConfiguredPGN()`);
+                log.log(`🎯 [FormController] About to call FileGenerator.generateBothFormats()`);
 
-                // Use FileGenerator to format the line data based on config
+                // Use FileGenerator to generate BOTH formats (individual + tree)
+                // This allows post-generation toggling between formats
                 const fileGenerator = new FileGenerator();
-                const chapterContent = await fileGenerator.generateConfiguredPGN(
+                const bothFormats = await fileGenerator.generateBothFormats(
                     chapterData.lines,
                     chapterData.openingName,
                     config.pgnConfig || config, // Pass the PGN config specifically
                     this.bookBuilder.pgnGenerator // Pass PgnGenerator instance
                 );
 
-                log.log(`✅ [FormController] FileGenerator returned content (${chapterContent.length} chars)`);
+                log.log(`✅ [FormController] FileGenerator returned both formats`);
+                log.log(`   Individual: ${bothFormats.individualPGN.length} chars`);
+                log.log(`   Tree: ${bothFormats.treePGN.length} chars`);
 
                 const safeName = opening.name.replace(/\s+/g, '_');
                 const fileName = `Chapter_${i + 1}_${safeName}.pgn`;
-                results[fileName] = chapterContent;
+                // Store the format object (with both formats) instead of a single string
+                results[fileName] = bothFormats;
 
                 // Update progress with intermediate results
                 const linesGenerated = chapterData.lines?.length || 0;
@@ -584,8 +596,8 @@ class FormController {
         try {
             log.log(`📋 [FormController] generateDisplay called with ${Object.keys(results).length} results`);
 
-            // Prepare content for display
-            let displayContent = '';
+            // Prepare format object for display (contains both individual and tree formats)
+            let formatData = null;
             let chapterName = 'Chess Repertoire';
             const metadata = {
                 processingTime: null,
@@ -595,26 +607,36 @@ class FormController {
 
             // Handle single or multiple results
             if (Object.keys(results).length === 1) {
-                // Single chapter - display directly
-                const [filename, content] = Object.entries(results)[0];
-                displayContent = content;
+                // Single chapter - pass format object directly to displayPGN
+                const [filename, bothFormats] = Object.entries(results)[0];
+                formatData = bothFormats;
                 chapterName = filename.replace(/\.pgn$/, '');
 
-                // Count lines for metadata
-                metadata.totalLines = fileGenerator.countPGNLines(content);
+                // Count lines for metadata using individual format
+                metadata.totalLines = fileGenerator.countPGNLines(bothFormats.individualPGN);
 
             } else {
-                // Multiple chapters - create combined display
-                const chapters = Object.entries(results).map(([filename, content]) => ({
-                    name: filename.replace(/\.pgn$/, ''),
-                    content: content
-                }));
+                // Multiple chapters - combine both formats separately
+                // This preserves the ability to toggle between formats even with multiple chapters
+                const individualChapters = [];
+                const treeChapters = [];
 
-                displayContent = fileGenerator.generateCombinedPGN(chapters);
+                for (const [filename, bothFormats] of Object.entries(results)) {
+                    const name = filename.replace(/\.pgn$/, '');
+                    individualChapters.push({ name, content: bothFormats.individualPGN });
+                    treeChapters.push({ name, content: bothFormats.treePGN });
+                }
+
+                // Create combined format object with both combined formats
+                formatData = {
+                    individualPGN: fileGenerator.generateCombinedPGN(individualChapters),
+                    treePGN: fileGenerator.generateCombinedPGN(treeChapters),
+                    chapterName: 'Complete Chess Repertoire'
+                };
                 chapterName = 'Complete Chess Repertoire';
 
                 // Aggregate metadata
-                metadata.totalLines = chapters.reduce((sum, chapter) =>
+                metadata.totalLines = individualChapters.reduce((sum, chapter) =>
                     sum + fileGenerator.countPGNLines(chapter.content), 0);
             }
 
@@ -626,14 +648,16 @@ class FormController {
                 metadata.processingTime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
             }
 
-            log.log(`📊 [FormController] Displaying content:`, {
+            log.log(`📊 [FormController] Displaying format object:`, {
                 chapterName,
-                contentLength: displayContent.length,
+                individualLength: formatData.individualPGN.length,
+                treeLength: formatData.treePGN.length,
                 metadata
             });
 
-            // Display the PGN content
-            const displayResult = fileGenerator.displayPGN(displayContent, chapterName, metadata);
+            // Display the PGN content with format toggle capability
+            // Pass format object so user can toggle between individual and tree views
+            const displayResult = fileGenerator.displayPGN(formatData, chapterName, metadata);
 
             log.log(`✅ [FormController] PGN displayed successfully`);
 

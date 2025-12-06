@@ -94,9 +94,9 @@ client/
 │   │   ├── ProgressTracker.js   # Visual progress tracking
 │   │   ├── ErrorHandler.js      # Error management
 │   │   └── FileGenerator.js     # File download management
-│   ├── vendor/
-│   │   └── stockfish-web/       # Stockfish WebAssembly binaries
 │   └── ... (additional modules)
+├── node_modules/
+│   └── stockfish/               # Stockfish WebAssembly (npm package)
 ├── tests/
 │   ├── integration.test.js      # Integration tests
 │   └── setup.js                 # Test configuration

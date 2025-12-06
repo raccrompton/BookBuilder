@@ -139,6 +139,20 @@ fi
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Agent invocation reminder
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}📋 AGENT REVIEW REMINDER${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo "If you modified code, invoke the review agents:"
+echo ""
+echo "  • code-standards-reviewer - For code quality, documentation, naming"
+echo "  • architect - For new files, features, security changes"
+echo ""
+echo "Use Task tool with subagent_type='general-purpose' and reference"
+echo "the agent definitions in .claude/agents/"
+echo ""
+
 # Exit with appropriate code
 if [ $HAS_ERRORS -eq 0 ]; then
     exit 0
