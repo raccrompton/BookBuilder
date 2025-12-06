@@ -1,47 +1,136 @@
 /**
- * Statistical Engine for BookBuilder
+ * =============================================================================
+ * Statistics.js - Statistical calculations for chess move selection
+ * =============================================================================
  *
- * Implements exact mathematical calculations matching Python legacy system
- * for win rate analysis, confidence intervals, and data quality validation.
+ * PURPOSE:
+ * This file provides mathematical tools for analyzing chess move statistics.
+ * When we query Lichess and get "e4 won 55% of 1 million games", we need
+ * to turn that into useful decisions. That's what these functions do.
+ *
+ * KEY STATISTICAL CONCEPTS:
+ *
+ * 1. WIN RATE:
+ *    Simple ratio: wins / total_games
+ *    But what about draws? We can count them as 0.5 wins or ignore them.
+ *
+ * 2. CONFIDENCE INTERVALS:
+ *    With 100 games showing 55% win rate, we're less confident than with
+ *    100,000 games showing 55% win rate. Confidence intervals express this
+ *    uncertainty as a range: "win rate is between 52% and 58% (95% confident)"
+ *
+ * 3. LOWER BOUND:
+ *    When picking moves, we use the LOWER bound of the confidence interval.
+ *    This is conservative - it accounts for uncertainty in the data.
+ *    A move with 60% win rate from 100 games might have lower bound 50%.
+ *    A move with 55% win rate from 10,000 games might have lower bound 54%.
+ *    We'd prefer the second move despite its lower raw win rate!
+ *
+ * WHY THIS MATTERS FOR CHESS:
+ * Imagine two moves:
+ * - Move A: 70% win rate in 10 games
+ * - Move B: 55% win rate in 100,000 games
+ *
+ * The raw win rate suggests Move A is better, but it's based on only 10 games!
+ * That 70% could easily be random luck. Move B's 55% is much more reliable.
+ * By using confidence intervals, we properly account for this.
+ *
+ * MATCHES PYTHON:
+ * These calculations exactly match the Python legacy system's calc_percs
+ * and calc_value functions. This ensures consistent behavior.
+ *
+ * DEPENDENCIES:
+ * None - pure JavaScript math functions
+ * =============================================================================
  */
 
 /**
- * Normal distribution inverse cumulative distribution function (quantile function)
- * Approximation of the standard normal quantile function for confidence intervals
+ * =============================================================================
+ * Normal Distribution Inverse CDF (Quantile Function)
+ * =============================================================================
+ *
+ * WHAT THIS DOES:
+ * Given a probability p (like 0.025), returns the z-score where that much
+ * of the normal distribution lies below.
+ *
+ * WHY WE NEED THIS:
+ * For confidence intervals, we need "critical values" from the normal
+ * distribution. For a 95% confidence interval:
+ * - We want the middle 95% of the distribution
+ * - That leaves 2.5% on each tail
+ * - normalPPF(0.975) gives us z = 1.96 (the famous value!)
+ *
+ * WHAT IS THE NORMAL DISTRIBUTION?
+ * The bell curve! Most natural phenomena cluster around an average,
+ * with fewer extreme values. Chess statistics roughly follow this.
+ *
+ * TECHNICAL NOTE:
+ * This uses Acklam's algorithm, which approximates scipy.stats.norm.ppf()
+ * to very high precision (within 1e-6). This is a rational approximation
+ * that's faster than iterative methods.
+ *
+ * @param {number} p - Probability (must be between 0 and 1, exclusive)
+ *   Example: 0.975 for 95% confidence interval
+ *
+ * @returns {number} - Z-score (standard deviations from mean)
+ *   Example: normalPPF(0.975) ≈ 1.96
+ *
+ * @throws {Error} If p is not in range (0, 1)
  */
 function normalPPF(p) {
-    // High-precision approximation of the standard normal quantile function
-    // Matches scipy.stats.norm.ppf() within 1e-6 precision
-
+    // Guard clause: p must be between 0 and 1 (exclusive)
+    // p=0 or p=1 would give infinite z-scores
     if (p <= 0 || p >= 1) {
         throw new Error('Probability must be between 0 and 1');
     }
 
-    // Acklam's algorithm for improved accuracy
+    // =========================================================================
+    // Acklam's Algorithm Coefficients
+    // =========================================================================
+    // These magic numbers are carefully calculated coefficients that make
+    // the rational approximation accurate. Don't modify them!
+    // Source: Peter J. Acklam's inverse normal approximation algorithm
+
+    // Coefficients for central region (numerator)
     const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
         1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+
+    // Coefficients for central region (denominator)
     const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
         6.680131188771972e+01, -1.328068155288572e+01];
+
+    // Coefficients for tail regions (numerator)
     const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
         -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+
+    // Coefficients for tail regions (denominator)
     const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
         3.754408661907416e+00];
 
-    let x;
+    let x;  // Result z-score
+
+    // =========================================================================
+    // Three-Region Approximation
+    // =========================================================================
+    // The algorithm uses different formulas for different parts of the
+    // probability range, which improves accuracy.
 
     if (p < 0.02425) {
-    // Lower tail
-        const q = Math.sqrt(-2 * Math.log(p));
+        // LOWER TAIL (very small probabilities)
+        // Uses a different formula optimized for this region
+        const q = Math.sqrt(-2 * Math.log(p));  // Transform for numerical stability
         x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
         ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
     } else if (p <= 0.97575) {
-    // Central region
-        const q = p - 0.5;
-        const r = q * q;
+        // CENTRAL REGION (most common case)
+        // This is where most probabilities fall
+        const q = p - 0.5;  // Center around 0.5
+        const r = q * q;    // Square for polynomial
         x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
         (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
     } else {
-    // Upper tail
+        // UPPER TAIL (very large probabilities)
+        // Mirror of lower tail calculation
         const q = Math.sqrt(-2 * Math.log(1 - p));
         x = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
          ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);

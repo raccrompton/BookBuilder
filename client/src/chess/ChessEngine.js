@@ -1,11 +1,76 @@
+/**
+ * =============================================================================
+ * ChessEngine.js - Chess board state management and move validation
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This class wraps the chess.js library to provide a clean interface for
+ * managing chess positions and validating moves. Think of it as a "virtual
+ * chess board" that the application can use to track game state.
+ *
+ * WHAT IS chess.js?
+ * chess.js is a popular JavaScript library for chess move generation/validation.
+ * It handles all the complex rules of chess:
+ * - Legal move generation (including castling, en passant, promotions)
+ * - Check and checkmate detection
+ * - FEN parsing and generation
+ * - PGN reading and writing
+ *
+ * WHY A WRAPPER CLASS?
+ * Instead of using chess.js directly throughout the app, we wrap it here:
+ * 1. ENCAPSULATION: Hide chess.js implementation details
+ * 2. LOGGING: Add debug logging to track state changes
+ * 3. SIMPLIFICATION: Provide simpler methods for common operations
+ * 4. FLEXIBILITY: Easy to swap chess.js for another library if needed
+ *
+ * KEY CONCEPTS:
+ * - FEN: A string that describes a complete chess position
+ *   Format: "pieces turn castling en-passant halfmove fullmove"
+ *   Example: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+ *
+ * - SAN (Standard Algebraic Notation): Human-readable move format
+ *   Examples: "e4", "Nf3", "O-O" (castling), "exd5" (capture)
+ *
+ * - UCI (Universal Chess Interface): Machine-friendly move format
+ *   Format: "from_square" + "to_square" + optional "promotion"
+ *   Examples: "e2e4", "g1f3", "e7e8q" (promotion to queen)
+ *
+ * DEPENDENCIES:
+ * - chess.js: The underlying chess library (imported from node_modules)
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const engine = new ChessEngine();
+ * engine.parsePosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+ * engine.makeMove('e4');       // White plays e2-e4
+ * console.log(engine.getFen()); // Shows updated position
+ * engine.undoMove();           // Take back the move
+ * ```
+ * =============================================================================
+ */
+
+// Import the Chess class from chess.js library
+// The path points to the ES module version in node_modules
 import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 /**
- * Chess engine wrapper providing position handling and move validation
- * Wraps chess.js library for BookBuilder compatibility
+ * ChessEngine Class - Virtual chess board for tracking game state
+ *
+ * DESIGN PATTERN: Adapter
+ * This class adapts the chess.js interface to our application's needs,
+ * adding logging and simplifying method names.
  */
 export class ChessEngine {
+    /**
+     * Constructor - Create a new chess engine instance
+     *
+     * WHAT HAPPENS:
+     * Creates a new chess.js Chess object which starts at the standard
+     * chess starting position. The board is ready to accept moves.
+     */
     constructor() {
+        // Create a new chess.js instance - starts at standard starting position
+        // The Chess class handles all the rules and state management
         this.chess = new Chess();
     }
 
