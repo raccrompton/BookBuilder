@@ -362,7 +362,13 @@ class MoveSelector {
         log.log(`   Available analyses: ${Object.keys(moveAnalyses || {}).join(', ')}`);
 
         return candidates.filter((candidate, index) => {
-            const moveUci = candidate.uci || candidate.san;
+            // IMPORTANT: Use UCI format only - SAN format crashes Stockfish WASM
+            // Lichess API always provides .uci field, so this should always exist
+            const moveUci = candidate.uci;
+            if (!moveUci) {
+                log.warn(`   ⚠️ Skipping candidate ${index + 1}: missing UCI format (san: ${candidate.san})`);
+                return false;
+            }
             const analysis = moveAnalyses[moveUci];
 
             log.log(`   🔍 [MoveSelector] Validating candidate ${index + 1}: ${moveUci}`);
@@ -441,7 +447,13 @@ class MoveSelector {
             log.log(`   Analyzing individual candidate moves...`);
             for (let i = 0; i < candidates.length; i++) {
                 const candidate = candidates[i];
-                const moveUci = candidate.uci || candidate.san;
+                // IMPORTANT: Use UCI format only - SAN format crashes Stockfish WASM
+                // Lichess API always provides .uci field, so this should always exist
+                const moveUci = candidate.uci;
+                if (!moveUci) {
+                    log.warn(`      ⚠️ Skipping candidate ${i + 1}: missing UCI format (san: ${candidate.san})`);
+                    continue;
+                }
                 log.log(`      Analyzing move ${i + 1}/${candidates.length}: ${moveUci}`);
                 const analysis = await engineClient.analyzeMove(fen, moveUci);
                 log.log(`         Analysis result:`, analysis);

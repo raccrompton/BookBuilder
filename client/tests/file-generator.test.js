@@ -505,8 +505,8 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
             // Should have combined tree structure
             expect(result).toMatch(/1\.\s*e4\s+c5\s+2\.\s*Nf3/);
 
-            // Should have move playrates section
-            expect(result).toMatch(/\{Move playrates:/);
+            // Should have move playrates section (chessops may add space after {)
+            expect(result).toMatch(/\{\s*Move playrates:/);
             expect(result).toMatch(/\+25\.28%\s+c5/);
             expect(result).toMatch(/\+65\.97%\s+d6/);
         });
@@ -601,8 +601,8 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
             expect(result).toMatch(/4\.\s*Nxd4\s+g6/);
             expect(result).toMatch(/5\.\s*c4/);
 
-            // Should have traditional statistics block
-            expect(result).toMatch(/\{Move playrates:/);
+            // Should have traditional statistics block (chessops may add space after {)
+            expect(result).toMatch(/\{\s*Move playrates:/);
             expect(result).toMatch(/\+25\.28%\s+c5/);
             expect(result).toMatch(/\+50\.14%\s+Nc6/);
             expect(result).toMatch(/\+97\.23%\s+cxd4/);

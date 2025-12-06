@@ -28,6 +28,9 @@ module.exports = {
 
   // Global test settings
   use: {
+    // Base URL for navigation - from webServer
+    baseURL: 'http://localhost:8081',
+
     // Browser settings
     headless: true,
 
@@ -63,10 +66,10 @@ module.exports = {
     }
   ],
 
-  // Development server (optional)
+  // Development server - uses http-server for browser tests
   webServer: {
-    command: 'npm run dev',
-    port: 3000,
+    command: 'npx http-server . -p 8081 --cors -c-1',
+    url: 'http://localhost:8081',
     reuseExistingServer: !process.env.CI,
     timeout: 30000
   }

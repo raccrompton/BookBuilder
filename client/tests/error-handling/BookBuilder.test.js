@@ -7,11 +7,24 @@ import BookBuilder from '../../src/BookBuilder.js';
 describe('BookBuilder Error Handling - Infrastructure Failures', () => {
     let bookBuilder;
     let mockLichessClient;
+    let mockIsolatedEngine;
 
     beforeEach(() => {
         // Mock Lichess client
         mockLichessClient = {
             getPositionStats: jest.fn()
+        };
+
+        // Mock isolated engine that expandLine creates
+        mockIsolatedEngine = {
+            parsePositionWithDebug: jest.fn().mockReturnValue(true),
+            getFen: jest.fn(),
+            debugPosition: jest.fn().mockReturnValue({ fen: 'test-fen', turn: 'w' }),
+            getLegalMoves: jest.fn().mockReturnValue([]),
+            validateMoveBeforeExecution: jest.fn().mockReturnValue(true),
+            makeMove: jest.fn().mockReturnValue({ san: 'e5' }),
+            undoMove: jest.fn(),
+            getMoveNumber: jest.fn().mockReturnValue(1)
         };
 
         const config = {
@@ -22,6 +35,12 @@ describe('BookBuilder Error Handling - Infrastructure Failures', () => {
 
         bookBuilder = new BookBuilder(config);
         bookBuilder.lichessClient = mockLichessClient;
+
+        // Mock createIsolatedEngine to return our mock engine
+        bookBuilder.createIsolatedEngine = jest.fn().mockReturnValue(mockIsolatedEngine);
+
+        // Mock validateEngineState to return true (engine state is consistent)
+        bookBuilder.validateEngineState = jest.fn().mockReturnValue(true);
     });
 
     describe('API Infrastructure Failures', () => {

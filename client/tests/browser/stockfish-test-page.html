@@ -52,12 +52,13 @@
         <button id="resetTest" onclick="resetTest()">Reset</button>
     </div>
 
-    <!-- Load the actual Stockfish WebAssembly -->
+    <!-- Load the actual Stockfish WebAssembly from npm package -->
     <script type="module">
-        // Import and expose Stockfish WebAssembly
-        import('../../src/vendor/stockfish-web/sf171-79.js').then(module => {
-            // Make the Stockfish function globally available
-            window.Sf17179Web = module.default || module.Sf17179Web;
+        // Import and expose Stockfish WebAssembly from npm package
+        // We use the single-threaded version for simplicity (no SharedArrayBuffer needed)
+        import('/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js').then(module => {
+            // Make the Stockfish factory function globally available
+            window.StockfishFactory = module.default || module.Stockfish;
 
             // Dispatch ready event
             window.dispatchEvent(new Event('stockfish-loaded'));
@@ -85,31 +86,25 @@
                 statusEl.textContent = 'Loading Stockfish WebAssembly...';
                 statusEl.className = 'status loading';
 
-                // Create Stockfish instance using the WebAssembly build
-                stockfishEngine = await Sf17179Web();
+                // Create Stockfish instance using the npm package factory
+                stockfishEngine = await StockfishFactory();
 
-                // Set up message handling
+                // Set up message handling using the stockfish npm package API
                 let engineReady = false;
-                let initResolver = null;
 
                 const initPromise = new Promise((resolve, reject) => {
-                    initResolver = resolve;
-
-                    stockfishEngine.listen = (message) => {
+                    // Use addMessageListener for the stockfish npm package
+                    stockfishEngine.addMessageListener((message) => {
                         console.log('Engine:', message);
 
                         if (message.includes('uciok')) {
-                            stockfishEngine.uci('isready');
+                            // Send isready command using postMessage
+                            stockfishEngine.postMessage('isready', true);
                         } else if (message.includes('readyok')) {
                             engineReady = true;
                             resolve();
                         }
-                    };
-
-                    stockfishEngine.onError = (error) => {
-                        console.error('Engine error:', error);
-                        reject(new Error('Engine initialization failed'));
-                    };
+                    });
 
                     // Timeout after 30 seconds
                     setTimeout(() => {
@@ -119,8 +114,8 @@
                     }, 30000);
                 });
 
-                // Start UCI initialization
-                stockfishEngine.uci('uci');
+                // Start UCI initialization using postMessage
+                stockfishEngine.postMessage('uci', true);
 
                 // Wait for engine to be ready
                 await initPromise;
@@ -208,9 +203,8 @@
                 let bestMove = null;
                 let resolved = false;
 
-                // Set up message listener for this specific test
-                const originalListen = stockfishEngine.listen;
-                stockfishEngine.listen = (message) => {
+                // Create message handler for this specific test
+                const messageHandler = (message) => {
                     console.log(`Depth ${depth}:`, message);
 
                     if (message.startsWith('bestmove ') && !resolved) {
@@ -220,8 +214,8 @@
 
                         bestMove = message.split(' ')[1];
 
-                        // Restore original listener
-                        stockfishEngine.listen = originalListen;
+                        // Remove listener after getting result
+                        stockfishEngine.removeMessageListener(messageHandler);
 
                         resolve({
                             depth,
@@ -233,18 +227,21 @@
                     }
                 };
 
+                // Add listener using stockfish npm package API
+                stockfishEngine.addMessageListener(messageHandler);
+
                 // Set timeout
                 setTimeout(() => {
                     if (!resolved) {
                         resolved = true;
-                        stockfishEngine.listen = originalListen;
+                        stockfishEngine.removeMessageListener(messageHandler);
                         reject(new Error(`Timeout: Depth ${depth} exceeded ${TIMEOUT_MS}ms`));
                     }
                 }, TIMEOUT_MS + 5000); // Extra 5 seconds for cleanup
 
-                // Start analysis
-                stockfishEngine.uci(`position fen ${TEST_POSITION}`);
-                stockfishEngine.uci(`go depth ${depth}`);
+                // Start analysis using postMessage
+                stockfishEngine.postMessage(`position fen ${TEST_POSITION}`, true);
+                stockfishEngine.postMessage(`go depth ${depth}`, true);
             });
         }
 

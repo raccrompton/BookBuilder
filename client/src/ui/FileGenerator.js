@@ -73,6 +73,15 @@ class FileGenerator {
         // Track download history for debugging and user feedback
         // Each entry has: {filename, timestamp, size, mimeType}
         this.downloadHistory = [];
+
+        // ==================== FORMAT TOGGLE STATE ====================
+        // Store both PGN formats for post-generation toggling
+        // Populated by generateBothFormats(), used by toggle UI
+        this.currentFormats = null;  // { individualPGN, treePGN, chapterName }
+
+        // Currently displayed format: 'individual' or 'tree'
+        // Defaults to 'individual' - user can toggle after generation
+        this.currentFormat = 'individual';
     }
 
     /**
@@ -559,6 +568,70 @@ class FileGenerator {
             log.log('   📋 → Taking INDIVIDUAL lines path');
             return await this.generateIndividualLinesPGN(finalLines, chapterName, pgnGenerator);
         }
+    }
+
+    /**
+     * Generate BOTH PGN formats (individual lines + tree) for post-generation toggling
+     *
+     * This method creates both output formats simultaneously during generation,
+     * allowing users to switch between them after generation completes without
+     * needing to regenerate.
+     *
+     * @param {Array} lines - Array of line objects with moves and statistics
+     * @param {string} chapterName - Base name for the chapter
+     * @param {Object} config - Configuration object (for sorting options)
+     * @param {Object} pgnGenerator - PgnGenerator instance for creating annotated lines
+     * @returns {Object} Both formats: { individualPGN, treePGN, chapterName }
+     *
+     * @example
+     * const formats = await fileGenerator.generateBothFormats(lines, 'Italian Game', config, pgnGenerator);
+     * // formats.individualPGN - Each line as separate PGN entry
+     * // formats.treePGN - Combined lines with variations using parentheses
+     */
+    async generateBothFormats(lines, chapterName, config, pgnGenerator) {
+        log.log('\n📁 [FileGenerator] generateBothFormats() - GENERATING BOTH FORMATS');
+        log.log('   📊 Input:', { linesCount: lines?.length || 0, chapterName });
+
+        // Handle empty lines array - return empty strings for both formats
+        if (!lines || lines.length === 0) {
+            log.log('   ❌ Empty lines array, returning empty formats');
+            return {
+                individualPGN: '',
+                treePGN: '',
+                chapterName
+            };
+        }
+
+        // Sort lines by probability (consistent with generateConfiguredPGN)
+        log.log('   📈 Sorting lines by probability...');
+        const sortedLines = this.sortLinesByProbability(lines);
+
+        // Apply LONGTOSHORT reversal if configured
+        let finalLines = sortedLines;
+        if (config.LONGTOSHORT) {
+            log.log('   🔄 Applying LONGTOSHORT reversal');
+            finalLines = [...sortedLines].reverse();
+        }
+
+        // Generate INDIVIDUAL lines format
+        // Each line becomes a separate PGN "game" entry
+        log.log('   📋 Generating individual lines format...');
+        const individualPGN = await this.generateIndividualLinesPGN(finalLines, chapterName, pgnGenerator);
+
+        // Generate TREE format with variations
+        // Lines are merged into single game with divergence points as variations
+        log.log('   🌳 Generating tree format...');
+        const treePGN = await this.generateTreePGN(finalLines, chapterName, config, pgnGenerator);
+
+        log.log('   ✅ Both formats generated successfully');
+        log.log(`   📊 Individual: ${individualPGN.length} chars, Tree: ${treePGN.length} chars`);
+
+        // Return both formats in an object for toggle functionality
+        return {
+            individualPGN,
+            treePGN,
+            chapterName
+        };
     }
 
     /**
@@ -1562,15 +1635,48 @@ class FileGenerator {
     }
 
     /**
-     * Display PGN content in browser with copy functionality
-     * @param {string} content - PGN content to display
+     * Display PGN content in browser with copy functionality and format toggle
+     *
+     * This method handles two input types:
+     * 1. String (legacy): A single PGN string to display
+     * 2. Object (new): { individualPGN, treePGN, chapterName } for toggle functionality
+     *
+     * When given a format object, it stores both formats and sets up a toggle UI
+     * that allows users to switch between individual lines and tree view.
+     *
+     * @param {string|Object} pgnData - PGN content string OR format object with both formats
      * @param {string} chapterName - Name of the chapter/repertoire
      * @param {Object} metadata - Additional metadata for statistics
      * @returns {Object} Display result with success status
      */
-    displayPGN(content, chapterName = 'Chess Repertoire', metadata = {}) {
+    displayPGN(pgnData, chapterName = 'Chess Repertoire', metadata = {}) {
+        // Determine if we received a format object or a plain string
+        // Format objects have individualPGN and treePGN properties
+        const isFormatObject = typeof pgnData === 'object' && pgnData.individualPGN !== undefined;
+
+        // Store formats for toggle functionality
+        // If plain string, wrap it so both formats show the same content
+        if (isFormatObject) {
+            this.currentFormats = pgnData;
+            chapterName = pgnData.chapterName || chapterName;
+        } else {
+            // Legacy compatibility: wrap string in format object
+            this.currentFormats = {
+                individualPGN: pgnData,
+                treePGN: pgnData,
+                chapterName
+            };
+        }
+
+        // Reset to default format when displaying new content
+        this.currentFormat = 'individual';
+
+        // Get the content for initial display (individual format by default)
+        const content = this.currentFormats.individualPGN;
+
         log.log(`📋 [FileGenerator] displayPGN called:`);
         log.log(`   Chapter: ${chapterName}`);
+        log.log(`   Format object: ${isFormatObject}`);
         log.log(`   Content size: ${content.length} characters`);
         log.log(`   Metadata:`, metadata);
 
@@ -1586,22 +1692,28 @@ class FileGenerator {
                 throw new Error('PGN display elements not found in DOM');
             }
 
-            // Set the PGN content
+            // Set the PGN content (individual format by default)
             pgnContent.textContent = content;
+
+            // Setup format toggle UI (only if we have both formats)
+            // This adds the toggle buttons to the display header
+            if (isFormatObject) {
+                this.setupFormatToggle();
+            }
 
             // Generate and display statistics
             if (statsContainer) {
                 this.populateDisplayStats(statsContainer, content, metadata);
             }
 
-            // Setup copy functionality
+            // Setup copy functionality - now uses getCurrentContent() internally
             if (copyBtn) {
-                this.setupCopyButton(copyBtn, content);
+                this.setupCopyButton(copyBtn);
             }
 
-            // Setup download functionality (fallback option)
+            // Setup download functionality - now uses getCurrentContent() internally
             if (downloadBtn) {
-                this.setupDownloadButton(downloadBtn, content, chapterName);
+                this.setupDownloadButton(downloadBtn, chapterName);
             }
 
             // Show the display container
@@ -1667,17 +1779,24 @@ class FileGenerator {
 
     /**
      * Setup copy button functionality
+     *
+     * Uses getCurrentContent() to get the currently displayed format,
+     * so copy always reflects what the user is viewing.
+     *
      * @param {HTMLElement} copyBtn - Copy button element
-     * @param {string} content - Content to copy
      */
-    setupCopyButton(copyBtn, content) {
-        // Remove existing event listeners
+    setupCopyButton(copyBtn) {
+        // Remove existing event listeners by replacing the button
+        // This prevents stacking multiple handlers on subsequent displays
         const newCopyBtn = copyBtn.cloneNode(true);
         copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
 
+        // Use arrow function to preserve 'this' context for getCurrentContent()
         newCopyBtn.addEventListener('click', async () => {
             try {
-                log.log(`📋 [FileGenerator] Copying PGN to clipboard...`);
+                // Get the currently displayed format content
+                const content = this.getCurrentContent();
+                log.log(`📋 [FileGenerator] Copying ${this.currentFormat} format to clipboard...`);
 
                 // Use modern clipboard API if available
                 if (navigator.clipboard && window.isSecureContext) {
@@ -1701,18 +1820,29 @@ class FileGenerator {
 
     /**
      * Setup download button functionality
+     *
+     * Uses getCurrentContent() to download the currently displayed format.
+     * Adds format suffix to filename (e.g., "Opening_individual.pgn" or "Opening_tree.pgn").
+     *
      * @param {HTMLElement} downloadBtn - Download button element
-     * @param {string} content - Content to download
-     * @param {string} filename - Base filename
+     * @param {string} filename - Base filename (without format suffix)
      */
-    setupDownloadButton(downloadBtn, content, filename) {
-        // Remove existing event listeners
+    setupDownloadButton(downloadBtn, filename) {
+        // Remove existing event listeners by replacing the button
         const newDownloadBtn = downloadBtn.cloneNode(true);
         downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
 
+        // Use arrow function to preserve 'this' context
         newDownloadBtn.addEventListener('click', () => {
             try {
-                const pgnFilename = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}.pgn`;
+                // Get the currently displayed format content
+                const content = this.getCurrentContent();
+
+                // Add format suffix to filename so user knows which format they downloaded
+                const formatSuffix = this.currentFormat === 'tree' ? '_tree' : '_individual';
+                const pgnFilename = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}${formatSuffix}.pgn`;
+
+                log.log(`📥 [FileGenerator] Downloading ${this.currentFormat} format as ${pgnFilename}`);
                 this.downloadFile(content, pgnFilename, 'application/x-chess-pgn');
             } catch (error) {
                 log.error(`❌ [FileGenerator] Download failed:`, error);
@@ -1775,6 +1905,141 @@ class FileGenerator {
 
         // Show error in console for debugging
         log.error('Copy error details:', errorMsg);
+    }
+
+    // ==================== FORMAT TOGGLE METHODS ====================
+    // These methods handle switching between individual lines and tree formats
+
+    /**
+     * Setup the format toggle UI in the display header
+     *
+     * Creates two toggle buttons (Individual / Tree) that allow users to
+     * switch between PGN output formats after generation completes.
+     * The toggle is inserted into the display header before the copy/download buttons.
+     */
+    setupFormatToggle() {
+        // Find the header actions container where copy/download buttons live
+        const headerActions = document.querySelector('.pgn-display-actions');
+        if (!headerActions) {
+            log.warn('[FileGenerator] Could not find .pgn-display-actions for toggle');
+            return;
+        }
+
+        // Check if toggle already exists (from previous generation)
+        let toggleContainer = document.getElementById('format-toggle-container');
+        if (toggleContainer) {
+            // Reset toggle state to match currentFormat
+            this.updateToggleButtonStates();
+            return;
+        }
+
+        // Create the toggle container with two buttons
+        toggleContainer = document.createElement('div');
+        toggleContainer.id = 'format-toggle-container';
+        toggleContainer.className = 'format-toggle-container';
+
+        // Build the toggle HTML with icons matching the project style
+        toggleContainer.innerHTML = `
+            <button type="button" class="format-toggle-btn active" data-format="individual" id="toggle-individual">
+                <i data-lucide="list" class="icon"></i> Individual
+            </button>
+            <button type="button" class="format-toggle-btn" data-format="tree" id="toggle-tree">
+                <i data-lucide="git-branch" class="icon"></i> Tree
+            </button>
+        `;
+
+        // Insert toggle at the beginning of header actions (before copy/download)
+        headerActions.insertBefore(toggleContainer, headerActions.firstChild);
+
+        // Initialize Lucide icons for the new buttons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        // Attach click handlers to toggle buttons
+        const individualBtn = document.getElementById('toggle-individual');
+        const treeBtn = document.getElementById('toggle-tree');
+
+        // Use arrow functions to preserve 'this' context
+        individualBtn.addEventListener('click', () => this.switchFormat('individual'));
+        treeBtn.addEventListener('click', () => this.switchFormat('tree'));
+
+        log.log('[FileGenerator] Format toggle UI initialized');
+    }
+
+    /**
+     * Switch the displayed PGN format
+     *
+     * Updates the displayed content, toggle button states, and logs the change.
+     * Called when user clicks one of the format toggle buttons.
+     *
+     * @param {string} format - The format to switch to: 'individual' or 'tree'
+     */
+    switchFormat(format) {
+        // Guard: Ensure we have format data to switch
+        if (!this.currentFormats) {
+            log.warn('[FileGenerator] Cannot switch format: no format data available');
+            return;
+        }
+
+        // Guard: Don't do anything if already on this format
+        if (this.currentFormat === format) {
+            return;
+        }
+
+        // Update the current format state
+        this.currentFormat = format;
+
+        // Get the PGN content element and update its content
+        const pgnContent = document.getElementById('pgn-content');
+        if (pgnContent) {
+            // Select the appropriate format content
+            const content = format === 'tree'
+                ? this.currentFormats.treePGN
+                : this.currentFormats.individualPGN;
+
+            pgnContent.textContent = content;
+        }
+
+        // Update toggle button visual states
+        this.updateToggleButtonStates();
+
+        log.log(`[FileGenerator] Switched to ${format} format`);
+    }
+
+    /**
+     * Update toggle button visual states to reflect current format
+     *
+     * Adds 'active' class to the currently selected format button
+     * and removes it from the other.
+     */
+    updateToggleButtonStates() {
+        const buttons = document.querySelectorAll('.format-toggle-btn');
+        buttons.forEach(btn => {
+            // Toggle 'active' class based on data-format attribute
+            const isActive = btn.dataset.format === this.currentFormat;
+            btn.classList.toggle('active', isActive);
+        });
+    }
+
+    /**
+     * Get the currently displayed PGN content
+     *
+     * Returns the content for whichever format is currently selected.
+     * Used by copy and download functions to operate on the visible format.
+     *
+     * @returns {string} The PGN content for the current format
+     */
+    getCurrentContent() {
+        // Guard: Return empty string if no formats loaded
+        if (!this.currentFormats) {
+            return '';
+        }
+
+        // Return the appropriate format based on current selection
+        return this.currentFormat === 'tree'
+            ? this.currentFormats.treePGN
+            : this.currentFormats.individualPGN;
     }
 
     /**
