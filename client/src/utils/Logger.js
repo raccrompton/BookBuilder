@@ -98,6 +98,10 @@ class LoggerManager {
         // Minimum level to show (default: show everything except debug)
         this.level = 'log';
 
+        // UI element reference for broadcasting logs to the progress overlay
+        // When set, the latest log message will be displayed in this DOM element
+        this.uiElementId = null;
+
         // Load saved preferences
         this._loadConfig();
     }
@@ -130,6 +134,10 @@ class LoggerManager {
      * @private
      */
     _emit(category, level, args) {
+        // Always broadcast to UI if element is set (regardless of category filtering)
+        // This ensures the progress overlay shows all activity, even from disabled categories
+        this._broadcastToUI(category, level, args);
+
         // Check 1: Master switch (errors bypass)
         if (!this.masterEnabled && level !== 'error') {
             return;
@@ -251,6 +259,56 @@ class LoggerManager {
      */
     getCategories() {
         return Object.keys(this.categories);
+    }
+
+    /**
+     * Set a DOM element ID to receive the latest log messages.
+     * Used to display real-time logging in the progress overlay during generation.
+     *
+     * @param {string|null} elementId - Element ID to update, or null to disable
+     *
+     * @example
+     * // Enable UI broadcasting to progress overlay
+     * Logger.setUIElement('progress-log');
+     *
+     * // Disable when done
+     * Logger.setUIElement(null);
+     */
+    setUIElement(elementId) {
+        this.uiElementId = elementId;
+    }
+
+    /**
+     * Update the UI element with the latest log message.
+     * Called automatically by _emit() when uiElementId is set.
+     *
+     * @param {string} category - The log category (e.g., 'BookBuilder')
+     * @param {string} level - The log level (log, warn, error, etc.)
+     * @param {Array} args - The arguments passed to the log call
+     * @private
+     */
+    _broadcastToUI(category, level, args) {
+        // Skip if no UI element is configured
+        if (!this.uiElementId) return;
+
+        // Find the DOM element by ID
+        const element = document.getElementById(this.uiElementId);
+        if (!element) return;
+
+        // Format the message - convert all args to strings and join
+        // Objects are JSON-stringified for readability
+        const message = args.map(arg =>
+            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' ');
+
+        // Truncate long messages to prevent overflow in the UI
+        // 100 chars is enough to show meaningful info without breaking layout
+        const displayMessage = message.length > 100
+            ? message.substring(0, 97) + '...'
+            : message;
+
+        // Update the element with category prefix for context
+        element.textContent = `[${category}] ${displayMessage}`;
     }
 
     // -------------------------------------------------------------------------
