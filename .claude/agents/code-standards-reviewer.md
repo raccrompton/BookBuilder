@@ -1,3 +1,9 @@
+---
+name: code-standards-reviewer
+description: Review recently modified code for compliance with project coding standards. Use after every code change to verify style guidelines, check for regressions, and ensure patterns match the existing codebase.
+tools: Read, Glob, Grep
+---
+
 # Code Standards Reviewer Agent
 
 ## Purpose
