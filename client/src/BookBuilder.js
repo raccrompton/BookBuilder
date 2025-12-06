@@ -600,12 +600,31 @@ class BookBuilder {
                 currentMessage: `Processing batch ${iterationCount}: ${currentBatch.length} positions, ${this.processingQueue.length} remaining...`
             });
 
-            // Process batch in parallel with isolated engines for each line
-            log.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines with isolated engines`);
-            const batchResults = await Promise.all(
-                currentBatch.map(line => this.expandLine(line))
-            );
-            log.log(`[BookBuilder] Batch processing completed, engines cleaned up`);
+            // Process batch - SEQUENTIAL when engine is enabled to avoid UCI race conditions
+            // The shared Stockfish engine can only handle one operation at a time
+            // Parallel processing with a single engine causes interleaved UCI commands
+            // which corrupts the command stream and causes WASM crashes
+            log.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines`);
+
+            let batchResults;
+            if (this.config.CAREABOUTENGINE && this.stockfishEngine) {
+                // SEQUENTIAL processing when engine is enabled
+                // This prevents multiple expandLine() calls from sending
+                // interleaved commands to the same Stockfish instance
+                log.log(`[BookBuilder] Using sequential processing (engine analysis enabled)`);
+                batchResults = [];
+                for (const line of currentBatch) {
+                    const result = await this.expandLine(line);
+                    batchResults.push(result);
+                }
+            } else {
+                // PARALLEL processing when engine is disabled (faster)
+                log.log(`[BookBuilder] Using parallel processing (no engine analysis)`);
+                batchResults = await Promise.all(
+                    currentBatch.map(line => this.expandLine(line))
+                );
+            }
+            log.log(`[BookBuilder] Batch processing completed`);
 
             // Add new lines to queue (flattened and filtered)
             const newLines = batchResults.flat().filter(Boolean);
@@ -948,9 +967,20 @@ class BookBuilder {
                     );
 
                     // **STEP 6: Undo both moves to restore original position**
+                    // CRITICAL: Check undo results to prevent state corruption!
+                    // If undoMove() fails (returns null), the chess engine state becomes
+                    // corrupted and subsequent FEN positions will be invalid/impossible.
+                    // This can cause Stockfish WASM to crash with "RuntimeError: unreachable".
                     log.log(`[BookBuilder] Restoring position: undoing engine and opponent moves`);
-                    this.chessEngine.undoMove(); // Undo engine move
-                    this.chessEngine.undoMove(); // Undo opponent move
+                    const undoEngine = this.chessEngine.undoMove(); // Undo engine move
+                    const undoOpponent = this.chessEngine.undoMove(); // Undo opponent move
+
+                    // If either undo failed, reset to known-good position
+                    if (!undoEngine || !undoOpponent) {
+                        log.error(`[BookBuilder] Undo failed (engine: ${!!undoEngine}, opponent: ${!!undoOpponent}) - resetting to known state`);
+                        log.error(`[BookBuilder] Restoring position from lineData.fen: ${lineData.fen}`);
+                        this.chessEngine.parsePosition(lineData.fen);
+                    }
 
                     return {
                         fen: newFen,
