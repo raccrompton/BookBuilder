@@ -136,7 +136,7 @@ class LoggerManager {
     _emit(category, level, args) {
         // Always broadcast to UI if element is set (regardless of category filtering)
         // This ensures the progress overlay shows all activity, even from disabled categories
-        this._broadcastToUI(category, level, args);
+        this._broadcastToUI(args);
 
         // Check 1: Master switch (errors bypass)
         if (!this.masterEnabled && level !== 'error') {
@@ -282,12 +282,10 @@ class LoggerManager {
      * Update the UI element with the latest log message.
      * Called automatically by _emit() when uiElementId is set.
      *
-     * @param {string} category - The log category (e.g., 'BookBuilder')
-     * @param {string} level - The log level (log, warn, error, etc.)
      * @param {Array} args - The arguments passed to the log call
      * @private
      */
-    _broadcastToUI(category, level, args) {
+    _broadcastToUI(args) {
         // Skip if no UI element is configured
         if (!this.uiElementId) return;
 
@@ -307,8 +305,8 @@ class LoggerManager {
             ? message.substring(0, 97) + '...'
             : message;
 
-        // Update the element with category prefix for context
-        element.textContent = `[${category}] ${displayMessage}`;
+        // Display the message directly - log calls often already include context
+        element.textContent = displayMessage;
     }
 
     // -------------------------------------------------------------------------
