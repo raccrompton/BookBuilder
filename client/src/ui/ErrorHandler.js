@@ -1,15 +1,76 @@
 /**
- * ErrorHandler.js - Comprehensive error handling and debugging support
+ * =============================================================================
+ * ErrorHandler.js - User-friendly error display and debugging support
+ * =============================================================================
  *
- * Provides detailed error logging, user-friendly error display,
- * and debugging information for BookBuilder client-side application.
+ * PURPOSE:
+ * When something goes wrong in the application, this class:
+ * 1. Shows user-friendly error messages (not cryptic developer text)
+ * 2. Provides helpful suggestions for fixing the problem
+ * 3. Logs detailed technical info for debugging
+ * 4. Allows users to copy/download error reports for support
+ *
+ * WHY GOOD ERROR HANDLING MATTERS:
+ * Users get frustrated by vague errors like "Something went wrong."
+ * Good error handling:
+ * - Tells users WHAT happened in plain language
+ * - Suggests HOW to fix it
+ * - Provides a way to get help (copy error details)
+ *
+ * ERROR TYPES WE HANDLE:
+ * - Validation errors: Bad configuration input
+ * - API errors: Lichess/Stockfish communication failures
+ * - Progress errors: Failures during repertoire generation
+ * - Global errors: Unexpected JavaScript exceptions
+ *
+ * DEBUG MODE:
+ * When debug mode is enabled (localhost or ?debug=true in URL):
+ * - Shows detailed stack traces
+ * - Logs more information to console
+ * - Useful for developers investigating issues
+ *
+ * DESIGN PATTERN:
+ * This class manages UI state for the error display container.
+ * It also hooks into global error events to catch unhandled exceptions.
+ *
+ * DOM REQUIREMENTS:
+ * The HTML must have these elements:
+ * - #error-container: Container div for error display
+ * - #error-message: Inner element for error content
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const errorHandler = new ErrorHandler();
+ * errorHandler.showError('API Error', new Error('Connection failed'), [
+ *   'Check your internet connection',
+ *   'Try again in a few moments'
+ * ]);
+ * ```
+ * =============================================================================
  */
 
 class ErrorHandler {
+    /**
+     * Constructor - Initialize error handler and find DOM elements
+     *
+     * WHY DOM ELEMENTS?
+     * Instead of creating elements dynamically, we reference existing
+     * elements in the HTML. This allows the HTML to control styling
+     * and layout while JS controls content and visibility.
+     */
     constructor() {
+        // Reference to the main error display container
+        // This gets shown/hidden when errors occur
         this.container = document.getElementById('error-container');
+
+        // Reference to the element where error content is inserted
         this.message = document.getElementById('error-message');
+
+        // Array to store error history for debugging
+        // Useful for seeing patterns or multiple errors
         this.errorLog = [];
+
+        // Check if we're in debug mode (shows extra technical info)
         this.debugMode = this.detectDebugMode();
     }
 

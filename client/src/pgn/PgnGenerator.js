@@ -1,16 +1,87 @@
 /**
- * PGN Generator for BookBuilder
+ * =============================================================================
+ * PgnGenerator.js - Generates PGN (Portable Game Notation) output
+ * =============================================================================
  *
- * Generates PGN output matching exact format from Python legacy system
- * with move annotations, playrate statistics, and engine completion.
+ * PURPOSE:
+ * This class converts our analyzed chess lines into PGN format, the standard
+ * text format for sharing chess games. The output can be imported into chess
+ * software like Lichess, Chess.com, ChessBase, etc.
+ *
+ * WHAT IS PGN?
+ * PGN (Portable Game Notation) is a standard text format for recording chess
+ * games. It includes:
+ * - Headers: [Event "Italian Game"], [White "Player1"], etc.
+ * - Moves: 1. e4 e5 2. Nf3 Nc6 3. Bc4 ...
+ * - Annotations: Comments in {curly braces} or variations in (parentheses)
+ * - Result: 1-0, 0-1, 1/2-1/2, or *
+ *
+ * EXAMPLE PGN OUTPUT:
+ * ```
+ * [Event "Italian Game Line 1"]
+ *
+ * 1. e4 e5 2. Nf3 Nc6 3. Bc4
+ * {Move playrates:
+ * e4 55.79%, e5 48.12%, Nf3 62.34%, Nc6 51.23%, Bc4 45.67%.
+ * Line cumulative playrate: 12.34%.
+ * Line winrate (draws as half points): 55.23% over 1,234,567 games.}
+ * ```
+ *
+ * KEY FEATURES:
+ * - Generates PGN headers for each line
+ * - Formats moves using chess.js for correctness
+ * - Adds statistical annotations (playrates, win rates)
+ * - Can optionally extend lines with engine analysis
+ *
+ * WHY ANNOTATIONS?
+ * Our PGN isn't just game records - it's a study tool. The annotations
+ * show how likely each move is to be played (playrate) and how successful
+ * the resulting lines are (winrate). This helps users understand:
+ * - Which moves are critical to prepare against
+ * - Which lines have the best practical results
+ *
+ * MATCHES PYTHON:
+ * The output format exactly matches the Python legacy system to ensure
+ * backward compatibility with existing workflows and tools.
+ *
+ * DEPENDENCIES:
+ * - chess.js: For proper PGN formatting (imported dynamically)
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const generator = new PgnGenerator({ ENGINEFINISH: 0 });
+ * const pgn = await generator.generatePGN(analyzedLines, 'Italian_Game');
+ * ```
+ * =============================================================================
  */
 
 class PgnGenerator {
+    /**
+     * Constructor - Initialize PGN generator with configuration
+     *
+     * @param {Object} config - Configuration options
+     *   @param {number} config.ENGINEFINISH - 1 to extend lines with engine, 0 to skip
+     *   @param {number} config.ENGINEDEPTH - Depth for engine completion analysis
+     *   @param {string} config.perspective - 'white' or 'black' (whose repertoire)
+     *   @param {number} config.DRAWSAREHALF - How to describe draw handling in annotations
+     */
     constructor(config = {}) {
+        // Merge provided config with defaults
         this.config = {
+            // ENGINEFINISH: Whether to extend incomplete lines with engine moves
+            // 1 = yes (adds engine-calculated continuations)
+            // 0 = no (lines end where database coverage ends)
             ENGINEFINISH: config.ENGINEFINISH || 1,
+
+            // ENGINEDEPTH: How deep the engine analyzes when completing lines
+            // Higher = stronger analysis but slower
             ENGINEDEPTH: config.ENGINEDEPTH || 20,
+
+            // perspective: Which side we're building the repertoire for
+            // Affects which win rate we report in annotations
             perspective: config.perspective || 'white',
+
+            // Include all other config options passed in
             ...config
         };
     }
@@ -127,7 +198,7 @@ class PgnGenerator {
                 console.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`); // Log move details
                 if (move.playrate !== undefined && move.san) { // Only add if we have both playrate and move notation
                     const playratePercent = (move.playrate * 100).toFixed(2); // Convert decimal to percentage
-                    const moveAnnotation = `${move.san} ${playratePercent}%`; // Format: "e4 55.79%" (move before percentage, no + sign)
+                    const moveAnnotation = `+${playratePercent}% ${move.san}`; // Format: "+55.79% e4" (+ prefix, percentage before move)
                     console.log(`            Adding annotation: "${moveAnnotation}"`); // Log the annotation
                     moveAnnotations.push(moveAnnotation); // Add to collection
                 }
@@ -145,7 +216,7 @@ class PgnGenerator {
         if (line.statistics) { // Check if statistics object exists
             console.log(`         Using line.statistics:`, line.statistics); // Log raw statistics
             const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2); // Convert to percentage
-            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%.\n`; // No + sign, end with period
+            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`; // + sign prefix, no period
             console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
 
@@ -161,7 +232,7 @@ class PgnGenerator {
                     winrateDescription = 'Line winrate (draws as half points)'; // Use half-point language
                 }
 
-                const winrateAnnotation = `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games.`; // No + sign, end with period
+                const winrateAnnotation = `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`; // + sign prefix
                 console.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
                 annotations += winrateAnnotation; // Add to output (no newline before closing brace)
             } else {
@@ -171,7 +242,7 @@ class PgnGenerator {
             console.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`); // Log fallback source
             // Use cumulativeLikelihood from line object if no statistics
             const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2); // Convert to percentage
-            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%.`; // No + sign, end with period
+            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%`; // + sign prefix
             console.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
         } else {

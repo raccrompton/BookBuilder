@@ -1,19 +1,112 @@
 /**
- * Stockfish Engine wrapper for position analysis and move evaluation
- * Uses Lichess WebAssembly pattern with direct UCI communication
+ * =============================================================================
+ * StockfishEngine.js - Interface to Stockfish chess engine
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This class provides an interface to Stockfish, one of the strongest chess
+ * engines in the world. We use it to evaluate positions and find the best moves
+ * when the Lichess database doesn't have enough data.
+ *
+ * WHAT IS STOCKFISH?
+ * Stockfish is an open-source chess engine that can analyze positions and
+ * calculate the best moves. It's so strong that it plays at a superhuman level.
+ * We use it to ensure our recommended moves are tactically sound.
+ *
+ * HOW DOES IT RUN IN A BROWSER?
+ * Stockfish is written in C++, but it's been compiled to WebAssembly (WASM).
+ * WebAssembly is a binary format that runs at near-native speed in browsers.
+ * We load Stockfish in a Web Worker to avoid blocking the main UI thread.
+ *
+ * WHAT IS A WEB WORKER?
+ * Web Workers allow JavaScript to run in background threads. Since Stockfish
+ * calculations are CPU-intensive (can take seconds), we run it in a Worker
+ * so the UI stays responsive. Communication happens via message passing.
+ *
+ * UCI PROTOCOL:
+ * Stockfish uses the UCI (Universal Chess Interface) protocol for communication.
+ * It's a text-based protocol with commands like:
+ * - "uci" - Initialize the engine
+ * - "position fen ..." - Set up a position
+ * - "go depth 20" - Calculate best move to depth 20
+ * - "bestmove e2e4" - Engine's response with best move
+ *
+ * KEY FEATURES:
+ * - Position evaluation (returns centipawn score)
+ * - Best move calculation
+ * - Move quality analysis (how much centipawn loss)
+ * - Configurable depth, threads, and hash table size
+ *
+ * DEPENDENCIES:
+ * - Web Worker API (built into browsers)
+ * - Stockfish WASM file (in src/vendor/stockfish-web/)
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const engine = new StockfishEngine({ depth: 20 });
+ * await engine.initialize();
+ * const bestMove = await engine.getBestMove(fenPosition);
+ * const evaluation = await engine.evaluatePosition(fenPosition);
+ * engine.shutdown();
+ * ```
+ * =============================================================================
  */
 class StockfishEngine {
+    /**
+     * Constructor - Initialize Stockfish engine configuration
+     *
+     * @param {Object} config - Configuration options
+     *   @param {number} config.depth - Analysis depth (higher = stronger but slower)
+     *   @param {number} config.threads - CPU threads to use (1 for single-core)
+     *   @param {number} config.hash - Hash table size in MB (memory for positions)
+     *   @param {number} config.timeout - Max time in ms for operations
+     */
     constructor(config = {}) {
-        this.worker = null;
-        this.isReady = false;
-        this.depth = config.depth || 20;
-        this.threads = config.threads || 1;
-        this.hash = config.hash || 128;
-        this.timeout = config.timeout || 120000; // Increased to 2 minutes for reliability
+        // =====================================================================
+        // Web Worker State
+        // =====================================================================
+        // The worker runs Stockfish in a background thread
+        this.worker = null;           // Web Worker instance (null until initialized)
+        this.isReady = false;         // True when engine is ready to accept commands
 
+        // =====================================================================
+        // Engine Configuration
+        // =====================================================================
+
+        // Analysis depth: Number of moves to look ahead
+        // Depth 20 is strong but takes a few seconds per position
+        // Each additional depth roughly doubles the calculation time
+        this.depth = config.depth || 20;
+
+        // Number of CPU threads for parallel search
+        // More threads = faster, but 1 is safest for browser compatibility
+        this.threads = config.threads || 1;
+
+        // Hash table size in megabytes
+        // Stores previously calculated positions to avoid redundant work
+        // 128 MB is a reasonable default for browsers
+        this.hash = config.hash || 128;
+
+        // Timeout for operations in milliseconds
+        // 2 minutes allows for deep analysis without hanging forever
+        this.timeout = config.timeout || 120000;
+
+        // =====================================================================
+        // Asynchronous Operation Tracking
+        // =====================================================================
+        // Since UCI communication is async, we track pending requests
+
+        // Map of operationId -> {type, resolve, reject, targetDepth}
+        // When we get a response, we look up which operation it completes
         this.pendingOperations = new Map();
+
+        // Counter for generating unique operation IDs
         this.operationId = 0;
+
+        // Optional callback for progress updates (e.g., "Analyzing depth 15...")
         this.progressCallback = null;
+
+        // Stores the initialization Promise to prevent multiple init calls
         this.initializationPromise = null;
     }
 

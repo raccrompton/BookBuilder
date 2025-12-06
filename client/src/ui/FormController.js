@@ -1,8 +1,50 @@
 /**
+ * =============================================================================
  * FormController.js - Form management and workflow coordination
+ * =============================================================================
  *
- * Handles form submission, validation, and orchestrates the complete
- * BookBuilder workflow with visual progress feedback.
+ * PURPOSE:
+ * This is the "conductor" of the web interface. It connects the HTML form
+ * to all the backend processing components. When a user clicks "Generate",
+ * this class:
+ * 1. Validates their input
+ * 2. Converts form values to the config format BookBuilder expects
+ * 3. Orchestrates the multi-step generation process
+ * 4. Shows progress updates
+ * 5. Displays results or errors
+ *
+ * ARCHITECTURE OVERVIEW:
+ * The web app follows a typical MVC-ish pattern:
+ * - View: HTML form (app.html)
+ * - Controller: This class (FormController)
+ * - Model/Services: BookBuilder, LichessClient, StockfishEngine, etc.
+ *
+ * WHY SEPARATE THE FORM FROM PROCESSING?
+ * Separation of concerns! The form knows about UI elements (DOM, events),
+ * while BookBuilder knows about chess logic. This class bridges them.
+ * Benefits:
+ * - BookBuilder can be tested without a browser
+ * - The form can be changed without touching chess logic
+ * - Each piece is simpler and focused
+ *
+ * KEY CONCEPTS USED:
+ * - Event Listeners: Functions that run when user interacts (submit, click)
+ * - DOM Manipulation: Reading form values, showing/hiding elements
+ * - Async/Await: For long operations like API calls
+ * - Progress Callbacks: Reporting status back to UI
+ *
+ * HELPER CLASSES IN THIS FILE:
+ * - ConfigManager: Saves/loads form settings to browser storage
+ * - ProgressTracker: Updates the progress bar UI
+ * - ErrorHandler: Displays errors to the user
+ *
+ * DEPENDENCIES:
+ * - BookBuilder.js - Main repertoire generation logic
+ * - LichessClient.js - API calls to Lichess
+ * - StockfishEngine.js - Chess engine analysis
+ * - FileGenerator.js - PGN file creation
+ * - PgnProcessor.js - PGN input parsing
+ * =============================================================================
  */
 
 import BookBuilder from '../BookBuilder.js';
@@ -11,40 +53,122 @@ import StockfishEngine from '../engine/StockfishEngine.js';
 import FileGenerator from './FileGenerator.js';
 import PgnProcessor from '../utils/PgnProcessor.js';
 
+/**
+ * =============================================================================
+ * FormController Class - Main controller for the web interface
+ * =============================================================================
+ *
+ * This class is instantiated when the page loads and manages all user
+ * interactions with the BookBuilder form. It's the "glue" between the
+ * HTML form and the JavaScript processing components.
+ *
+ * LIFECYCLE:
+ * 1. Page loads → FormController created → event listeners attached
+ * 2. User fills form → values auto-saved to browser storage
+ * 3. User clicks Generate → handleSubmit() validates and starts generation
+ * 4. Generation runs → progress updates shown
+ * 5. Complete → results displayed or errors shown
+ */
 class FormController {
+    /**
+     * Constructor - Initialize the form controller
+     *
+     * Sets up three key things:
+     * 1. Helper objects for config, progress, and errors
+     * 2. Placeholders for API components (created later when needed)
+     * 3. Event listeners for user interactions
+     */
     constructor() {
-        // Initialize components
+        // =====================================================================
+        // Helper Components
+        // =====================================================================
+        // These handle specific aspects of the UI
+
+        // ConfigManager: Saves/loads form settings to browser's sessionStorage
+        // This lets users refresh the page without losing their settings
         this.configManager = new ConfigManager();
+
+        // ProgressTracker: Updates the progress bar during generation
+        // Provides visual feedback so users know processing is happening
         this.progressTracker = new ProgressTracker();
+
+        // ErrorHandler: Displays error messages to users
+        // Formats technical errors into user-friendly messages
         this.errorHandler = new ErrorHandler();
 
-        // Initialize API components
+        // =====================================================================
+        // API Components (Lazy Initialization)
+        // =====================================================================
+        // These are null initially and created when generation starts
+        // This is "lazy initialization" - don't create expensive objects until needed
+
+        // LichessClient: HTTP client for Lichess API calls
         this.lichessClient = null;
+
+        // StockfishEngine: Chess engine for move validation
         this.stockfishEngine = null;
+
+        // BookBuilder: Main orchestrator for repertoire generation
         this.bookBuilder = null;
 
-        this.setupEventListeners();
-        this.setupRangeDisplays();
+        // =====================================================================
+        // Setup
+        // =====================================================================
+        // Attach event handlers and initialize UI elements
+
+        this.setupEventListeners();  // Connect buttons/inputs to functions
+        this.setupRangeDisplays();   // Show current values on slider inputs
     }
 
+    /**
+     * Setup Event Listeners - Connect DOM events to handler functions
+     *
+     * WHAT ARE EVENT LISTENERS?
+     * Event listeners are functions that "wait" for something to happen in the
+     * browser (like a button click or form submission), then run code in response.
+     *
+     * Pattern: element.addEventListener('eventName', handlerFunction)
+     *
+     * This method sets up listeners for:
+     * 1. Form submission (main "Generate" action)
+     * 2. Auto-save on any input change
+     * 3. Range slider value display updates
+     * 4. PGN input validation as user types
+     */
     setupEventListeners() {
         // No tab switching needed - using single page layout
 
-        // Form submission
+        // =====================================================================
+        // Form Submission Handler
+        // =====================================================================
+        // When user clicks "Generate", we want to intercept the form submission
+        // and handle it with JavaScript instead of the default browser behavior
+
         console.log('🔗 [DEBUG] Setting up form event listener...');
+
+        // document.getElementById() finds an HTML element by its id attribute
+        // Returns null if not found
         const form = document.getElementById('bookbuilder-form');
         if (!form) {
             console.error('❌ [DEBUG] Form not found!');
             return;
         }
-        
+
+        // The 'submit' event fires when user clicks submit button or presses Enter
+        // The arrow function (e) => {...} is a modern way to write functions
         form.addEventListener('submit', (e) => {
             console.log('📝 [DEBUG] Form submit event triggered');
+
+            // e.preventDefault() stops the browser's default behavior
+            // Without this, the page would refresh (traditional form submission)
             e.preventDefault();
+
+            // Call our custom submission handler instead
             this.handleSubmit();
         });
-        
-        // Also add click listener to button specifically
+
+        // Also add click listener to button specifically (for debugging)
+        // querySelector() finds the first element matching a CSS selector
         const submitButton = document.querySelector('button[type="submit"]');
         if (submitButton) {
             console.log('🔘 [DEBUG] Submit button found, adding click listener');
@@ -55,25 +179,51 @@ class FormController {
             console.error('❌ [DEBUG] Submit button not found!');
         }
 
-        // Auto-save on input
+        // =====================================================================
+        // Auto-Save on Input Change
+        // =====================================================================
+        // querySelectorAll() returns ALL elements matching the CSS selector
+        // We want to save form state whenever any input changes
+
+        // This selector finds all inputs, selects, and textareas within the form
         document.querySelectorAll('#bookbuilder-form input, #bookbuilder-form select, #bookbuilder-form textarea').forEach(element => {
+            // 'input' event fires whenever the value changes (real-time)
+            // Arrow function () => this.autoSave() preserves 'this' context
             element.addEventListener('input', () => this.autoSave());
         });
 
-        // Range input updates
+        // =====================================================================
+        // Range Slider Value Display
+        // =====================================================================
+        // Range inputs (sliders) don't show their value by default
+        // We update a text display next to each slider as user drags
+
         document.querySelectorAll('.form-range').forEach(range => {
-            range.addEventListener('input', () => this.updateRangeDisplay(range));
+            element.addEventListener('input', () => this.updateRangeDisplay(range));
         });
 
-        // PGN input real-time validation and preview
+        // =====================================================================
+        // PGN Input Real-Time Validation
+        // =====================================================================
+        // Validate PGN as user types so they get immediate feedback
+
         const pgnInput = document.getElementById('pgn-input-text');
         if (pgnInput) {
             console.log('📝 [DEBUG] PGN input found, adding event listeners');
+
+            // 'input' event: fires on every keystroke (real-time preview)
             pgnInput.addEventListener('input', () => this.handlePgnInput());
+
+            // 'blur' event: fires when user clicks away (full validation)
+            // More thorough validation when they're done typing
             pgnInput.addEventListener('blur', () => this.validatePgnInput());
         }
     }
 
+    /**
+     * Initialize range slider displays with their current values
+     * Called once at startup to show initial slider positions
+     */
     setupRangeDisplays() {
         document.querySelectorAll('.form-range').forEach(range => {
             this.updateRangeDisplay(range);
@@ -82,11 +232,30 @@ class FormController {
 
     // switchTab method removed - using single page layout
 
+    /**
+     * Auto-save form data to browser storage
+     * Called on every input change so user doesn't lose their settings
+     */
     autoSave() {
+        // Get all current form values as an object
         const config = this.configManager.getFormData();
+
+        // Save to sessionStorage (persists until tab is closed)
         this.configManager.saveConfig(config);
     }
 
+    /**
+     * Handle form submission - Main entry point for generation
+     *
+     * This is called when user clicks "Generate Repertoire". It:
+     * 1. Validates the form input
+     * 2. Converts form values to BookBuilder config format
+     * 3. Starts the generation process
+     * 4. Handles errors gracefully
+     *
+     * The 'async' keyword means this function can use 'await' to pause
+     * while waiting for slow operations (like API calls) without blocking the UI.
+     */
     async handleSubmit() {
         console.log('🚀 [DEBUG] Form submission started');
 
@@ -146,33 +315,71 @@ class FormController {
         }
     }
 
+    /**
+     * Start the repertoire generation process
+     *
+     * This is the main orchestration method. It runs the generation in phases:
+     * 1. Initialize API clients and engine
+     * 2. Validate connections work
+     * 3. Create BookBuilder with progress callback
+     * 4. Process each opening
+     * 5. Generate display output
+     *
+     * Each phase updates the progress bar so users know what's happening.
+     *
+     * @param {Object} config - Configuration object from convertToBookBuilderConfig()
+     */
     async startGeneration(config) {
         try {
+            // Start progress tracking - shows the progress bar UI
             this.progressTracker.start();
 
-            // Phase 1: Initialize components
+            // =========================================================================
+            // Phase 1: Initialize Components (5% progress)
+            // =========================================================================
+            // Create the API clients and optionally the chess engine
+
             this.progressTracker.updatePhase('Initializing components...', 5);
             await this.initializeComponents(config);
 
-            // Phase 2: Validate configuration and connections
+            // =========================================================================
+            // Phase 2: Validate Connections (10% progress)
+            // =========================================================================
+            // Test that we can actually reach the APIs before starting real work
+
             this.progressTracker.updatePhase('Validating configuration...', 10);
             await this.validateConnections(config);
 
-            // Phase 3: Create BookBuilder instance with progress callback
+            // =========================================================================
+            // Phase 3: Create BookBuilder (15% progress)
+            // =========================================================================
+            // BookBuilder is the main orchestrator for repertoire generation
+
             this.progressTracker.updatePhase('Creating BookBuilder instance...', 15);
 
-            // Create progress callback for BookBuilder
+            // Create a callback function that BookBuilder will call with progress updates
+            // This lets us show real-time feedback as it processes positions
             const progressCallback = (progressData) => {
                 this.handleBookBuilderProgress(progressData);
             };
 
+            // Create BookBuilder with our config and progress callback
             this.bookBuilder = new BookBuilder(config, progressCallback);
 
-            // Phase 4: Process openings
+            // =========================================================================
+            // Phase 4: Process Openings (20-90% progress)
+            // =========================================================================
+            // This is where the bulk of the work happens - iterating through
+            // positions, calling Lichess API, selecting moves, etc.
+
             this.progressTracker.updatePhase('Processing openings...', 20);
             const results = await this.processOpenings(config);
 
-            // Phase 5: Prepare display
+            // =========================================================================
+            // Phase 5: Prepare Display (90-100% progress)
+            // =========================================================================
+            // Format the results and show them to the user
+
             this.progressTracker.updateDisplayPhase('Preparing PGN display...', 90);
             const displayResult = await this.generateDisplay(results);
 
@@ -802,42 +1009,106 @@ class FormController {
 }
 
 /**
- * Configuration Management
+ * =============================================================================
+ * ConfigManager Class - Browser storage for form settings
+ * =============================================================================
+ *
+ * PURPOSE:
+ * Saves and loads form settings using the browser's sessionStorage API.
+ * This means if you fill out the form and refresh the page, your settings
+ * are restored automatically.
+ *
+ * WHAT IS SESSION STORAGE?
+ * sessionStorage is a browser API that stores key-value pairs:
+ * - Data persists until the browser tab is closed
+ * - Each tab has its own storage (not shared between tabs)
+ * - Storage limit is typically 5-10 MB
+ * - Data is stored as strings (we use JSON.stringify/parse)
+ *
+ * ALTERNATIVE: localStorage
+ * localStorage is similar but persists forever (until cleared).
+ * We use sessionStorage because chess settings shouldn't persist forever.
  */
 class ConfigManager {
+    /**
+     * Constructor - Initialize config manager and load any saved settings
+     */
     constructor() {
+        // Current configuration object (starts empty)
         this.config = {};
+
+        // Try to load previously saved settings from browser storage
         this.loadFromSession();
     }
 
+    /**
+     * Save configuration to browser storage
+     *
+     * @param {Object} config - Form values to save
+     *
+     * The spread operator {...} merges objects:
+     * { ...existing, ...new } = existing values + new values (new overwrites)
+     */
     saveConfig(config) {
+        // Merge new config with existing (keeps values not in new config)
         this.config = { ...this.config, ...config };
+
+        // sessionStorage only stores strings, so we convert object to JSON
+        // JSON.stringify() converts { foo: 1, bar: 2 } to '{"foo":1,"bar":2}'
         sessionStorage.setItem('bookbuilder-config', JSON.stringify(this.config));
     }
 
+    /**
+     * Load configuration from browser storage
+     * Called automatically when ConfigManager is created
+     */
     loadFromSession() {
+        // sessionStorage.getItem() returns null if key doesn't exist
         const saved = sessionStorage.getItem('bookbuilder-config');
+
         if (saved) {
             try {
+                // JSON.parse() converts JSON string back to object
+                // Throws error if string isn't valid JSON
                 this.config = JSON.parse(saved);
+
+                // Fill in the form with saved values
                 this.populateForm();
             } catch (e) {
+                // If parsing fails, just log it and continue with empty config
                 console.warn('Failed to load saved configuration:', e);
             }
         }
     }
 
+    /**
+     * Populate form fields with saved configuration values
+     *
+     * This iterates through all saved config keys and sets the corresponding
+     * form element values. Handles different input types appropriately:
+     * - Checkboxes use .checked property (boolean)
+     * - Other inputs use .value property (string)
+     */
     populateForm() {
+        // Object.keys() returns array of object's property names
+        // forEach() calls the function for each key
         Object.keys(this.config).forEach(key => {
+            // Try to find form element with id matching the config key
             const element = document.getElementById(key);
+
             if (element) {
+                // Different input types store values differently
                 if (element.type === 'checkbox') {
+                    // Checkboxes use .checked (true/false)
                     element.checked = this.config[key];
                 } else {
+                    // Text inputs, selects, etc. use .value (string)
                     element.value = this.config[key];
                 }
-                // Update range displays
+
+                // Special handling for range sliders: update the display too
                 if (element.type === 'range') {
+                    // Convention: slider display element has id = slider-id + '-value'
                     const valueElement = document.getElementById(element.id + '-value');
                     if (valueElement) {
                         valueElement.textContent = element.value;
@@ -948,66 +1219,142 @@ class ConfigManager {
 }
 
 /**
- * Progress Tracking
+ * =============================================================================
+ * ProgressTracker Class - Visual progress feedback during generation
+ * =============================================================================
+ *
+ * PURPOSE:
+ * Shows a progress bar and status messages while repertoire generation runs.
+ * This is important UX: without feedback, users might think the app froze!
+ *
+ * HOW PROGRESS BARS WORK:
+ * A progress bar is typically a container div with a colored "fill" div inside.
+ * We animate by changing the fill's width: width: "50%" = half done.
+ *
+ * CSS for this is usually:
+ * .progress-container { width: 100%; background: gray; }
+ * .progress-fill { width: 0%; background: blue; transition: width 0.3s; }
+ *
+ * WHY TRACK PROGRESS?
+ * Repertoire generation can take minutes (many API calls). Users need to know:
+ * 1. The app is working (not frozen)
+ * 2. Approximately how far along it is
+ * 3. What's currently happening
  */
 class ProgressTracker {
+    /**
+     * Constructor - Find and store references to progress bar DOM elements
+     */
     constructor() {
+        // The outer container element (shows/hides entire progress UI)
         this.container = document.getElementById('progress-container');
+
+        // The colored bar element that expands to show percentage
         this.fill = document.getElementById('progress-fill');
-        // Use the new progress container elements
-        this.stageText = document.getElementById('progress-stage');
-        this.currentText = document.getElementById('progress-current');
+
+        // Text elements for status messages
+        this.stageText = document.getElementById('progress-stage');      // Current phase name
+        this.currentText = document.getElementById('progress-current');  // Detailed status
+
+        // Whether we're currently showing progress
         this.isActive = false;
     }
 
+    /**
+     * Start showing progress bar
+     * Called when generation begins
+     */
     start() {
         this.isActive = true;
-        // Use our new progress container system
+
+        // Show the progress container
+        // typeof check: see if a function exists before calling it
+        // This is defensive programming - the function might not be defined
         if (typeof showProgressContainer === 'function') {
             showProgressContainer();
         } else {
+            // Fallback: add CSS class to show container
             this.container.classList.add('active');
         }
+
+        // Initialize with "Starting..." message
         this.updatePhase('Starting...', 0);
 
-        // Hide other containers
+        // Hide error and success containers (only show one at a time)
         const errorContainer = document.getElementById('error-container');
         const successContainer = document.getElementById('success-container');
         if (errorContainer) errorContainer.style.display = 'none';
         if (successContainer) successContainer.style.display = 'none';
     }
 
+    /**
+     * Update progress bar phase (main status and percentage)
+     *
+     * @param {string} text - Status message to display
+     * @param {number} percentage - Progress percentage (0-100)
+     */
     updatePhase(text, percentage) {
+        // Don't update if we're not actively tracking
         if (!this.isActive) return;
 
+        // Update the fill bar width
         if (this.fill) {
+            // Math.max/min clamps value to 0-100 range (prevents overflow)
+            // Template literal `${...}%` creates string like "50%"
             this.fill.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
         }
+
+        // Update the stage text
         if (this.stageText) {
             this.stageText.textContent = text;
         }
     }
 
+    /**
+     * Update progress with additional detail text
+     * Shows more specific info below the main status
+     *
+     * @param {string} additionalInfo - Detailed status message
+     */
     updateProgress(additionalInfo) {
         if (!this.isActive) return;
 
-        // Update the current message text
+        // Update the secondary/detail text
         if (this.currentText) {
             this.currentText.textContent = additionalInfo;
         }
     }
 
+    /**
+     * Update for the display preparation phase
+     * Called near the end of generation when formatting results
+     *
+     * @param {string} message - Status message
+     * @param {number} progress - Progress percentage (defaults to 90%)
+     */
     updateDisplayPhase(message = 'Preparing PGN display...', progress = 90) {
         if (!this.isActive) return;
-
         this.updatePhase(message, progress);
     }
 
+    /**
+     * Mark progress as complete
+     * Shows 100% progress and transitions to success state
+     *
+     * @param {string} message - Completion message to display
+     * @param {Object} completionInfo - Optional info about what completed
+     *   @param {string} completionInfo.displayMethod - 'browser' for in-page display
+     */
     complete(message, completionInfo = null) {
+        // Stop tracking progress
         this.isActive = false;
+
+        // Fill the bar to 100%
         if (this.fill) {
             this.fill.style.width = '100%';
         }
+
+        // Show completion message
         if (this.stageText) {
             this.stageText.textContent = message;
         }
@@ -1015,44 +1362,59 @@ class ProgressTracker {
             this.currentText.textContent = 'Generation completed successfully!';
         }
 
-        // Handle display mode vs traditional success mode
+        // Two modes: in-browser display vs traditional success message
+        // setTimeout() delays execution - gives user time to see 100% before hiding
         if (completionInfo && completionInfo.displayMethod === 'browser') {
-            // Hide progress container for display mode
+            // Browser display mode: just hide progress after delay
+            // The PGN will be shown in the main content area
             setTimeout(() => {
                 if (typeof hideProgressContainer === 'function') {
                     hideProgressContainer();
                 } else {
                     this.container.classList.remove('active');
                 }
-            }, 1500);
+            }, 1500);  // 1.5 second delay
         } else {
-            // Show traditional success container
+            // Traditional mode: show success container with message
             setTimeout(() => {
                 if (typeof hideProgressContainer === 'function') {
                     hideProgressContainer();
                 } else {
                     this.container.classList.remove('active');
                 }
+
+                // Show the success message container
                 const successContainer = document.getElementById('success-container');
                 const successMessage = document.getElementById('success-message');
                 if (successContainer && successMessage) {
                     successContainer.style.display = 'block';
                     successMessage.textContent = message;
                 }
-            }, 1000);
+            }, 1000);  // 1 second delay
         }
     }
 
+    /**
+     * Reset progress tracker to initial state
+     * Called when generation fails or is cancelled
+     */
     reset() {
+        // Stop tracking
         this.isActive = false;
+
+        // Hide the progress container
         if (typeof hideProgressContainer === 'function') {
             hideProgressContainer();
         } else {
             this.container.classList.remove('active');
         }
+
+        // Reset the fill bar to 0%
         if (this.fill) {
             this.fill.style.width = '0%';
         }
+
+        // Reset text to initial messages
         if (this.stageText) {
             this.stageText.textContent = 'Initializing...';
         }
@@ -1063,33 +1425,75 @@ class ProgressTracker {
 }
 
 /**
- * Error Handling
+ * =============================================================================
+ * ErrorHandler Class - User-friendly error display
+ * =============================================================================
+ *
+ * PURPOSE:
+ * Displays error messages to users in a friendly, understandable way.
+ * Errors happen - the goal is to communicate them helpfully, not technically.
+ *
+ * WHY THIS MATTERS:
+ * Raw JavaScript errors like "TypeError: Cannot read property 'x' of undefined"
+ * are confusing to most users. This class:
+ * 1. Shows a visible error container in the UI
+ * 2. Provides a human-readable title and message
+ * 3. Logs technical details to console for debugging
+ *
+ * ERROR TYPES HANDLED:
+ * - System errors (API failures, engine errors)
+ * - Validation errors (invalid form input)
  */
 class ErrorHandler {
+    /**
+     * Constructor - Find error display elements in the DOM
+     */
     constructor() {
+        // Container div that holds the error message (hidden by default)
         this.container = document.getElementById('error-container');
+
+        // Element where the error text is displayed
         this.message = document.getElementById('error-message');
     }
 
+    /**
+     * Show a system error to the user
+     *
+     * @param {string} title - User-friendly error title (e.g., "Connection Failed")
+     * @param {Error} error - JavaScript Error object with details
+     */
     showError(title, error) {
+        // Always log to console for debugging
         console.error(title, error);
 
+        // Show the error container
         this.container.style.display = 'block';
+
+        // Build HTML for the error message
+        // Template literal allows multi-line strings with ${} interpolation
+        // innerHTML allows HTML tags (like <strong>, <br>)
         this.message.innerHTML = `
             <strong>${title}</strong><br>
             ${error.message}<br>
             <small>Check console for detailed error information.</small>
         `;
 
-        // Hide other containers
+        // Hide other status containers (show only one at a time)
         document.getElementById('progress-container').style.display = 'none';
         document.getElementById('success-container').style.display = 'none';
 
-        // Log detailed error to console
+        // Log detailed technical info to console
         this.logError(error, title);
     }
 
+    /**
+     * Show validation errors (form input problems)
+     *
+     * @param {Array<string>} errors - List of validation error messages
+     */
     showValidationErrors(errors) {
+        // Convert array of errors to bulleted HTML list
+        // .map() transforms each error, .join('<br>') connects with line breaks
         const errorList = errors.map(error => `• ${error}`).join('<br>');
 
         this.container.style.display = 'block';
@@ -1103,12 +1507,22 @@ class ErrorHandler {
         document.getElementById('success-container').style.display = 'none';
     }
 
+    /**
+     * Log detailed error information to browser console
+     * This is for developers debugging issues
+     *
+     * @param {Error} error - The error object
+     * @param {string} context - Where the error occurred
+     *
+     * console.group() creates a collapsible section in browser dev tools
+     */
     logError(error, context) {
+        // console.group() starts a collapsible group in dev tools
         console.group(`🐛 Error in ${context}`);
         console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
+        console.error('Stack:', error.stack);   // Stack trace shows where error originated
         console.error('Context:', context);
-        console.groupEnd();
+        console.groupEnd();  // End the collapsible group
     }
 }
 
