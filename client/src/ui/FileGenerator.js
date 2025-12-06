@@ -1,15 +1,73 @@
 /**
- * FileGenerator.js - Client-side file generation and download functionality
+ * =============================================================================
+ * FileGenerator.js - File generation and browser download functionality
+ * =============================================================================
  *
- * Handles PGN file creation and browser download functionality for the
- * BookBuilder client-side application.
+ * PURPOSE:
+ * This class handles the final step of BookBuilder: creating downloadable
+ * files from the analyzed chess lines. It converts our internal data structures
+ * into proper PGN format and triggers browser downloads.
+ *
+ * WHAT IT DOES:
+ * 1. Formats analysis results into PGN strings with proper headers
+ * 2. Creates browser downloads using Blob URLs
+ * 3. Merges multiple lines into tree-structured PGN with variations
+ * 4. Provides copy-to-clipboard functionality
+ * 5. Validates PGN output format
+ *
+ * TWO OUTPUT MODES:
+ *
+ * 1. INDIVIDUAL LINES:
+ *    Each analysis line becomes a separate "game" in the PGN file.
+ *    Good for importing into study tools that expect separate entries.
+ *
+ * 2. TREE MODE (VARIATIONS):
+ *    Multiple lines are merged into a single game with variations.
+ *    Example: 1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3 Nc6
+ *    This is more compact and shows the tree structure visually.
+ *
+ * HOW BROWSER DOWNLOADS WORK:
+ * JavaScript can't directly write files to the user's computer (security!).
+ * Instead, we:
+ * 1. Create a "Blob" (binary large object) containing our content
+ * 2. Generate a temporary URL pointing to that Blob
+ * 3. Create a hidden <a> link with that URL and click it programmatically
+ * 4. The browser treats this as a download request
+ * 5. Clean up the temporary URL afterward
+ *
+ * DEPENDENCIES:
+ * - PgnTreeMerger: For combining lines into variation trees
+ * - chess.js: For robust PGN parsing and formatting
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const generator = new FileGenerator();
+ * const pgn = await generator.generatePGN(analysisResults, { chapterName: 'Italian Game' });
+ * generator.downloadFile(pgn, 'Italian_Game.pgn');
+ * // or
+ * generator.displayPGN(pgn, 'Italian Game');  // Shows in browser with copy button
+ * ```
+ * =============================================================================
  */
 
-import PgnTreeMerger from '../pgn/PgnTreeMerger.js'; // Import the tree merger for combining PGN lines into variation tree
+// Import PgnTreeMerger for combining PGN lines into a single game with variations
+// This uses the chessops library for proper PGN tree manipulation
+import PgnTreeMerger from '../pgn/PgnTreeMerger.js';
 
+/**
+ * FileGenerator Class - Creates and downloads PGN files
+ */
 class FileGenerator {
+    /**
+     * Constructor - Initialize file generator
+     */
     constructor() {
+        // Map to store generated files (key = filename, value = content)
+        // Useful for re-downloading or combining multiple files
         this.generatedFiles = new Map();
+
+        // Track download history for debugging and user feedback
+        // Each entry has: {filename, timestamp, size, mimeType}
         this.downloadHistory = [];
     }
 
@@ -512,7 +570,7 @@ class FileGenerator {
 
         // Create a new tree merger instance to combine all lines
         const merger = new PgnTreeMerger(); // Initialize the chessops-based merger
-        merger.setHeader('Event', `${chapterName}`); // Set the chapter name as the Event header
+        merger.setHeader('Event', `${chapterName} Line 1`); // Set the chapter name with "Line 1" as Event header (tree combines all lines into one)
 
         // Generate each line with full annotations using PgnGenerator, then merge
         for (let i = 0; i < lines.length; i++) { // Iterate through all lines

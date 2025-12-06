@@ -1,22 +1,101 @@
 /**
- * ProgressTracker.js - Visual progress tracking with detailed feedback
+ * =============================================================================
+ * ProgressTracker.js - Visual progress tracking and user feedback
+ * =============================================================================
  *
- * Provides comprehensive progress tracking for the BookBuilder generation process
- * with phase-based updates, estimated time remaining, and cancellation support.
+ * PURPOSE:
+ * When generating a chess repertoire, the process can take several minutes.
+ * This class provides visual feedback so users know:
+ * 1. The system is working (not frozen)
+ * 2. How far along the process is
+ * 3. Approximately how much longer it will take
+ * 4. What's happening at each step
+ *
+ * WHY PROGRESS TRACKING MATTERS:
+ * Without progress feedback, users might think the app is broken and
+ * close it during a long operation. Good UX requires communicating
+ * what's happening and setting expectations.
+ *
+ * FEATURES:
+ * - Progress bar with percentage
+ * - Phase-based updates ("Analyzing positions", "Generating output")
+ * - Estimated time remaining (ETA) calculation
+ * - Detailed log of operations
+ * - Cancel button to abort long-running operations
+ *
+ * HOW ETA WORKS:
+ * If we're 25% done after 30 seconds, we estimate total time as:
+ * 30 seconds / 0.25 = 120 seconds total
+ * So remaining time = 120 - 30 = 90 seconds
+ * (This is a simple linear estimate - actual time may vary)
+ *
+ * DESIGN PATTERN:
+ * This class manages the progress bar UI elements in the DOM.
+ * It receives updates from BookBuilder as processing progresses.
+ *
+ * DOM REQUIREMENTS:
+ * The HTML must have these elements:
+ * - #progress-container: Main container div
+ * - #progress-fill: The colored bar that shows percentage
+ * - #progress-text: Text description of current operation
+ *
+ * EXAMPLE USAGE:
+ * ```javascript
+ * const tracker = new ProgressTracker();
+ * tracker.start();
+ * tracker.updatePhase('Processing Italian Game', 25);
+ * tracker.updateProgress('Analyzing position 50 of 200');
+ * tracker.complete('Generation complete!', { fileCount: 3 });
+ * ```
+ * =============================================================================
  */
 
+/**
+ * ProgressTracker Class - Manages progress bar UI and updates
+ */
 class ProgressTracker {
+    /**
+     * Constructor - Initialize progress tracker and find DOM elements
+     */
     constructor() {
+        // =====================================================================
+        // Find DOM Elements
+        // =====================================================================
+        // These elements must exist in the HTML for the tracker to work
+
+        // Main container that holds the entire progress UI
         this.container = document.getElementById('progress-container');
+
+        // The colored bar element that expands to show percentage
+        // We change its width: "width: 50%" for 50% progress
         this.fill = document.getElementById('progress-fill');
+
+        // Text element showing current operation description
         this.text = document.getElementById('progress-text');
 
+        // =====================================================================
+        // State Tracking
+        // =====================================================================
+
+        // Whether progress tracking is currently active
         this.isActive = false;
+
+        // When tracking started (for ETA calculations)
+        // Stored as milliseconds since epoch (Date.now())
         this.startTime = null;
+
+        // Current phase object {name, weight}
         this.currentPhase = null;
+
+        // Array of phases with weights for progress calculation
+        // Weight determines how much of total progress each phase represents
         this.phases = [];
+
+        // Callback function to call if user clicks cancel
+        // Set by the code that starts the operation
         this.cancelCallback = null;
 
+        // Setup additional UI elements (cancel button, ETA, log)
         this.setupProgressUI();
     }
 
