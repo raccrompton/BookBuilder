@@ -7,7 +7,7 @@
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
         style-src 'self' 'unsafe-inline';
-        connect-src 'self' https://lichess.org https://explorer.lichess.ovh;
+        connect-src 'self' https://lichess.org https://explorer.lichess.ovh https://unpkg.com;
         worker-src 'self' blob:;
         img-src 'self' data: https:;
     ">
@@ -17,10 +17,13 @@
     <!-- Pinned to specific version to prevent breaking changes -->
     <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
-    <!-- Import map for bare module specifiers (needed for chessops in browser) -->
+    <!-- Import map for bare module specifiers (needed for ES modules in browser) -->
+    <!-- Maps npm package names to their ESM files in node_modules -->
+    <!-- Without this, "import { Chess } from 'chess.js'" would fail in the browser -->
     <script type="importmap">
     {
         "imports": {
+            "chess.js": "./node_modules/chess.js/dist/esm/chess.js",
             "chessops/pgn": "./node_modules/chessops/dist/esm/pgn.js",
             "chessops/chess": "./node_modules/chessops/dist/esm/chess.js",
             "chessops/fen": "./node_modules/chessops/dist/esm/fen.js",
@@ -162,14 +165,14 @@
         }
 
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
 
         .form-label {
             display: block;
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
         }
 
         .form-input,
@@ -200,10 +203,20 @@
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         }
 
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+            gap: 2rem;
         }
 
         .form-checkbox-group {
@@ -226,6 +239,13 @@
 
         .range-container {
             position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .range-container .form-input {
+            flex: 1;
         }
 
         .form-range {
@@ -254,9 +274,15 @@
         .form-help {
             font-size: 0.875rem;
             color: var(--text-muted);
-            margin-top: 0.25rem;
+            margin-top: 0.5rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
         }
 
+        /* Help text inside form-group doesn't need bottom margin */
+        .form-group .form-help {
+            margin-bottom: 0;
+        }
 
         .form-actions {
             padding: 2rem;
@@ -662,6 +688,48 @@
             display: flex;
             gap: 0.75rem;
             flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Format Toggle - Allows switching between Individual and Tree PGN formats */
+        .format-toggle-container {
+            display: flex;
+            gap: 0.25rem;
+            margin-right: 0.75rem;
+            padding-right: 0.75rem;
+            border-right: 1px solid var(--border);
+        }
+
+        .format-toggle-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        .format-toggle-btn:hover {
+            background: var(--background);
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+
+        .format-toggle-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .format-toggle-btn .icon {
+            width: 0.875rem;
+            height: 0.875rem;
         }
 
         .pgn-display-content {
@@ -754,6 +822,7 @@
         }
 
         .tab-button {
+            flex: 1;
             padding: 1rem 1.5rem;
             border: none;
             background: none;
@@ -763,7 +832,7 @@
             white-space: nowrap;
             font-weight: 500;
             transition: all 0.2s;
-            min-width: max-content;
+            text-align: center;
         }
 
         .tab-button:hover {
@@ -786,12 +855,17 @@
         }
 
         .tab-navigation-buttons {
+            position: sticky;
+            bottom: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 2rem;
-            padding: 1.5rem 0;
+            padding: 1rem 1.5rem;
+            background: var(--surface);
             border-top: 1px solid var(--border);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
         }
 
         .nav-button-group {
@@ -871,6 +945,18 @@
 
             .pgn-display-actions {
                 justify-content: center;
+            }
+
+            /* Format toggle stacks on mobile for better touch targets */
+            .format-toggle-container {
+                width: 100%;
+                justify-content: center;
+                margin-right: 0;
+                padding-right: 0;
+                border-right: none;
+                margin-bottom: 0.5rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 1px solid var(--border);
             }
 
             .pgn-content {
@@ -1081,9 +1167,6 @@
                 </button>
                 <button type="button" class="tab-button" data-tab="engine-settings">
                     <i data-lucide="cpu" class="icon"></i> Engine Filters
-                </button>
-                <button type="button" class="tab-button" data-tab="pgn-output-settings">
-                    <i data-lucide="file-output" class="icon"></i> PGN Output
                 </button>
             </div>
 
@@ -1392,78 +1475,11 @@
                 </div>
             </div>
 
-            <!-- PGN Output Settings Tab -->
-            <div class="tab-content" id="tab-pgn-output-settings">
-                <div class="form-section-container" id="pgn-output-settings">
-                <div class="form-section">
-                    <h2 class="section-title"><i data-lucide="file-output" class="icon"></i> PGN Output Configuration</h2>
-                    <div class="form-help">
-                        Choose how you want your chess repertoire to be formatted in the final PGN output.
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Output Format</label>
-                        <div class="form-help">
-                            How should multiple lines be presented in your repertoire?
-                        </div>
-                        <div style="margin-top: 0.75rem;">
-                            <div class="checkbox-item" style="margin-bottom: 0.5rem;">
-                                <input type="radio" id="output-individual" name="output-format" class="form-checkbox" value="individual" checked>
-                                <label for="output-individual" style="margin-left: 0.5rem;">
-                                    <strong>Individual Lines</strong> - Each line as a separate PGN entry (default)
-                                </label>
-                            </div>
-                            <div class="form-help" style="margin-left: 1.75rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem;">
-                                Creates separate PGN entries for each line like:<br>
-                                <code>[Event "Sicilian Defense Line 1"]<br>1. e4 c5 2. Nf3 d6<br>{Move playrates: ...}</code>
-                            </div>
-
-                            <div class="checkbox-item">
-                                <input type="radio" id="output-tree" name="output-format" class="form-checkbox" value="tree">
-                                <label for="output-tree" style="margin-left: 0.5rem;">
-                                    <strong>Tree Structure</strong> - Combined lines with variations
-                                </label>
-                            </div>
-                            <div class="form-help" style="margin-left: 1.75rem; color: var(--text-muted); font-size: 0.875rem;">
-                                Combines related lines into a single PGN with branches like:<br>
-                                <code>[Event "Sicilian Defense Tree"]<br>1. e4 c5 (1...e5 2. Nf3) 2. Nf3 d6 3. d4<br>{Combined statistics: ...}</code>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Move Statistics Format</label>
-                        <div class="form-help">
-                            All repertoires include detailed move statistics and playrates in a statistics block after each line.
-                        </div>
-                        <div style="margin-top: 0.75rem; padding: 1rem; background: var(--background); border-radius: 0.5rem; border: 1px solid var(--border);">
-                            <div class="form-help" style="margin: 0; color: var(--text-primary);">
-                                <strong>Statistics Format:</strong><br>
-                                <code style="display: block; margin-top: 0.5rem; color: var(--text-muted);">1. e4 c5 2. Nf3 d6<br>{Move playrates:<br>+45.67%&nbsp;&nbsp;&nbsp;&nbsp;c5<br>+78.23%&nbsp;&nbsp;&nbsp;&nbsp;d6<br>Line winrate: +52.4% over 15,234 games}</code>
-                            </div>
-                        </div>
-                        <input type="hidden" id="annotation-endblock" name="annotation-style" value="endBlock">
-                    </div>
-
-                    <div class="form-group" style="background: var(--background); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                            <i data-lucide="lightbulb" class="icon" style="color: var(--warning-color);"></i>
-                            <strong style="color: var(--text-primary);">Tip</strong>
-                        </div>
-                        <div class="form-help" style="margin: 0;">
-                            <strong>Individual + End Block:</strong> Best for studying separate lines in depth<br>
-                            <strong>Tree + End Block:</strong> Great for understanding how lines relate to each other<br>
-                            <strong>Individual + Inline:</strong> Compact format showing move-by-move statistics<br>
-                            <strong>Tree + Inline:</strong> Advanced format combining tree structure with inline stats
-                        </div>
-                    </div>
-                </div>
-                </div>
-            </div>
-
             <!-- Global Tab Navigation -->
             <div class="tab-navigation-buttons">
-                <div class="tab-progress">Step 1 of 6</div>
+                <button type="button" class="btn btn-secondary" onclick="loadSampleConfiguration()">
+                    <i data-lucide="file-down" class="icon"></i> Load Sample
+                </button>
                 <div class="nav-button-group">
                     <button type="button" class="btn-nav" id="prev-tab" disabled>
                         ← Back
@@ -1471,13 +1487,10 @@
                     <button type="button" class="btn-nav" id="next-tab">
                         Next →
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="loadSampleConfiguration()" style="display: none;">
-                        Load Sample Configuration
-                    </button>
-                    <button type="submit" class="btn btn-primary" style="display: none;">
-                        <i data-lucide="play" class="icon"></i> Generate Repertoire
-                    </button>
                 </div>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="play" class="icon"></i> Generate Repertoire
+                </button>
             </div>
 
             <div class="progress-container" id="progress-container">
@@ -1847,7 +1860,7 @@
 
         // Tab System Management
         let currentTab = 0;
-        const tabs = ['pgn-input', 'lichess-settings', 'opponent-filters', 'candidate-selectors', 'engine-settings', 'pgn-output-settings'];
+        const tabs = ['pgn-input', 'lichess-settings', 'opponent-filters', 'candidate-selectors', 'engine-settings'];
 
         function initTabSystem() {
             // Add click listeners to tab buttons
@@ -1887,38 +1900,21 @@
                 targetTab.classList.add('active');
             }
 
-            // Update progress indicator
-            const progressElement = document.querySelector('.tab-progress');
-            if (progressElement) {
-                progressElement.textContent = `Step ${tabIndex + 1} of ${tabs.length}`;
-            }
-
-            // Update navigation buttons
+            // Update navigation buttons (just enable/disable states)
             updateNavigationButtons();
         }
 
         function updateNavigationButtons() {
-            // Update back button
+            // Update back button - disabled on first tab
             const prevBtn = document.getElementById('prev-tab');
             if (prevBtn) {
                 prevBtn.disabled = currentTab === 0;
             }
 
-            // Update next button
+            // Update next button - disabled on last tab
             const nextBtn = document.getElementById('next-tab');
-            const loadBtn = document.querySelector('button[onclick="loadSampleConfiguration()"]');
-            const submitBtn = document.querySelector('button[type="submit"]');
-
-            if (currentTab === tabs.length - 1) {
-                // Last tab - show submit and load config buttons, hide next
-                if (nextBtn) nextBtn.style.display = 'none';
-                if (loadBtn) loadBtn.style.display = 'inline-flex';
-                if (submitBtn) submitBtn.style.display = 'inline-flex';
-            } else {
-                // Not last tab - show next button, hide others
-                if (nextBtn) nextBtn.style.display = 'inline-flex';
-                if (loadBtn) loadBtn.style.display = 'none';
-                if (submitBtn) submitBtn.style.display = 'none';
+            if (nextBtn) {
+                nextBtn.disabled = currentTab === tabs.length - 1;
             }
         }
 
