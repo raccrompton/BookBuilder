@@ -54,6 +54,10 @@
 // This uses the chessops library for proper PGN tree manipulation
 import PgnTreeMerger from '../pgn/PgnTreeMerger.js';
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('FileGenerator', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('FileGenerator');
+
 /**
  * FileGenerator Class - Creates and downloads PGN files
  */
@@ -180,7 +184,7 @@ class FileGenerator {
             const moves = chess.history(); // Extract clean move list in SAN notation
 
             if (moves.length === 0) {
-                console.warn('[FileGenerator] No moves extracted from PGN for quality annotations');
+                log.warn('[FileGenerator] No moves extracted from PGN for quality annotations');
                 return pgnMoves; // Return original if parsing yielded no moves
             }
 
@@ -210,7 +214,7 @@ class FileGenerator {
             return result;
 
         } catch (error) {
-            console.error(`[FileGenerator] Error adding quality annotations: ${error.message}`);
+            log.error(`[FileGenerator] Error adding quality annotations: ${error.message}`);
             return pgnMoves; // Return original on error as graceful fallback
         }
     }
@@ -311,10 +315,10 @@ class FileGenerator {
      * Download file to browser
      */
     downloadFile(content, filename, mimeType = null) {
-        console.log(`💾 [FileGenerator] downloadFile called:`);
-        console.log(`   Filename: ${filename}`);
-        console.log(`   Content size: ${content.length} characters`);
-        console.log(`   Requested MIME type: ${mimeType || 'auto-detect'}`);
+        log.log(`💾 [FileGenerator] downloadFile called:`);
+        log.log(`   Filename: ${filename}`);
+        log.log(`   Content size: ${content.length} characters`);
+        log.log(`   Requested MIME type: ${mimeType || 'auto-detect'}`);
 
         try {
             // Determine MIME type if not provided
@@ -326,32 +330,32 @@ class FileGenerator {
                 } else {
                     mimeType = 'text/plain';
                 }
-                console.log(`   Auto-detected MIME type: ${mimeType}`);
+                log.log(`   Auto-detected MIME type: ${mimeType}`);
             }
 
             // Create blob
-            console.log(`   Creating blob with MIME type: ${mimeType}`);
+            log.log(`   Creating blob with MIME type: ${mimeType}`);
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
-            console.log(`   Blob URL created: ${url.substring(0, 50)}...`);
+            log.log(`   Blob URL created: ${url.substring(0, 50)}...`);
 
             // Create download link
-            console.log(`   Creating download link element`);
+            log.log(`   Creating download link element`);
             const downloadLink = document.createElement('a');
             downloadLink.href = url;
             downloadLink.download = filename;
             downloadLink.style.display = 'none';
 
             // Add to DOM, click, and remove
-            console.log(`   Triggering download...`);
+            log.log(`   Triggering download...`);
             document.body.appendChild(downloadLink);
             downloadLink.click();
             document.body.removeChild(downloadLink);
-            console.log(`   Download link cleaned up`);
+            log.log(`   Download link cleaned up`);
 
             // Clean up object URL
             URL.revokeObjectURL(url);
-            console.log(`   Blob URL revoked`);
+            log.log(`   Blob URL revoked`);
 
             // Track download
             this.downloadHistory.push({
@@ -362,12 +366,12 @@ class FileGenerator {
             });
 
             const formattedSize = this.formatFileSize(content.length);
-            console.log(`✅ [FileGenerator] Downloaded: ${filename} (${formattedSize})`);
+            log.log(`✅ [FileGenerator] Downloaded: ${filename} (${formattedSize})`);
 
             return { success: true, filename, size: content.length };
 
         } catch (error) {
-            console.error(`❌ [FileGenerator] Download failed for ${filename}:`, error);
+            log.error(`❌ [FileGenerator] Download failed for ${filename}:`, error);
             throw new Error(`Failed to download ${filename}: ${error.message}`);
         }
     }
@@ -387,7 +391,7 @@ class FileGenerator {
                 await this.sleep(500);
 
             } catch (error) {
-                console.error(`Failed to download ${file.filename}:`, error);
+                log.error(`Failed to download ${file.filename}:`, error);
                 results.push({
                     success: false,
                     filename: file.filename,
@@ -516,26 +520,26 @@ class FileGenerator {
      * @returns {string} Formatted PGN content
      */
     async generateConfiguredPGN(lines, chapterName, config, pgnGenerator) {
-        console.log('\n📁 [FileGenerator] generateConfiguredPGN() - FORMATTING ENGINE CALLED');
-        console.log('   🎯 Handling SORTING + FORMATTING (moved from BookBuilder)');
-        console.log('   📊 Received config:', {
+        log.log('\n📁 [FileGenerator] generateConfiguredPGN() - FORMATTING ENGINE CALLED');
+        log.log('   🎯 Handling SORTING + FORMATTING (moved from BookBuilder)');
+        log.log('   📊 Received config:', {
             outputFormat: config.outputFormat,
             pgnConfig: config.pgnConfig,
             LONGTOSHORT: config.LONGTOSHORT,
             configKeys: Object.keys(config)
         });
-        console.log('   📊 Input lines:', { linesCount: lines?.length || 'MISSING', chapterName });
+        log.log('   📊 Input lines:', { linesCount: lines?.length || 'MISSING', chapterName });
 
         // Handle empty lines array
         if (!lines || lines.length === 0) {
-            console.log('   ❌ Empty lines array, returning empty string');
+            log.log('   ❌ Empty lines array, returning empty string');
             return '';
         }
 
         // Sort lines by probability (moved from BookBuilder for consistent behavior)
-        console.log('   📈 Sorting lines by probability...');
+        log.log('   📈 Sorting lines by probability...');
         const sortedLines = this.sortLinesByProbability(lines);
-        console.log('   🔝 Top 3 lines by probability:', sortedLines.slice(0, 3).map(line => ({
+        log.log('   🔝 Top 3 lines by probability:', sortedLines.slice(0, 3).map(line => ({
             pgn: line.pgn,
             likelihood: line.cumulativeLikelihood?.toFixed(6)
         })));
@@ -543,16 +547,16 @@ class FileGenerator {
         // Apply LONGTOSHORT reversal if configured
         let finalLines = sortedLines;
         if (config.LONGTOSHORT) {
-            console.log('   🔄 Applying LONGTOSHORT reversal');
+            log.log('   🔄 Applying LONGTOSHORT reversal');
             finalLines = [...sortedLines].reverse();
         }
 
         // Route to appropriate generation method based on configuration
         if (config.outputFormat === 'tree') {
-            console.log('   🌳 → Taking TREE generation path');
+            log.log('   🌳 → Taking TREE generation path');
             return await this.generateTreePGN(finalLines, chapterName, config, pgnGenerator);
         } else {
-            console.log('   📋 → Taking INDIVIDUAL lines path');
+            log.log('   📋 → Taking INDIVIDUAL lines path');
             return await this.generateIndividualLinesPGN(finalLines, chapterName, pgnGenerator);
         }
     }
@@ -566,7 +570,7 @@ class FileGenerator {
      * @returns {string} Tree-structured PGN content
      */
     async generateTreePGN(lines, chapterName, config, pgnGenerator) {
-        console.log(`📋 [FileGenerator] Generating tree-structured PGN for ${lines.length} lines`); // Log entry point with line count
+        log.log(`📋 [FileGenerator] Generating tree-structured PGN for ${lines.length} lines`); // Log entry point with line count
 
         // Create a new tree merger instance to combine all lines
         const merger = new PgnTreeMerger(); // Initialize the chessops-based merger
@@ -589,7 +593,7 @@ class FileGenerator {
         // Export the merged tree as a single PGN with variations
         const treePgn = merger.toPgn(); // Generate final merged PGN string
 
-        console.log(`✅ [FileGenerator] Tree PGN generated with ${lines.length} lines merged`); // Log success
+        log.log(`✅ [FileGenerator] Tree PGN generated with ${lines.length} lines merged`); // Log success
 
         return treePgn; // Return the merged tree PGN
     }
@@ -602,7 +606,7 @@ class FileGenerator {
      * @returns {string} Individual lines PGN
      */
     async generateIndividualLinesPGN(lines, chapterName, pgnGenerator) {
-        console.log(`📋 [FileGenerator] Generating individual lines PGN for ${lines.length} lines`);
+        log.log(`📋 [FileGenerator] Generating individual lines PGN for ${lines.length} lines`);
 
         let pgnContent = '';
         for (let i = 0; i < lines.length; i++) {
@@ -624,7 +628,7 @@ class FileGenerator {
      * @returns {Object} Tree structure with main line and variations
      */
     buildVariationTree(lines) {
-        console.log(`🌳 [FileGenerator] Building variation tree from ${lines.length} lines`);
+        log.log(`🌳 [FileGenerator] Building variation tree from ${lines.length} lines`);
 
         if (lines.length === 0) {
             return { mainLine: '', variations: [] };
@@ -632,16 +636,16 @@ class FileGenerator {
 
         // Deduplicate lines at tree level (critical for preventing duplicate variations)
         const deduplicatedLines = this.deduplicateTreeLines(lines);
-        console.log(`   🧹 Tree-level deduplication: ${lines.length} → ${deduplicatedLines.length} unique lines`);
+        log.log(`   🧹 Tree-level deduplication: ${lines.length} → ${deduplicatedLines.length} unique lines`);
 
         // Lines should already be sorted by probability (highest first)
         // Use highest probability line as main line (much better than longest!)
         const mainLine = deduplicatedLines[0];
         const variations = deduplicatedLines.slice(1);
 
-        console.log(`   🎯 Main line (highest probability): ${mainLine.pgn}`);
-        console.log(`   📊 Main line likelihood: ${mainLine.cumulativeLikelihood?.toFixed(6)}`);
-        console.log(`   🌿 Variations: ${variations.length}`);
+        log.log(`   🎯 Main line (highest probability): ${mainLine.pgn}`);
+        log.log(`   📊 Main line likelihood: ${mainLine.cumulativeLikelihood?.toFixed(6)}`);
+        log.log(`   🌿 Variations: ${variations.length}`);
 
         return {
             mainLine: mainLine,
@@ -752,23 +756,23 @@ class FileGenerator {
      * @returns {string} Tree move sequence with (variation) notation
      */
     async generateTreeMoveSequence(variationTree) {
-        console.log(`🌳 [FileGenerator] generateTreeMoveSequence() - Building PGN tree`);
+        log.log(`🌳 [FileGenerator] generateTreeMoveSequence() - Building PGN tree`);
 
         if (!variationTree.mainLine || !variationTree.mainLine.pgn) {
-            console.log(`   ❌ No main line found`);
+            log.log(`   ❌ No main line found`);
             return '';
         }
 
         const mainLine = variationTree.mainLine;
         const variations = variationTree.variations || [];
 
-        console.log(`   📋 Main line: ${mainLine.pgn}`);
-        console.log(`   🌿 Processing ${variations.length} variations`);
+        log.log(`   📋 Main line: ${mainLine.pgn}`);
+        log.log(`   🌿 Processing ${variations.length} variations`);
 
         // Parse main line moves using chess.js
         const mainMoves = await this.parsePGNMoves(mainLine.pgn);
         if (mainMoves.length === 0) {
-            console.log(`   ❌ Could not parse main line moves`);
+            log.log(`   ❌ Could not parse main line moves`);
             return mainLine.pgn; // Fallback to original PGN
         }
 
@@ -788,7 +792,7 @@ class FileGenerator {
      */
     async parsePGNMoves(pgn) {
         try {
-            console.log(`   🔍 Parsing PGN with chess.js: "${pgn.substring(0, 50)}..."`);
+            log.log(`   🔍 Parsing PGN with chess.js: "${pgn.substring(0, 50)}..."`);
 
             // Import chess.js for robust PGN parsing
             const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js');
@@ -800,16 +804,16 @@ class FileGenerator {
             // Get move history in SAN notation - this is the robust way!
             const moves = chess.history();
             if (moves.length === 0) {
-                console.warn(`   ⚠️  Chess.js loaded PGN but extracted no moves`);
+                log.warn(`   ⚠️  Chess.js loaded PGN but extracted no moves`);
                 return [];
             }
 
-            console.log(`   ✅ Chess.js extracted ${moves.length} moves:`, moves);
+            log.log(`   ✅ Chess.js extracted ${moves.length} moves:`, moves);
 
             return moves;
 
         } catch (error) {
-            console.error(`   ❌ Error parsing PGN with chess.js: ${error.message}`);
+            log.error(`   ❌ Error parsing PGN with chess.js: ${error.message}`);
             return [];
         }
     }
@@ -822,7 +826,7 @@ class FileGenerator {
      * @returns {Object} - Nested variation tree structure
      */
     async buildNestedVariationTree(variations, mainMoves) {
-        console.log(`   🌳 Building nested variation tree from ${variations.length} variations`);
+        log.log(`   🌳 Building nested variation tree from ${variations.length} variations`);
 
         // Parse all variations into move sequences with divergence points
         const parsedVariations = [];
@@ -842,7 +846,7 @@ class FileGenerator {
                     }
                 }
             } catch (error) {
-                console.warn(`Error parsing variation: ${error.message}`);
+                log.warn(`Error parsing variation: ${error.message}`);
             }
         }
 
@@ -869,7 +873,7 @@ class FileGenerator {
         // Sort by position
         nestedDivergences.sort((a, b) => a.position - b.position);
 
-        console.log(`   ✅ Built nested tree with ${nestedDivergences.length} divergence points`);
+        log.log(`   ✅ Built nested tree with ${nestedDivergences.length} divergence points`);
         return nestedDivergences;
     }
 
@@ -971,7 +975,7 @@ class FileGenerator {
      * @returns {Object} - Tree structure with divergence points and statistics
      */
     async buildMoveTree(mainMoves, variations) {
-        console.log(`   🔨 Building move tree from main line (${mainMoves.length} moves) and ${variations.length} variations`);
+        log.log(`   🔨 Building move tree from main line (${mainMoves.length} moves) and ${variations.length} variations`);
 
         // Build nested variation tree for proper consolidation
         const nestedDivergences = await this.buildNestedVariationTree(variations, mainMoves);
@@ -994,7 +998,7 @@ class FileGenerator {
             divergences.push(divergenceGroup);
         }
 
-        console.log(`   🌳 Tree structure complete: ${divergences.length} divergence points`);
+        log.log(`   🌳 Tree structure complete: ${divergences.length} divergence points`);
 
         return {
             mainMoves: mainMoves,
@@ -1057,7 +1061,7 @@ class FileGenerator {
      * @returns {string} - Formatted PGN with inline variations
      */
     generateTreePGNFromStructure(treeStructure, mainLineStats) {
-        console.log('🎯 Generating PGN tree format from structure');
+        log.log('🎯 Generating PGN tree format from structure');
 
         const { mainMoves, divergences, hasNestedStructure } = treeStructure;
 
@@ -1077,7 +1081,7 @@ class FileGenerator {
      * @returns {string} - Nested PGN format
      */
     generateNestedPGNFromStructure(treeStructure, mainLineStats) {
-        console.log('🌳 Generating nested PGN with proper sub-variations');
+        log.log('🌳 Generating nested PGN with proper sub-variations');
 
         const { mainMoves, divergences } = treeStructure;
         let pgnParts = [];
@@ -1096,7 +1100,7 @@ class FileGenerator {
             // Check if there are variations at this position
             const divergenceAtThisMove = divergences.find(d => d.position === i);
             if (divergenceAtThisMove && divergenceAtThisMove.nestedStructure) {
-                console.log(`   📝 Adding nested variations after move ${i + 1} (${mainMoves[i]})`);
+                log.log(`   📝 Adding nested variations after move ${i + 1} (${mainMoves[i]})`);
 
                 // Generate nested variations using the new structure
                 const nestedVariations = this.generateNestedVariationsAtPosition(
@@ -1129,7 +1133,7 @@ class FileGenerator {
         pgnParts.push('*'); // Add game termination
 
         const result = pgnParts.join(' ');
-        console.log('✅ Generated nested PGN:', result.substring(0, 150) + '...');
+        log.log('✅ Generated nested PGN:', result.substring(0, 150) + '...');
         return result;
     }
 
@@ -1565,10 +1569,10 @@ class FileGenerator {
      * @returns {Object} Display result with success status
      */
     displayPGN(content, chapterName = 'Chess Repertoire', metadata = {}) {
-        console.log(`📋 [FileGenerator] displayPGN called:`);
-        console.log(`   Chapter: ${chapterName}`);
-        console.log(`   Content size: ${content.length} characters`);
-        console.log(`   Metadata:`, metadata);
+        log.log(`📋 [FileGenerator] displayPGN called:`);
+        log.log(`   Chapter: ${chapterName}`);
+        log.log(`   Content size: ${content.length} characters`);
+        log.log(`   Metadata:`, metadata);
 
         try {
             // Get display container elements
@@ -1609,7 +1613,7 @@ class FileGenerator {
             // Scroll to display
             displayContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-            console.log(`✅ [FileGenerator] PGN displayed successfully`);
+            log.log(`✅ [FileGenerator] PGN displayed successfully`);
 
             return {
                 success: true,
@@ -1619,7 +1623,7 @@ class FileGenerator {
             };
 
         } catch (error) {
-            console.error(`❌ [FileGenerator] Display failed:`, error);
+            log.error(`❌ [FileGenerator] Display failed:`, error);
             throw new Error(`Failed to display PGN: ${error.message}`);
         }
     }
@@ -1673,7 +1677,7 @@ class FileGenerator {
 
         newCopyBtn.addEventListener('click', async () => {
             try {
-                console.log(`📋 [FileGenerator] Copying PGN to clipboard...`);
+                log.log(`📋 [FileGenerator] Copying PGN to clipboard...`);
 
                 // Use modern clipboard API if available
                 if (navigator.clipboard && window.isSecureContext) {
@@ -1686,10 +1690,10 @@ class FileGenerator {
                 // Visual feedback
                 this.showCopySuccess(newCopyBtn);
 
-                console.log(`✅ [FileGenerator] PGN copied to clipboard successfully`);
+                log.log(`✅ [FileGenerator] PGN copied to clipboard successfully`);
 
             } catch (error) {
-                console.error(`❌ [FileGenerator] Copy failed:`, error);
+                log.error(`❌ [FileGenerator] Copy failed:`, error);
                 this.showCopyError(newCopyBtn, error.message);
             }
         });
@@ -1711,7 +1715,7 @@ class FileGenerator {
                 const pgnFilename = `${filename.replace(/[^a-zA-Z0-9]/g, '_')}.pgn`;
                 this.downloadFile(content, pgnFilename, 'application/x-chess-pgn');
             } catch (error) {
-                console.error(`❌ [FileGenerator] Download failed:`, error);
+                log.error(`❌ [FileGenerator] Download failed:`, error);
             }
         });
     }
@@ -1770,7 +1774,7 @@ class FileGenerator {
         }, 3000);
 
         // Show error in console for debugging
-        console.error('Copy error details:', errorMsg);
+        log.error('Copy error details:', errorMsg);
     }
 
     /**

@@ -53,6 +53,10 @@ import StockfishEngine from '../engine/StockfishEngine.js';
 import FileGenerator from './FileGenerator.js';
 import PgnProcessor from '../utils/PgnProcessor.js';
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('FormController', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('FormController');
+
 /**
  * =============================================================================
  * FormController Class - Main controller for the web interface
@@ -144,20 +148,20 @@ class FormController {
         // When user clicks "Generate", we want to intercept the form submission
         // and handle it with JavaScript instead of the default browser behavior
 
-        console.log('🔗 [DEBUG] Setting up form event listener...');
+        log.log('🔗 [DEBUG] Setting up form event listener...');
 
         // document.getElementById() finds an HTML element by its id attribute
         // Returns null if not found
         const form = document.getElementById('bookbuilder-form');
         if (!form) {
-            console.error('❌ [DEBUG] Form not found!');
+            log.error('❌ [DEBUG] Form not found!');
             return;
         }
 
         // The 'submit' event fires when user clicks submit button or presses Enter
         // The arrow function (e) => {...} is a modern way to write functions
         form.addEventListener('submit', (e) => {
-            console.log('📝 [DEBUG] Form submit event triggered');
+            log.log('📝 [DEBUG] Form submit event triggered');
 
             // e.preventDefault() stops the browser's default behavior
             // Without this, the page would refresh (traditional form submission)
@@ -171,12 +175,12 @@ class FormController {
         // querySelector() finds the first element matching a CSS selector
         const submitButton = document.querySelector('button[type="submit"]');
         if (submitButton) {
-            console.log('🔘 [DEBUG] Submit button found, adding click listener');
+            log.log('🔘 [DEBUG] Submit button found, adding click listener');
             submitButton.addEventListener('click', (e) => {
-                console.log('🖱️ [DEBUG] Submit button clicked');
+                log.log('🖱️ [DEBUG] Submit button clicked');
             });
         } else {
-            console.error('❌ [DEBUG] Submit button not found!');
+            log.error('❌ [DEBUG] Submit button not found!');
         }
 
         // =====================================================================
@@ -209,7 +213,7 @@ class FormController {
 
         const pgnInput = document.getElementById('pgn-input-text');
         if (pgnInput) {
-            console.log('📝 [DEBUG] PGN input found, adding event listeners');
+            log.log('📝 [DEBUG] PGN input found, adding event listeners');
 
             // 'input' event: fires on every keystroke (real-time preview)
             pgnInput.addEventListener('input', () => this.handlePgnInput());
@@ -257,34 +261,34 @@ class FormController {
      * while waiting for slow operations (like API calls) without blocking the UI.
      */
     async handleSubmit() {
-        console.log('🚀 [DEBUG] Form submission started');
+        log.log('🚀 [DEBUG] Form submission started');
 
         try {
             // Log all current UI settings for debugging
             this.logCurrentSettings();
 
             // Validate form
-            console.log('🔍 [DEBUG] Starting form validation...');
+            log.log('🔍 [DEBUG] Starting form validation...');
             const errors = await this.configManager.validateConfig();
-            console.log('📊 [DEBUG] Validation errors:', errors);
+            log.log('📊 [DEBUG] Validation errors:', errors);
             
             if (errors.length > 0) {
-                console.log('❌ [DEBUG] Validation failed, showing errors');
+                log.log('❌ [DEBUG] Validation failed, showing errors');
                 this.errorHandler.showValidationErrors(errors);
                 return;
             }
 
             // Get configuration and prepare BookBuilder config
-            console.log('⚙️ [DEBUG] Getting form data...');
+            log.log('⚙️ [DEBUG] Getting form data...');
             const formConfig = this.configManager.getFormData();
-            console.log('📋 [DEBUG] Form config:', formConfig);
+            log.log('📋 [DEBUG] Form config:', formConfig);
             
-            console.log('🔧 [DEBUG] Converting to BookBuilder config...');
+            log.log('🔧 [DEBUG] Converting to BookBuilder config...');
             const bookBuilderConfig = await this.convertToBookBuilderConfig(formConfig);
-            console.log('🏗️ [DEBUG] BookBuilder config:', bookBuilderConfig);
+            log.log('🏗️ [DEBUG] BookBuilder config:', bookBuilderConfig);
 
             // Start repertoire generation
-            console.log('🎯 [DEBUG] Starting generation process...');
+            log.log('🎯 [DEBUG] Starting generation process...');
 
             // Show simple generation status (hides form)
             if (typeof showGenerationStatus === 'function') {
@@ -294,8 +298,8 @@ class FormController {
             await this.startGeneration(bookBuilderConfig);
 
         } catch (error) {
-            console.error(`❌ [FormController] Error in handleSubmit:`, error);
-            console.error(`   Submit error details:`, {
+            log.error(`❌ [FormController] Error in handleSubmit:`, error);
+            log.error(`   Submit error details:`, {
                 message: error.message,
                 stack: error.stack?.split('\n')[0] || 'no stack',
                 timestamp: new Date().toISOString(),
@@ -308,7 +312,7 @@ class FormController {
             this.errorHandler.showError('Failed to start generation', error);
 
             // Restore form view on error
-            console.log('🔄 [FormController] Restoring form view due to error...');
+            log.log('🔄 [FormController] Restoring form view due to error...');
             if (typeof hideProgressContainer === 'function') {
                 hideProgressContainer();
             }
@@ -391,19 +395,19 @@ class FormController {
             this.progressTracker.complete('Repertoire generated successfully!', displayResult);
 
         } catch (error) {
-            console.error(`❌ [FormController] Generation failed in startGeneration:`, error);
-            console.error(`   Error details:`, {
+            log.error(`❌ [FormController] Generation failed in startGeneration:`, error);
+            log.error(`   Error details:`, {
                 message: error.message,
                 stack: error.stack?.split('\n').slice(0, 3) || 'no stack',
                 timestamp: new Date().toISOString(),
                 phase: this.progressTracker?.currentPhase || 'unknown'
             });
-            console.error(`   Config at time of error:`, config);
+            log.error(`   Config at time of error:`, config);
             this.errorHandler.showError('Generation failed', error);
             this.progressTracker.reset();
 
             // Restore form view on generation error
-            console.log('🔄 [FormController] Restoring form view due to generation error...');
+            log.log('🔄 [FormController] Restoring form view due to generation error...');
             if (typeof hideGenerationStatus === 'function') {
                 hideGenerationStatus();
             }
@@ -418,7 +422,7 @@ class FormController {
      * @param {Object} progressData - Progress data from BookBuilder
      */
     handleBookBuilderProgress(progressData) {
-        console.log('📊 [FormController] BookBuilder progress:', progressData);
+        log.log('📊 [FormController] BookBuilder progress:', progressData);
 
         // Update the simple generation status
         const count = progressData.current || progressData.positionsProcessed || 0;
@@ -436,15 +440,20 @@ class FormController {
         });
 
         // Initialize Stockfish engine if enabled
-        if (config['engine-enabled']) {
+        // Note: config here is bookBuilderConfig which uses CAREABOUTENGINE (not engine-enabled)
+        if (config.CAREABOUTENGINE) {
+            log.log('🔧 [FormController] Initializing Stockfish engine...');
             this.stockfishEngine = new StockfishEngine({
-                depth: config['engine-depth'],
-                threads: 1,
-                hash: 128
+                depth: config.ENGINEDEPTH || 20,
+                threads: config.ENGINETHREADS || 1,
+                hash: config.ENGINEHASH || 128
             });
 
             this.progressTracker.updatePhase('Initializing Stockfish engine...', 8);
             await this.stockfishEngine.initialize();
+            log.log('✅ [FormController] Stockfish engine ready');
+        } else {
+            log.log('ℹ️ [FormController] Engine disabled, skipping initialization');
         }
     }
 
@@ -461,7 +470,7 @@ class FormController {
                 moves: 3
             };
 
-            console.log('🔍 [FormController] Validating Lichess API with user settings:', validationOptions);
+            log.log('🔍 [FormController] Validating Lichess API with user settings:', validationOptions);
             await this.lichessClient.getPositionStats(startingPosition, validationOptions);
         } catch (error) {
             throw new Error(`Lichess API connection failed: ${error.message}`);
@@ -491,17 +500,17 @@ class FormController {
                 progress
             );
 
-            console.log(`\n🚀 [FormController] === STARTING ${opening.name} with NEW ARCHITECTURE ===`);
-            console.log(`📋 [FormController] Config outputFormat: "${config.pgnConfig?.outputFormat || config.outputFormat || 'MISSING'}"`);
-            console.log(`🔍 [FormController] Full config.pgnConfig:`, config.pgnConfig);
+            log.log(`\n🚀 [FormController] === STARTING ${opening.name} with NEW ARCHITECTURE ===`);
+            log.log(`📋 [FormController] Config outputFormat: "${config.pgnConfig?.outputFormat || config.outputFormat || 'MISSING'}"`);
+            log.log(`🔍 [FormController] Full config.pgnConfig:`, config.pgnConfig);
 
             try {
-                console.log(`🔄 [FormController] About to call bookBuilder.generateChapter()`);
+                log.log(`🔄 [FormController] About to call bookBuilder.generateChapter()`);
 
                 // BookBuilder now returns line data instead of formatted PGN
                 const chapterData = await this.bookBuilder.generateChapter(opening, i + 1);
 
-                console.log(`📊 [FormController] BookBuilder returned:`, {
+                log.log(`📊 [FormController] BookBuilder returned:`, {
                     type: typeof chapterData,
                     isString: typeof chapterData === 'string',
                     hasLines: chapterData?.lines ? true : false,
@@ -512,14 +521,14 @@ class FormController {
 
                 // Check if BookBuilder returned old format (string) or new format (object)
                 if (typeof chapterData === 'string') {
-                    console.log(`❌ [FormController] ERROR: BookBuilder returned STRING (old format)!`);
-                    console.log(`   This means the new architecture isn't working.`);
+                    log.log(`❌ [FormController] ERROR: BookBuilder returned STRING (old format)!`);
+                    log.log(`   This means the new architecture isn't working.`);
                     results[`Chapter_${i + 1}_${opening.name.replace(/\s+/g, '_')}.pgn`] = chapterData;
                     continue;
                 }
 
-                console.log(`✅ [FormController] BookBuilder returned OBJECT (new format)`);
-                console.log(`🎯 [FormController] About to call FileGenerator.generateConfiguredPGN()`);
+                log.log(`✅ [FormController] BookBuilder returned OBJECT (new format)`);
+                log.log(`🎯 [FormController] About to call FileGenerator.generateConfiguredPGN()`);
 
                 // Use FileGenerator to format the line data based on config
                 const fileGenerator = new FileGenerator();
@@ -530,7 +539,7 @@ class FormController {
                     this.bookBuilder.pgnGenerator // Pass PgnGenerator instance
                 );
 
-                console.log(`✅ [FormController] FileGenerator returned content (${chapterContent.length} chars)`);
+                log.log(`✅ [FormController] FileGenerator returned content (${chapterContent.length} chars)`);
 
                 const safeName = opening.name.replace(/\s+/g, '_');
                 const fileName = `Chapter_${i + 1}_${safeName}.pgn`;
@@ -543,7 +552,7 @@ class FormController {
                 );
 
             } catch (error) {
-                console.error(`Failed to process ${opening.name}:`, error);
+                log.error(`Failed to process ${opening.name}:`, error);
                 this.errorHandler.logError(error, `Processing ${opening.name}`);
 
                 // Create error report
@@ -573,7 +582,7 @@ class FormController {
         const fileGenerator = new FileGenerator();
 
         try {
-            console.log(`📋 [FormController] generateDisplay called with ${Object.keys(results).length} results`);
+            log.log(`📋 [FormController] generateDisplay called with ${Object.keys(results).length} results`);
 
             // Prepare content for display
             let displayContent = '';
@@ -617,7 +626,7 @@ class FormController {
                 metadata.processingTime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
             }
 
-            console.log(`📊 [FormController] Displaying content:`, {
+            log.log(`📊 [FormController] Displaying content:`, {
                 chapterName,
                 contentLength: displayContent.length,
                 metadata
@@ -626,12 +635,12 @@ class FormController {
             // Display the PGN content
             const displayResult = fileGenerator.displayPGN(displayContent, chapterName, metadata);
 
-            console.log(`✅ [FormController] PGN displayed successfully`);
+            log.log(`✅ [FormController] PGN displayed successfully`);
 
             return displayResult;
 
         } catch (error) {
-            console.error(`❌ [FormController] Display generation failed:`, error);
+            log.error(`❌ [FormController] Display generation failed:`, error);
             throw new Error(`Display generation failed: ${error.message}`);
         }
     }
@@ -716,7 +725,7 @@ class FormController {
                     throw new Error(`PGN processing failed to extract moves. Result: ${JSON.stringify(processedOpening)}`);
                 }
 
-                console.log('✅ [DEBUG] PGN processing validation passed:', {
+                log.log('✅ [DEBUG] PGN processing validation passed:', {
                     name: processedOpening.name,
                     moveCount: processedOpening.moveCount || processedOpening.moves.length,
                     moves: processedOpening.moves.slice(0, 4) // First 4 moves for debugging
@@ -738,7 +747,7 @@ class FormController {
                 const moveCount = opening.moveCount || opening.moves.length;
                 const perspective = moveCount % 2 === 0 ? 'black' : 'white';
 
-                console.log(`    🎯 [FormController] Calculated perspective: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
+                log.log(`    🎯 [FormController] Calculated perspective: ${moveCount} moves % 2 = ${moveCount % 2} → ${perspective}`);
 
                 return {
                     name: opening.name,
@@ -770,7 +779,8 @@ class FormController {
             DRAWSAREHALF: formConfig['draws-half-point'] ? 1 : 0,
 
             // Engine settings (mapped to new form fields)
-            CAREABOUTENGINE: formConfig['engine-on'] || false,
+            // Note: checkbox is named 'engine-enabled' in HTML, converts to 1/0 for legacy compat
+            CAREABOUTENGINE: formConfig['engine-enabled'] ? 1 : 0,
             ENGINEDEPTH: parseInt(formConfig['engine-depth']) || 20,
             ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1,
             SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit-centipawns']) || -99,
@@ -779,6 +789,10 @@ class FormController {
             ENGINETHREADS: parseInt(formConfig['engine-threads']) || 1,
             ENGINEHASH: parseInt(formConfig['engine-hash']) || 320,
 
+            // Pass the initialized StockfishEngine instance to BookBuilder
+            // (FormController already initialized it, so don't create a second one)
+            stockfishEngine: this.stockfishEngine,
+
             // Processing settings
             LONGTOSHORT: false, // Default: priority order
             BATCH_SIZE: 5,
@@ -786,14 +800,14 @@ class FormController {
         };
 
         // Log configuration for debugging
-        console.log('🔧 [FormController] Configuration Summary:');
-        console.log('═'.repeat(50));
-        console.log(`🏁 Selected Speeds: ${JSON.stringify(config.speeds)}`);
-        console.log(`📊 Selected Ratings: ${JSON.stringify(config.ratings)}`);
-        console.log(`🎮 Variant: ${config.variants[0]}`);
-        console.log(`📄 PGN Output Format: ${config.pgnConfig.outputFormat}`);
-        console.log(`🎯 Annotation Style: ${config.pgnConfig.annotationStyle}`);
-        console.log('═'.repeat(50));
+        log.log('🔧 [FormController] Configuration Summary:');
+        log.log('═'.repeat(50));
+        log.log(`🏁 Selected Speeds: ${JSON.stringify(config.speeds)}`);
+        log.log(`📊 Selected Ratings: ${JSON.stringify(config.ratings)}`);
+        log.log(`🎮 Variant: ${config.variants[0]}`);
+        log.log(`📄 PGN Output Format: ${config.pgnConfig.outputFormat}`);
+        log.log(`🎯 Annotation Style: ${config.pgnConfig.annotationStyle}`);
+        log.log('═'.repeat(50));
 
         return config;
     }
@@ -868,75 +882,75 @@ class FormController {
     }
 
     logCurrentSettings() {
-        console.log('🎛️ [SETTINGS] Current UI Configuration:');
-        console.log('═'.repeat(60));
+        log.log('🎛️ [SETTINGS] Current UI Configuration:');
+        log.log('═'.repeat(60));
 
         const formData = this.configManager.getFormData();
 
         // PGN Section
-        console.log('📝 PGN INPUT:');
+        log.log('📝 PGN INPUT:');
         const pgnInput = formData['pgn-input-text'] || '';
         const pgnPreview = pgnInput.length > 100 ? pgnInput.substring(0, 100) + '...' : pgnInput;
-        console.log(`   PGN Content: ${pgnPreview || '(empty)'}`);
-        console.log(`   PGN Length: ${pgnInput.length} characters`);
-        console.log('');
+        log.log(`   PGN Content: ${pgnPreview || '(empty)'}`);
+        log.log(`   PGN Length: ${pgnInput.length} characters`);
+        log.log('');
 
         // Lichess Database Settings
-        console.log('🌐 LICHESS DATABASE SETTINGS:');
-        console.log('   Time Controls:');
-        console.log(`     • Bullet: ${formData['time-bullet'] ? '✓' : '✗'}`);
-        console.log(`     • Blitz: ${formData['time-blitz'] ? '✓' : '✗'}`);
-        console.log(`     • Rapid: ${formData['time-rapid'] ? '✓' : '✗'}`);
-        console.log(`     • Classical: ${formData['time-classical'] ? '✓' : '✗'}`);
-        console.log(`     • Correspondence: ${formData['time-correspondence'] ? '✓' : '✗'}`);
-        console.log('   Rating Bands:');
-        console.log(`     • 1600: ${formData['rating-1600'] ? '✓' : '✗'}`);
-        console.log(`     • 1800: ${formData['rating-1800'] ? '✓' : '✗'}`);
-        console.log(`     • 2000: ${formData['rating-2000'] ? '✓' : '✗'}`);
-        console.log(`     • 2200: ${formData['rating-2200'] ? '✓' : '✗'}`);
-        console.log(`     • 2500: ${formData['rating-2500'] ? '✓' : '✗'}`);
-        console.log('');
+        log.log('🌐 LICHESS DATABASE SETTINGS:');
+        log.log('   Time Controls:');
+        log.log(`     • Bullet: ${formData['time-bullet'] ? '✓' : '✗'}`);
+        log.log(`     • Blitz: ${formData['time-blitz'] ? '✓' : '✗'}`);
+        log.log(`     • Rapid: ${formData['time-rapid'] ? '✓' : '✗'}`);
+        log.log(`     • Classical: ${formData['time-classical'] ? '✓' : '✗'}`);
+        log.log(`     • Correspondence: ${formData['time-correspondence'] ? '✓' : '✗'}`);
+        log.log('   Rating Bands:');
+        log.log(`     • 1600: ${formData['rating-1600'] ? '✓' : '✗'}`);
+        log.log(`     • 1800: ${formData['rating-1800'] ? '✓' : '✗'}`);
+        log.log(`     • 2000: ${formData['rating-2000'] ? '✓' : '✗'}`);
+        log.log(`     • 2200: ${formData['rating-2200'] ? '✓' : '✗'}`);
+        log.log(`     • 2500: ${formData['rating-2500'] ? '✓' : '✗'}`);
+        log.log('');
 
         // Opponent Move Filters
-        console.log('🛡️ OPPONENT MOVE FILTERS:');
-        console.log(`   Games Likelihood: ${formData['games-likelihood'] || 'N/A'}`);
-        console.log(`   Minimum Games: ${formData['opponent-min-games'] || 'N/A'}`);
-        console.log('');
+        log.log('🛡️ OPPONENT MOVE FILTERS:');
+        log.log(`   Games Likelihood: ${formData['games-likelihood'] || 'N/A'}`);
+        log.log(`   Minimum Games: ${formData['opponent-min-games'] || 'N/A'}`);
+        log.log('');
 
         // Candidate Move Selectors
-        console.log('🎯 CANDIDATE MOVE SELECTORS:');
-        console.log(`   Most Played Moves: ${formData['most-played-moves'] || 'N/A'}`);
-        console.log(`   Minimum Playrate: ${formData['min-playrate-percent'] || 'N/A'}%`);
-        console.log(`   Minimum Games: ${formData['candidate-min-games'] || 'N/A'}`);
-        console.log(`   Confidence: ${formData['confidence-percent'] || 'N/A'}%`);
-        console.log(`   Draws Are Half Point: ${formData['draws-half-point'] ? '✓' : '✗'}`);
-        console.log('');
+        log.log('🎯 CANDIDATE MOVE SELECTORS:');
+        log.log(`   Most Played Moves: ${formData['most-played-moves'] || 'N/A'}`);
+        log.log(`   Minimum Playrate: ${formData['min-playrate-percent'] || 'N/A'}%`);
+        log.log(`   Minimum Games: ${formData['candidate-min-games'] || 'N/A'}`);
+        log.log(`   Confidence: ${formData['confidence-percent'] || 'N/A'}%`);
+        log.log(`   Draws Are Half Point: ${formData['draws-half-point'] ? '✓' : '✗'}`);
+        log.log('');
 
         // Engine Settings
-        console.log('🤖 ENGINE SETTINGS:');
-        console.log(`   Engine Enabled: ${formData['engine-enabled'] ? '✓' : '✗'}`);
-        console.log(`   Engine Depth: ${formData['engine-depth'] || 'N/A'}`);
-        console.log(`   Engine Finishing: ${formData['engine-finishing'] ? '✓' : '✗'}`);
-        console.log(`   Soundness Limit: ${formData['soundness-limit'] || 'N/A'} centipawns`);
-        console.log(`   Move Loss Limit: ${formData['move-loss-limit'] || 'N/A'} centipawns`);
-        console.log(`   Ignore Loss Limit: ${formData['ignore-loss-limit'] || 'N/A'}`);
-        console.log(`   Engine Threads: ${formData['engine-threads'] || 'N/A'}`);
-        console.log(`   Engine Hash: ${formData['engine-hash'] || 'N/A'} MB`);
-        console.log('');
+        log.log('🤖 ENGINE SETTINGS:');
+        log.log(`   Engine Enabled: ${formData['engine-enabled'] ? '✓' : '✗'}`);
+        log.log(`   Engine Depth: ${formData['engine-depth'] || 'N/A'}`);
+        log.log(`   Engine Finishing: ${formData['engine-finishing'] ? '✓' : '✗'}`);
+        log.log(`   Soundness Limit: ${formData['soundness-limit'] || 'N/A'} centipawns`);
+        log.log(`   Move Loss Limit: ${formData['move-loss-limit'] || 'N/A'} centipawns`);
+        log.log(`   Ignore Loss Limit: ${formData['ignore-loss-limit'] || 'N/A'}`);
+        log.log(`   Engine Threads: ${formData['engine-threads'] || 'N/A'}`);
+        log.log(`   Engine Hash: ${formData['engine-hash'] || 'N/A'} MB`);
+        log.log('');
 
         // Summary
-        console.log('📊 CONFIGURATION SUMMARY:');
+        log.log('📊 CONFIGURATION SUMMARY:');
         const enabledTimeControls = ['time-bullet', 'time-blitz', 'time-rapid', 'time-classical', 'time-correspondence']
             .filter(id => formData[id]).map(id => id.replace('time-', '')).join(', ');
         const enabledRatings = ['rating-1600', 'rating-1800', 'rating-2000', 'rating-2200', 'rating-2500']
             .filter(id => formData[id]).map(id => id.replace('rating-', '')).join(', ');
 
-        console.log(`   Active Time Controls: ${enabledTimeControls || 'None'}`);
-        console.log(`   Active Ratings: ${enabledRatings || 'None'}`);
-        console.log(`   Engine: ${formData['engine-enabled'] ? 'Enabled' : 'Disabled'}`);
-        console.log(`   PGN Status: ${pgnInput.trim() ? 'Provided' : 'Empty'}`);
+        log.log(`   Active Time Controls: ${enabledTimeControls || 'None'}`);
+        log.log(`   Active Ratings: ${enabledRatings || 'None'}`);
+        log.log(`   Engine: ${formData['engine-enabled'] ? 'Enabled' : 'Disabled'}`);
+        log.log(`   PGN Status: ${pgnInput.trim() ? 'Provided' : 'Empty'}`);
 
-        console.log('═'.repeat(60));
+        log.log('═'.repeat(60));
     }
 
     // PGN Input Handling Methods
@@ -1076,7 +1090,7 @@ class ConfigManager {
                 this.populateForm();
             } catch (e) {
                 // If parsing fails, just log it and continue with empty config
-                console.warn('Failed to load saved configuration:', e);
+                log.warn('Failed to load saved configuration:', e);
             }
         }
     }
@@ -1464,7 +1478,7 @@ class ErrorHandler {
      */
     showError(title, error) {
         // Always log to console for debugging
-        console.error(title, error);
+        log.error(title, error);
 
         // Show the error container
         this.container.style.display = 'block';
@@ -1519,9 +1533,9 @@ class ErrorHandler {
     logError(error, context) {
         // console.group() starts a collapsible group in dev tools
         console.group(`🐛 Error in ${context}`);
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);   // Stack trace shows where error originated
-        console.error('Context:', context);
+        log.error('Message:', error.message);
+        log.error('Stack:', error.stack);   // Stack trace shows where error originated
+        log.error('Context:', context);
         console.groupEnd();  // End the collapsible group
     }
 }

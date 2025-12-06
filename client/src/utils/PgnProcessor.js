@@ -126,6 +126,11 @@ async function loadParser() {
  * This class has no state - it just converts input to output.
  * Static methods are simpler: no constructor, no 'new', no 'this' confusion.
  */
+
+// Logger: Configurable logging - toggle with Logger.setEnabled('PgnProcessor', true/false)
+import Logger from './Logger.js';
+const log = Logger.get('PgnProcessor');
+
 class PgnProcessor {
     /**
      * Process a PGN string and extract opening information
@@ -206,7 +211,7 @@ class PgnProcessor {
                 }
             } catch (headerError) {
                 // Header parsing is optional - continue without it
-                console.warn(`Header parsing failed, will generate name from moves: ${headerError.message}`);
+                log.warn(`Header parsing failed, will generate name from moves: ${headerError.message}`);
             }
 
             // =========================================================================
@@ -230,7 +235,7 @@ class PgnProcessor {
 
         } catch (error) {
             // Log error for debugging, then re-throw with context
-            console.error('PGN Processing Error:', error);
+            log.error('PGN Processing Error:', error);
             throw new Error(`PGN parsing failed: ${error.message}`);
         }
     }
@@ -310,7 +315,7 @@ class PgnProcessor {
      */
     static generateOpeningName(game, moves) {
         // Debug logging to help troubleshoot naming issues
-        console.log('🔍 [DEBUG] generateOpeningName called with:', {
+        log.log('🔍 [DEBUG] generateOpeningName called with:', {
             hasGame: !!game,
             hasTags: !!(game && game.tags),
             movesLength: moves ? moves.length : 0,
@@ -329,7 +334,7 @@ class PgnProcessor {
 
             for (const header of openingHeaders) {
                 const value = game.tags[header];
-                console.log(`🏷️ [DEBUG] Checking header '${header}': "${value}"`);
+                log.log(`🏷️ [DEBUG] Checking header '${header}': "${value}"`);
 
                 // Check if header has a useful value
                 // '?' and '-' are standard PGN placeholders for unknown values
@@ -351,17 +356,17 @@ class PgnProcessor {
 
                     // Only use name if it's long enough to be meaningful
                     if (name.length > 3) {
-                        console.log(`✅ [DEBUG] Using header-based name: "${name}" from header '${header}'`);
+                        log.log(`✅ [DEBUG] Using header-based name: "${name}" from header '${header}'`);
                         return name;
                     } else {
-                        console.log(`⚠️ [DEBUG] Header '${header}' name too short: "${name}"`);
+                        log.log(`⚠️ [DEBUG] Header '${header}' name too short: "${name}"`);
                     }
                 } else {
-                    console.log(`⚠️ [DEBUG] Header '${header}' skipped: empty/placeholder value`);
+                    log.log(`⚠️ [DEBUG] Header '${header}' skipped: empty/placeholder value`);
                 }
             }
         } else {
-            console.log('⚠️ [DEBUG] No game.tags available for header-based naming');
+            log.log('⚠️ [DEBUG] No game.tags available for header-based naming');
         }
 
         // =====================================================================
@@ -378,10 +383,10 @@ class PgnProcessor {
 
             // Add "..." if there are more moves not shown
             const moveBased = `Opening: ${firstMoves}${moves.length > moveCount ? '...' : ''}`;
-            console.log(`✅ [DEBUG] Using move-based name: "${moveBased}"`);
+            log.log(`✅ [DEBUG] Using move-based name: "${moveBased}"`);
             return moveBased;
         } else {
-            console.log('⚠️ [DEBUG] No moves available for move-based naming');
+            log.log('⚠️ [DEBUG] No moves available for move-based naming');
         }
 
         // =====================================================================
@@ -389,7 +394,7 @@ class PgnProcessor {
         // =====================================================================
         // If all else fails, use a generic name
 
-        console.log('🚨 [DEBUG] Using ultimate fallback: "Chess Opening"');
+        log.log('🚨 [DEBUG] Using ultimate fallback: "Chess Opening"');
         return 'Chess Opening';
     }
 

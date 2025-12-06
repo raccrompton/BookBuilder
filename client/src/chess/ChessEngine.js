@@ -53,6 +53,10 @@
 // The path points to the ES module version in node_modules
 import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('ChessEngine', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('ChessEngine');
+
 /**
  * ChessEngine Class - Virtual chess board for tracking game state
  *
@@ -80,21 +84,21 @@ export class ChessEngine {
    * @returns {boolean} - True if position loaded successfully
    */
     parsePosition(fen) {
-        console.log(`📋 [ChessJS] parsePosition called with FEN: ${fen}`);
+        log.log(`📋 [ChessJS] parsePosition called with FEN: ${fen}`);
         try {
             if (!fen) {
-                console.error(`[ChessJS] No FEN provided`);
+                log.error(`[ChessJS] No FEN provided`);
                 return false;
             }
 
-            console.log(`   Loading FEN into chess.js engine...`);
+            log.log(`   Loading FEN into chess.js engine...`);
             this.chess.load(fen);
-            console.log(`✅ [ChessJS] FEN loaded successfully`);
-            console.log(`   Resulting position: ${this.chess.fen()}`);
-            console.log(`   Turn: ${this.chess.turn()}, Legal moves: ${this.chess.moves().length}`);
+            log.log(`✅ [ChessJS] FEN loaded successfully`);
+            log.log(`   Resulting position: ${this.chess.fen()}`);
+            log.log(`   Turn: ${this.chess.turn()}, Legal moves: ${this.chess.moves().length}`);
             return true; // chess.js load() throws on error, success is silent
         } catch (error) {
-            console.error(`❌ [ChessJS] Failed to parse FEN: ${fen}`, error);
+            log.error(`❌ [ChessJS] Failed to parse FEN: ${fen}`, error);
             return false;
         }
     }
@@ -133,7 +137,7 @@ export class ChessEngine {
             }
             return null;
         } catch (error) {
-            console.error('Failed to generate SAN:', move, error);
+            log.error('Failed to generate SAN:', move, error);
             return null;
         }
     }
@@ -152,8 +156,8 @@ export class ChessEngine {
    */
     getLegalMoves() {
         const moves = this.chess.moves({ verbose: true });
-        console.log(`📋 [ChessJS] getLegalMoves: Found ${moves.length} legal moves`);
-        console.log(`   Moves: [${this.chess.moves().join(', ')}]`);
+        log.log(`📋 [ChessJS] getLegalMoves: Found ${moves.length} legal moves`);
+        log.log(`   Moves: [${this.chess.moves().join(', ')}]`);
         return moves;
     }
 
@@ -163,21 +167,21 @@ export class ChessEngine {
    * @returns {boolean} - True if move is legal in current position
    */
     validateMoveBeforeExecution(moveString) {
-        console.log(`🔍 [ChessJS] Validating move: ${moveString}`);
+        log.log(`🔍 [ChessJS] Validating move: ${moveString}`);
         try {
             const legalMoves = this.chess.moves();
-            console.log(`   Available legal moves: [${legalMoves.join(', ')}]`);
+            log.log(`   Available legal moves: [${legalMoves.join(', ')}]`);
             const isLegal = legalMoves.includes(moveString);
-            console.log(`   Move ${moveString} is ${isLegal ? '✅ LEGAL' : '❌ ILLEGAL'}`);
+            log.log(`   Move ${moveString} is ${isLegal ? '✅ LEGAL' : '❌ ILLEGAL'}`);
 
             if (!isLegal) {
-                console.error(`[ChessJS] Move validation failed: ${moveString} not in legal moves`);
-                console.error(`   Position: ${this.chess.fen()}`);
-                console.error(`   Turn: ${this.chess.turn()}`);
+                log.error(`[ChessJS] Move validation failed: ${moveString} not in legal moves`);
+                log.error(`   Position: ${this.chess.fen()}`);
+                log.error(`   Turn: ${this.chess.turn()}`);
             }
             return isLegal;
         } catch (error) {
-            console.error(`[ChessJS] Error validating move ${moveString}:`, error);
+            log.error(`[ChessJS] Error validating move ${moveString}:`, error);
             return false;
         }
     }
@@ -188,25 +192,25 @@ export class ChessEngine {
    * @returns {Object} - Result object with success flag and move data or error
    */
     makeMove(move) {
-        console.log(`🏁 [ChessJS] makeMove called with: ${JSON.stringify(move)}`);
-        console.log(`   Position before move: ${this.chess.fen()}`);
-        console.log(`   Turn: ${this.chess.turn()}, Move number: ${this.chess.moveNumber ? this.chess.moveNumber() : 'N/A'}`);
+        log.log(`🏁 [ChessJS] makeMove called with: ${JSON.stringify(move)}`);
+        log.log(`   Position before move: ${this.chess.fen()}`);
+        log.log(`   Turn: ${this.chess.turn()}, Move number: ${this.chess.moveNumber ? this.chess.moveNumber() : 'N/A'}`);
 
         try {
             // For string moves, validate before attempting
             if (typeof move === 'string') {
-                console.log(`   Validating string move: ${move}`);
+                log.log(`   Validating string move: ${move}`);
                 if (!this.validateMoveBeforeExecution(move)) {
-                    console.error(`[ChessJS] Pre-validation failed for move: ${move}`);
+                    log.error(`[ChessJS] Pre-validation failed for move: ${move}`);
                     return null;
                 }
-                console.log(`   ✅ String move validation passed`);
+                log.log(`   ✅ String move validation passed`);
             }
 
-            console.log(`   Attempting to execute move...`);
+            log.log(`   Attempting to execute move...`);
             const moveResult = this.chess.move(move);
             if (moveResult) {
-                console.log(`✅ [ChessJS] Move executed successfully:`, {
+                log.log(`✅ [ChessJS] Move executed successfully:`, {
                     from: moveResult.from,
                     to: moveResult.to,
                     san: moveResult.san,
@@ -214,14 +218,14 @@ export class ChessEngine {
                     captured: moveResult.captured,
                     promotion: moveResult.promotion
                 });
-                console.log(`   Position after move: ${this.chess.fen()}`);
+                log.log(`   Position after move: ${this.chess.fen()}`);
                 return moveResult; // Return the move object directly like python-chess
             } else {
-                console.error(`❌ [ChessJS] Move failed to execute: ${JSON.stringify(move)}`);
+                log.error(`❌ [ChessJS] Move failed to execute: ${JSON.stringify(move)}`);
                 return null; // Return null for invalid moves like python-chess
             }
         } catch (error) {
-            console.error(`❌ [ChessJS] Exception during move execution:`, move, error);
+            log.error(`❌ [ChessJS] Exception during move execution:`, move, error);
             return null; // Return null for exceptions like python-chess
         }
     }
@@ -231,18 +235,18 @@ export class ChessEngine {
    * @returns {Object|null} - Undone move object or null if no moves to undo
    */
     undoMove() {
-        console.log(`⏪ [ChessJS] undoMove called`);
-        console.log(`   Position before undo: ${this.chess.fen()}`);
+        log.log(`⏪ [ChessJS] undoMove called`);
+        log.log(`   Position before undo: ${this.chess.fen()}`);
         const undoneMove = this.chess.undo();
         if (undoneMove) {
-            console.log(`✅ [ChessJS] Move undone successfully:`, {
+            log.log(`✅ [ChessJS] Move undone successfully:`, {
                 san: undoneMove.san,
                 from: undoneMove.from,
                 to: undoneMove.to
             });
-            console.log(`   Position after undo: ${this.chess.fen()}`);
+            log.log(`   Position after undo: ${this.chess.fen()}`);
         } else {
-            console.log(`⚠️ [ChessJS] No move to undo`);
+            log.log(`⚠️ [ChessJS] No move to undo`);
         }
         return undoneMove;
     }
@@ -308,7 +312,7 @@ export class ChessEngine {
    * @returns {boolean} - True if position loaded successfully
    */
     loadPosition(fen) {
-        console.log(`🔄 [ChessJS] loadPosition (alias for parsePosition)`);
+        log.log(`🔄 [ChessJS] loadPosition (alias for parsePosition)`);
         return this.parsePosition(fen);
     }
 
@@ -352,7 +356,7 @@ export class ChessEngine {
                 moveNumber: this.chess.moveNumber ? this.chess.moveNumber() : 'N/A'
             };
         } catch (error) {
-            console.error('[ChessJS] Error getting debug position:', error);
+            log.error('[ChessJS] Error getting debug position:', error);
             return {
                 error: error.message,
                 fen: 'ERROR',
@@ -367,13 +371,13 @@ export class ChessEngine {
    * @returns {boolean} - True if position loaded successfully
    */
     parsePositionWithDebug(fen) {
-        console.log(`[ChessJS] Loading position: ${fen}`);
+        log.log(`[ChessJS] Loading position: ${fen}`);
         const success = this.parsePosition(fen);
         if (success) {
             const debug = this.debugPosition();
-            console.log(`[ChessJS] Position loaded successfully:`, debug);
+            log.log(`[ChessJS] Position loaded successfully:`, debug);
         } else {
-            console.error(`[ChessJS] Failed to load position: ${fen}`);
+            log.error(`[ChessJS] Failed to load position: ${fen}`);
         }
         return success;
     }

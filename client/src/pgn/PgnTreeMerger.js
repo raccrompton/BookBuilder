@@ -22,6 +22,10 @@
 
 import { parsePgn, makePgn } from 'chessops/pgn'; // Import chessops functions for parsing PGN strings into game objects and generating PGN strings from game objects
 
+// Logger: Configurable logging - toggle with Logger.setEnabled('PgnTreeMerger', true/false)
+import Logger from '../utils/Logger.js';
+const log = Logger.get('PgnTreeMerger');
+
 /**
  * PgnTreeMerger - Combines multiple PGN lines into a variation tree
  *
@@ -91,20 +95,20 @@ class PgnTreeMerger {
         const games = parsePgn(pgnString); // chessops parsePgn returns an array of games (PGN can contain multiple games)
 
         if (games.length === 0) { // Check if parsing succeeded
-            console.warn('[PgnTreeMerger] Failed to parse PGN:', pgnString.substring(0, 50)); // Log warning with preview of failed input
+            log.warn('[PgnTreeMerger] Failed to parse PGN:', pgnString.substring(0, 50)); // Log warning with preview of failed input
             return; // Exit early if parsing failed
         }
 
         const game = games[0]; // Get the first game (we expect only one per line)
         this.lineCount++; // Increment our line counter
 
-        console.log(`[PgnTreeMerger] Adding line ${this.lineCount}`); // Log which line number we're adding
+        log.log(`[PgnTreeMerger] Adding line ${this.lineCount}`); // Log which line number we're adding
 
         // Extract moves from the parsed game as an array of node data
         const moveNodes = this.extractMoveNodes(game.moves); // Convert chessops tree structure to flat array for easier processing
 
         if (moveNodes.length === 0) { // Check if there were any moves
-            console.warn('[PgnTreeMerger] No moves found in PGN'); // Log warning
+            log.warn('[PgnTreeMerger] No moves found in PGN'); // Log warning
             return; // Exit if no moves
         }
 
