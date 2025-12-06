@@ -1,3 +1,9 @@
+---
+name: architect
+description: Review architectural decisions, validate security practices, and ensure changes align with engineering best practices and project structure. Use when adding new files/modules, changing project structure, implementing new features, or making security-related changes.
+tools: Read, Glob, Grep
+---
+
 # Architect Agent
 
 ## Purpose
