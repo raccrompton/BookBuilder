@@ -3,8 +3,30 @@
  * Configures the testing environment for BookBuilder client-side tests
  */
 
-// Mock Web APIs that aren't available in jsdom
-global.Worker = jest.fn().mockImplementation(() => {
+// =============================================================================
+// Environment Variable: USE_REAL_ENGINE
+// =============================================================================
+// When set to 'true', tests will use real Stockfish via Node.js child process
+// instead of the mocked Worker. This enables testing the full BookBuilder
+// pipeline with real engine analysis to isolate browser-specific issues.
+//
+// Usage:
+//   npm test                           # Default: use mock engine (fast)
+//   USE_REAL_ENGINE=true npm test      # Use real Stockfish (slower, real analysis)
+//   npm run test:real-engine           # Shorthand for above
+//
+// =============================================================================
+const USE_REAL_ENGINE = process.env.USE_REAL_ENGINE === 'true';
+
+if (USE_REAL_ENGINE) {
+    // When using real engine, we don't mock the Worker
+    // Tests should use NodeStockfishEngine directly
+    console.log('[TEST SETUP] Using real Node.js Stockfish engine (USE_REAL_ENGINE=true)');
+    console.log('[TEST SETUP] Tests will use NodeStockfishEngine instead of mocked Worker');
+} else {
+    // Default: Mock the Worker for fast tests
+    // Mock Web APIs that aren't available in jsdom
+    global.Worker = jest.fn().mockImplementation(() => {
     const worker = {
         postMessage: jest.fn((command) => {
             // Simulate UCI protocol responses based on command
@@ -56,17 +78,18 @@ global.Worker = jest.fn().mockImplementation(() => {
     };
 
     return worker;
-});
+    });
 
-// Mock URL.createObjectURL and revokeObjectURL
-global.URL.createObjectURL = jest.fn(() => 'mock-blob-url');
-global.URL.revokeObjectURL = jest.fn();
+    // Mock URL.createObjectURL and revokeObjectURL (browser-only APIs)
+    global.URL.createObjectURL = jest.fn(() => 'mock-blob-url');
+    global.URL.revokeObjectURL = jest.fn();
 
-// Mock Blob constructor
-global.Blob = jest.fn((content, options) => ({
-    size: content[0].length,
-    type: options?.type || 'text/plain'
-}));
+    // Mock Blob constructor (browser-only API)
+    global.Blob = jest.fn((content, options) => ({
+        size: content[0].length,
+        type: options?.type || 'text/plain'
+    }));
+} // End of mock engine setup
 
 // Mock sessionStorage
 const mockSessionStorage = {
