@@ -1197,6 +1197,11 @@
             background: var(--primary-color);
         }
 
+        /* Dark mode: match the tab navigation background for visual consistency */
+        [data-theme="dark"] .debug-toggle {
+            background: var(--surface-elevated);
+        }
+
         .debug-panel {
             position: fixed;
             bottom: 5rem;
@@ -2078,6 +2083,20 @@
                         <i data-lucide="help-circle" class="icon"></i>
                         <span>How to use output</span>
                     </button>
+
+                    <!-- Link to the GitHub repository where the source code is hosted -->
+                    <!-- Users can view the code, report bugs, or contribute improvements -->
+                    <!-- target="_blank" opens in new tab so users don't lose their work -->
+                    <!-- rel="noopener noreferrer" is CRITICAL for security - it prevents the -->
+                    <!-- new page from accessing this window via window.opener (reverse tabnabbing attack) -->
+                    <a href="https://github.com/raccrompton/BookBuilder/"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="footer-link"
+                       title="View source code on GitHub">
+                        <i data-lucide="github" class="icon"></i>
+                        <span>GitHub</span>
+                    </a>
                 </div>
 
                 <!-- Debug panel toggle (existing functionality) -->
