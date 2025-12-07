@@ -212,13 +212,13 @@ class StockfishEngine {
                 // Engine will respond with 'uciok' when ready
                 this.sendUCICommand('uci');
 
-                // Timeout after 60 seconds (WASM loading can take time, especially
+                // Timeout after 2 minutes (WASM loading can take time, especially
                 // for the full version which is ~80MB split into 6 parts)
                 setTimeout(() => {
                     if (!this.isReady) {
                         reject(new Error('Engine initialization timeout'));
                     }
-                }, 60000);
+                }, 120000);
 
             } catch (error) {
                 log.error('Failed to initialize Stockfish:', error);
@@ -471,15 +471,39 @@ class StockfishEngine {
             const afterEval = await this.evaluatePositionAfterMove(fen, move, targetDepth);
 
             // Calculate move quality
-            const moveLoss = Math.abs(beforeEval - afterEval);
-            const quality = this.calculateMoveQuality(moveLoss);
+            // IMPORTANT: Stockfish evaluates from the side-to-move's perspective.
+            // After a move, it's the opponent's turn, so afterEval is from their POV.
+            // We negate afterEval to get both evaluations from the same perspective.
+            //
+            // Example: White plays e4
+            // - beforeEval = +30 (white to move, white is +30 cp better)
+            // - afterEval = -25 (black to move, black is -25 cp = white is +25 cp)
+            // - adjustedAfterEval = -(-25) = +25 (from white's perspective)
+            // - moveLoss = 30 - 25 = 5 cp (white lost 5 cp, acceptable)
+            //
+            // Example: White plays a blunder
+            // - beforeEval = +30 (white was winning)
+            // - afterEval = +200 (black is now +200 = white is -200)
+            // - adjustedAfterEval = -200 (from white's perspective)
+            // - moveLoss = 30 - (-200) = 230 cp (white lost 230 cp, blunder!)
+            // Flip perspective: negate afterEval so both values are from the same side's POV
+            const adjustedAfterEval = -afterEval;
+            // Calculate how much the position changed (positive = got worse for the moving side)
+            const moveLoss = beforeEval - adjustedAfterEval;
 
+            // Use absolute value for quality assessment (we care about magnitude, not direction)
+            // A loss of 30cp and a gain of 30cp should both map to the same quality tier
+            const absMoveLoss = Math.abs(moveLoss);
+            // Convert centipawn loss to human-readable quality label ('excellent', 'good', 'poor', etc.)
+            const quality = this.calculateMoveQuality(absMoveLoss);
+
+            // Return analysis results with all the data callers might need
             return {
-                evaluation: afterEval,
-                moveLoss,
-                quality,
-                beforeEval,
-                afterEval
+                evaluation: afterEval,      // Position score after move (opponent's perspective)
+                moveLoss: absMoveLoss,      // Centipawn loss magnitude (always positive)
+                quality,                    // Human-readable quality rating
+                beforeEval,                 // Position score before move (our perspective)
+                afterEval                   // Raw after-move score (for debugging)
             };
 
         } catch (error) {

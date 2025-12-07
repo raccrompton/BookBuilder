@@ -428,4 +428,191 @@ describe('MoveSelector - Step 4: Move Selection Algorithm', () => {
             expect(result.selectedMove.confidence.lowerBound).toBeGreaterThan(0.4);
         });
     });
+
+    // =========================================================================
+    // CENTIPAWN BOUNDARY EDGE CASES
+    // =========================================================================
+    // These tests verify the soundness limit logic handles boundary conditions
+    // correctly. We use mocked analysis to get deterministic results.
+    describe('Centipawn Boundary Edge Cases', () => {
+
+        describe('SOUNDNESSLIMIT boundary', () => {
+            test('moveLoss exactly at SOUNDNESSLIMIT passes', () => {
+                // SOUNDNESSLIMIT is -50, so Math.abs gives 50
+                // moveLoss of exactly 50 should pass (not greater than 50)
+                const selectorWithLimit = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -100,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                const analysis = { moveLoss: 50, evaluation: 20 };
+                const result = selectorWithLimit.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(true);
+            });
+
+            test('moveLoss just above SOUNDNESSLIMIT fails', () => {
+                const selectorWithLimit = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -100,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                const analysis = { moveLoss: 51, evaluation: 20 };
+                const result = selectorWithLimit.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(false);
+            });
+
+            test('moveLoss of zero always passes SOUNDNESSLIMIT', () => {
+                const selectorWithLimit = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -100,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                const analysis = { moveLoss: 0, evaluation: 20 };
+                const result = selectorWithLimit.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(true);
+            });
+        });
+
+        describe('LOSSLIMIT with IGNORELOSSLIMIT', () => {
+            test('moveLoss above LOSSLIMIT fails when eval below IGNORELOSSLIMIT', () => {
+                const selector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -30, // Stricter than SOUNDNESSLIMIT
+                    IGNORELOSSLIMIT: 300
+                });
+
+                // moveLoss 40 > LOSSLIMIT 30, but passes SOUNDNESSLIMIT 50
+                // eval 100 < IGNORELOSSLIMIT 300, so should fail
+                const analysis = { moveLoss: 40, evaluation: 100 };
+                const result = selector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(false);
+            });
+
+            test('moveLoss above LOSSLIMIT passes when eval above IGNORELOSSLIMIT', () => {
+                const selector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -30,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                // moveLoss 40 > LOSSLIMIT 30, but passes SOUNDNESSLIMIT 50
+                // eval 350 > IGNORELOSSLIMIT 300, so should pass (we're winning big)
+                const analysis = { moveLoss: 40, evaluation: 350 };
+                const result = selector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(true);
+            });
+
+            test('negative eval magnitude is used for IGNORELOSSLIMIT check', () => {
+                // When we're losing badly, absolute value of eval is compared
+                const selector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -30,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                // eval -350 has absolute value 350 > 300, so should pass
+                const analysis = { moveLoss: 40, evaluation: -350 };
+                const result = selector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', analysis
+                );
+
+                expect(result).toBe(true);
+            });
+        });
+
+        describe('Engine best move bypass', () => {
+            test('engine best move always passes regardless of config', () => {
+                const strictSelector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -10, // Very strict
+                    LOSSLIMIT: -5,
+                    IGNORELOSSLIMIT: 1000
+                });
+
+                // Even with "bad" analysis, if it's the best move, it passes
+                const analysis = { moveLoss: 100, evaluation: -500 };
+                const result = strictSelector.validateMoveSoundness(
+                    null, 'e2e4', 'e2e4', analysis // move === engineBestMove
+                );
+
+                expect(result).toBe(true);
+            });
+        });
+
+        describe('CAREABOUTENGINE=0 bypass', () => {
+            test('all moves pass when CAREABOUTENGINE is 0', () => {
+                const noEngineSelector = new MoveSelector({
+                    CAREABOUTENGINE: 0, // Skip engine validation
+                    SOUNDNESSLIMIT: -10,
+                    LOSSLIMIT: -5,
+                    IGNORELOSSLIMIT: 1000
+                });
+
+                // Even terrible analysis should pass
+                const terribleAnalysis = { moveLoss: 500, evaluation: -1000 };
+                const result = noEngineSelector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', terribleAnalysis
+                );
+
+                expect(result).toBe(true);
+            });
+        });
+
+        describe('Missing analysis handling', () => {
+            test('null analysis treated as zero moveLoss', () => {
+                const selector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -100,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                // null analysis means moveLoss defaults to 0
+                const result = selector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', null
+                );
+
+                expect(result).toBe(true);
+            });
+
+            test('undefined analysis treated as zero moveLoss', () => {
+                const selector = new MoveSelector({
+                    CAREABOUTENGINE: 1,
+                    SOUNDNESSLIMIT: -50,
+                    LOSSLIMIT: -100,
+                    IGNORELOSSLIMIT: 300
+                });
+
+                const result = selector.validateMoveSoundness(
+                    null, 'd2d4', 'e2e4', undefined
+                );
+
+                expect(result).toBe(true);
+            });
+        });
+    });
 });

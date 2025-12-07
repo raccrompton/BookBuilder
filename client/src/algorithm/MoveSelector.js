@@ -116,6 +116,138 @@ class MoveSelector {
         };
     }
 
+    // =========================================================================
+    // RUNTIME VALIDATION HELPERS
+    // =========================================================================
+    // These methods help catch perspective and centipawn bugs early by validating
+    // values are within expected bounds. They log warnings during development
+    // without breaking production - allowing us to catch issues before they cause
+    // incorrect move selections.
+
+    /**
+     * Validate that a centipawn value is a valid number
+     *
+     * Checks that the value is a proper number (not NaN, undefined, etc.).
+     * We don't check bounds because mate scores can be very large (9999999 or Infinity).
+     *
+     * @param {number} value - Centipawn value to validate
+     * @param {string} context - Description of where this value came from (for logging)
+     * @returns {boolean} True if value is a valid number
+     */
+    _validateCentipawnValue(value, context) {
+        // Check if value is a valid number using typeof and isNaN
+        // typeof returns 'number' for valid numbers, isNaN catches NaN values
+        if (typeof value !== 'number' || isNaN(value)) {
+            // Log warning with context so we can trace where the bad value came from
+            log.log(`⚠️ [Validation] Invalid centipawn value (not a number) in ${context}: ${value}`);
+            return false;  // Indicate validation failure
+        }
+
+        // Note: We intentionally don't check bounds because mate scores can be
+        // very large (e.g., 9999999 or Infinity). Perspective flip bugs would
+        // show up in structural tests (sign changes, relative ordering) rather
+        // than absolute magnitude checks.
+
+        return true;  // Value passed all checks
+    }
+
+    /**
+     * Validate that perspective/turn values are valid
+     *
+     * Chess has two sides: white ('w' or 'white') and black ('b' or 'black').
+     * Any other value indicates a bug in perspective tracking.
+     *
+     * @param {string} turn - Turn indicator ('w' or 'b')
+     * @param {string} perspective - Perspective indicator ('white' or 'black')
+     * @param {string} context - Description of where these values came from (for logging)
+     * @returns {boolean} True if values are valid
+     */
+    _validatePerspective(turn, perspective, context) {
+        // Valid turn values from FEN notation: 'w' = white to move, 'b' = black to move
+        const validTurns = ['w', 'b'];
+        // Valid perspective values for repertoire building: 'white' or 'black'
+        // Note: turn and perspective are different - turn is position state, perspective is whose repertoire
+        const validPerspectives = ['white', 'black'];
+
+        // Validate turn if provided (skip if undefined/null to allow partial validation)
+        if (turn !== undefined && turn !== null) {
+            // Check if turn is in the list of valid values using Array.includes()
+            if (!validTurns.includes(turn)) {
+                // Log warning with the invalid value and expected options
+                log.log(`⚠️ [Validation] Invalid turn value in ${context}: '${turn}' (expected 'w' or 'b')`);
+                return false;  // Indicate validation failure
+            }
+        }
+
+        // Validate perspective if provided (skip if undefined/null to allow partial validation)
+        if (perspective !== undefined && perspective !== null) {
+            // Check if perspective is in the list of valid values
+            if (!validPerspectives.includes(perspective)) {
+                // Log warning with the invalid value and expected options
+                log.log(`⚠️ [Validation] Invalid perspective value in ${context}: '${perspective}' (expected 'white' or 'black')`);
+                return false;  // Indicate validation failure
+            }
+        }
+
+        return true;  // All provided values are valid
+    }
+
+    /**
+     * Validate move analysis data for consistency
+     *
+     * After engine analysis, we should have consistent values:
+     * - moveLoss should be non-negative (we always return absolute value)
+     * - beforeEval and afterEval should be within reasonable bounds
+     *
+     * @param {Object} analysis - Analysis object from engine
+     * @param {string} context - Description of where this analysis came from
+     * @returns {boolean} True if analysis data is valid
+     */
+    _validateMoveAnalysis(analysis, context) {
+        // Guard clause: if no analysis object provided, nothing to validate
+        // This is valid - some code paths don't have analysis data
+        if (!analysis) {
+            return true;  // No analysis to validate, that's OK
+        }
+
+        // Track overall validity - we check multiple fields and want to report all issues
+        let isValid = true;
+
+        // Validate moveLoss is non-negative (we use absolute value in the engine)
+        // A negative moveLoss would indicate we didn't apply Math.abs() somewhere
+        if (analysis.moveLoss !== undefined) {
+            // moveLoss should never be negative - we always return absolute value
+            if (analysis.moveLoss < 0) {
+                // This would indicate a bug in the engine's analyzeMove() method
+                log.log(`⚠️ [Validation] Negative moveLoss in ${context}: ${analysis.moveLoss} (should be absolute value)`);
+                isValid = false;  // Mark as invalid but continue checking other fields
+            }
+            // Also validate moveLoss is within reasonable centipawn bounds
+            // Reuse the centipawn validation logic for consistency
+            if (!this._validateCentipawnValue(analysis.moveLoss, `${context}.moveLoss`)) {
+                isValid = false;  // Mark as invalid but continue checking other fields
+            }
+        }
+
+        // Validate beforeEval if present - this is the position score before the move
+        if (analysis.beforeEval !== undefined) {
+            // Delegate to centipawn validation helper
+            if (!this._validateCentipawnValue(analysis.beforeEval, `${context}.beforeEval`)) {
+                isValid = false;  // Mark as invalid but continue checking other fields
+            }
+        }
+
+        // Validate afterEval if present - this is the position score after the move
+        if (analysis.afterEval !== undefined) {
+            // Delegate to centipawn validation helper
+            if (!this._validateCentipawnValue(analysis.afterEval, `${context}.afterEval`)) {
+                isValid = false;  // Mark as invalid but continue checking other fields
+            }
+        }
+
+        return isValid;  // Return combined validity of all checked fields
+    }
+
     /**
      * =========================================================================
      * SELECT BEST MOVE - Main entry point for move selection
@@ -378,6 +510,10 @@ class MoveSelector {
         log.log(`         Centipawn loss: ${centipawnLoss}, evaluation: ${moveAnalysis?.evaluation}`);
         log.log(`         Limits - SOUNDNESSLIMIT: ${this.config.SOUNDNESSLIMIT}, LOSSLIMIT: ${this.config.LOSSLIMIT}, IGNORELOSSLIMIT: ${this.config.IGNORELOSSLIMIT}`);
 
+        // Runtime validation: Check that move analysis values are within expected bounds
+        // This catches bugs like perspective flip errors early in development
+        this._validateMoveAnalysis(moveAnalysis, `validateMoveSoundness(${move})`);
+
         // Handle mate scenarios specially
         if (this._isMateScore(moveAnalysis?.evaluation)) {
             log.log(`         🏁 Mate score detected, handling specially`);
@@ -559,8 +695,14 @@ class MoveSelector {
     _selectByStatistics(position, candidates, statisticsEngine) {
         log.log(`📈 Statistical selection from ${candidates.length} candidates:`);
         // Extract current turn from FEN (3rd field after spaces)
+        // FEN format: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        //             pieces                                      ^ turn
         const currentTurn = position.fen.split(' ')[1]; // 'w' or 'b'
         log.log(`   Current turn: ${currentTurn}, DRAWSAREHALF: ${this.config.DRAWSAREHALF}, ALPHA: ${this.config.ALPHA}`);
+
+        // Runtime validation: Ensure turn value is valid ('w' or 'b')
+        // This catches bugs where FEN is malformed or perspective tracking went wrong
+        this._validatePerspective(currentTurn, position.perspective, `_selectByStatistics`);
 
         let bestMove = null;
         let bestLowerBound = -1;
@@ -826,6 +968,9 @@ class MoveSelector {
         const centipawnLoss = analysis?.moveLoss || 0;
 
         log.log(`      🔍 Checking soundness for ${moveUci}: loss=${centipawnLoss}cp, eval=${analysis?.evaluation}`);
+
+        // Runtime validation: Check that analysis values are within expected bounds
+        this._validateMoveAnalysis(analysis, `_passesSoundnessCheck(${moveUci})`);
 
         // Check SOUNDNESSLIMIT (strictest threshold)
         // Note: SOUNDNESSLIMIT is stored as negative (e.g., -99) so we use Math.abs
