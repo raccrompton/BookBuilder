@@ -1430,18 +1430,36 @@ class FileGenerator {
 
             // Add winrate information
             if (lineData.statistics.winrate !== undefined && lineData.statistics.totalGames !== undefined) {
-                const winratePercent = (lineData.statistics.winrate * 100).toFixed(2);
-                const gamesFormatted = lineData.statistics.totalGames.toLocaleString();
-
-                // Use correct description based on DRAWSAREHALF config
-                let winrateDescription;
-                if (config.DRAWSAREHALF === 0) {
-                    winrateDescription = 'Line winrate (excluding draws)';
+                // Check if this is a terminal position (checkmate/draw) that needs transparent labeling
+                // Terminal positions have manufactured stats that shouldn't look like database data
+                if (lineData.statistics.isTerminalPosition) {
+                    // Build honest annotation based on terminal position type
+                    let terminalAnnotation;
+                    if (lineData.statistics.terminalType === 'checkmate') {
+                        // For checkmate, show win or loss based on the winrate value
+                        // winrate of 1.0 = we delivered checkmate, 0.0 = we got checkmated
+                        const outcome = lineData.statistics.winrate === 1 ? 'win' : 'loss';
+                        terminalAnnotation = `Position outcome: Checkmate (${outcome})`;
+                    } else {
+                        // For draws, show the value being used based on DRAWSAREHALF config
+                        terminalAnnotation = `Position outcome: Draw (counted as ${lineData.statistics.winrate})`;
+                    }
+                    annotations += terminalAnnotation;
                 } else {
-                    winrateDescription = 'Line winrate (draws as half points)';
-                }
+                    // Normal position with real Lichess database statistics
+                    const winratePercent = (lineData.statistics.winrate * 100).toFixed(2);
+                    const gamesFormatted = lineData.statistics.totalGames.toLocaleString();
 
-                annotations += `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
+                    // Use correct description based on DRAWSAREHALF config
+                    let winrateDescription;
+                    if (config.DRAWSAREHALF === 0) {
+                        winrateDescription = 'Line winrate (excluding draws)';
+                    } else {
+                        winrateDescription = 'Line winrate (draws as half points)';
+                    }
+
+                    annotations += `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
+                }
             }
         } else {
             // Fallback to direct properties on lineData
