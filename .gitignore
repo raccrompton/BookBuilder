@@ -4,6 +4,7 @@ build
 dist
 BookBuilder.spec
 node_modules
+coverage
 
 # Playwright MCP artifacts
 .playwright-mcp/
