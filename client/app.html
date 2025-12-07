@@ -12,7 +12,7 @@
         worker-src 'self' blob:;
         img-src 'self' data: https:;
     ">
-    <title>BookBuilder</title>
+    <title>OpeningBuilder</title>
 
     <!-- Inter Font - Modern, screen-optimized typeface used by Supabase, Linear, Vercel -->
     <!-- Preconnect hints tell the browser to establish connections early for faster loading -->
@@ -90,6 +90,10 @@
             --success-background: #f0fdf4;
             --success-border: #bbf7d0;
             --success-text: #166534;
+            /* Logo colors - light mode */
+            --ob-icon-bg: #000000;
+            --ob-text: #111111;
+            --ob-accent: #ff6a00;
         }
 
         /* Dark mode colors - applied when data-theme="dark" is set on <html> */
@@ -131,6 +135,10 @@
             --success-background: #052e16;
             --success-border: #166534;
             --success-text: #86efac;
+            /* Logo colors - dark mode */
+            --ob-icon-bg: #1e1e1e;
+            --ob-text: #f2f2f2;
+            --ob-accent: #ff6a00;
         }
 
         * {
@@ -176,6 +184,10 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+        }
+
+        .header svg {
+            margin-bottom: 1.5rem;
         }
 
         .header p {
@@ -1564,8 +1576,40 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>BookBuilder</h1>
-            <p>Automated Chess Repertoire Building</p>
+            <!-- OpeningBuilder Logo - SVG with theme-aware colors via CSS variables -->
+            <svg width="280" height="80" viewBox="0 0 280 80" xmlns="http://www.w3.org/2000/svg" aria-label="OpeningBuilder.com logo">
+              <style>
+                .icon-bg { fill: var(--ob-icon-bg, #000000); }
+                .white { fill: #ffffff; }
+                .accent { fill: var(--ob-accent, #ff6a00); }
+                .text { fill: var(--ob-text, #111111); font-family: 'Inter', sans-serif; font-weight: 600; }
+              </style>
+
+              <!-- ICON BLOCK -->
+              <rect class="icon-bg" x="0" y="0" width="70" height="70" rx="6"/>
+
+              <!-- 4×4 Grid Squares (positions mapped manually) -->
+              <!-- Row 1 -->
+              <rect class="white" x="10" y="10" width="12" height="12"/>
+              <rect class="white" x="28" y="10" width="12" height="12"/>
+              <rect class="white" x="46" y="10" width="12" height="12"/>
+
+              <!-- Row 2 -->
+              <rect class="white" x="10" y="28" width="12" height="12"/>
+              <rect class="accent" x="28" y="28" width="12" height="12"/>
+              <rect class="white" x="46" y="28" width="12" height="12"/>
+
+              <!-- Row 3 -->
+              <rect class="white" x="10" y="46" width="12" height="12"/>
+              <rect class="white" x="28" y="46" width="12" height="12"/>
+              <rect class="white" x="46" y="46" width="12" height="12"/>
+
+              <!-- TEXT -->
+              <text class="text" x="90" y="38" font-size="30">Opening</text>
+              <text class="text" x="90" y="65" font-size="30">Builder.com</text>
+            </svg>
+            <p>Prepare for moves you'll actually face. Play the moves that actually win.</p>
+            <p>Chess opening repertoires built automatically from millions of real Lichess games.</p>
         </div>
 
         <form id="bookbuilder-form" class="form-container">
@@ -1635,7 +1679,7 @@
                     <div class="form-section">
                     <h2 class="section-title"><i data-lucide="database" class="icon"></i> Lichess Database Settings</h2>
                     <div class="form-help">
-                        Lichess.org maintains a database of millions of real games. The "opening explorer" shows how often each move is played and its win/draw/loss rates. These settings control which games BookBuilder draws data from when building your repertoire.
+                        Lichess.org maintains a database of millions of real games. The "opening explorer" shows how often each move is played and its win/draw/loss rates. These settings control which games OpeningBuilder draws data from when building your repertoire.
                     </div>
 
                     <div class="form-group">
@@ -1706,7 +1750,7 @@
                 <div class="form-section">
                     <h2 class="section-title"><i data-lucide="filter" class="icon"></i> Your Opponent's Move Filters</h2>
                     <div class="form-help">
-                        These settings determine which of your opponent's moves BookBuilder will include in your repertoire.
+                        These settings determine which of your opponent's moves OpeningBuilder will include in your repertoire.
                     </div>
 
                     <div class="form-group">
@@ -1721,7 +1765,7 @@
                             <option value="0.001">1 in 2000 games (excessive!)</option>
                         </select>
                         <div class="form-help">
-                            Controls how rare a move must be before BookBuilder ignores it. "1 in 100 games" means: only prepare for opponent moves you'd face at least once every 100 games. Lower numbers = smaller repertoire covering only common moves. Higher numbers = larger repertoire covering rare sidelines too. The probability accounts for how likely you are to even reach that position.
+                            Controls how rare a move must be before OpeningBuilder ignores it. "1 in 100 games" means: only prepare for opponent moves you'd face at least once every 100 games. Lower numbers = smaller repertoire covering only common moves. Higher numbers = larger repertoire covering rare sidelines too. The probability accounts for how likely you are to even reach that position.
                         </div>
                     </div>
 
@@ -1743,7 +1787,7 @@
                 <div class="form-section">
                     <h2 class="section-title"><i data-lucide="crosshair" class="icon"></i> Your Candidate Move Selectors</h2>
                     <div class="form-help">
-                        These settings determine how BookBuilder will select repertoire moves it recommends you play. BookBuilder will recommend you play the highest winrate moves within these constraints.
+                        These settings determine how OpeningBuilder will select repertoire moves it recommends you play. OpeningBuilder will recommend you play the highest winrate moves within these constraints.
                     </div>
 
                     <div class="form-grid">
@@ -1752,7 +1796,7 @@
                             <input type="number" id="most-played-moves" name="most-played-moves" class="form-input"
                                    max="50" value="10" step="1">
                             <div class="form-help">
-                                This determines how many of the most played moves in a position BookBuilder should consider. If you select 5, BookBuilder will ignore strong moves that aren't in the top 5 most played in a position.
+                                This determines how many of the most played moves in a position OpeningBuilder should consider. If you select 5, OpeningBuilder will ignore strong moves that aren't in the top 5 most played in a position.
                             </div>
                         </div>
 
@@ -1787,7 +1831,7 @@
                                 <span class="range-value">%</span>
                             </div>
                             <div class="form-help">
-                                How certain BookBuilder needs to be before trusting a move's winrate. Higher values = more conservative, requiring more games as evidence before selecting a move. Lower values = more willing to trust moves with less data. 95% is a good balance.
+                                How certain OpeningBuilder needs to be before trusting a move's winrate. Higher values = more conservative, requiring more games as evidence before selecting a move. Lower values = more willing to trust moves with less data. 95% is a good balance.
                             </div>
                         </div>
                     </div>
@@ -1811,7 +1855,7 @@
                 <div class="form-section">
                     <h2 class="section-title"><i data-lucide="cpu" class="icon"></i> Engine Filters</h2>
                     <div class="form-help">
-                        These determine how BookBuilder will use engine analysis when generating your repertoire. Note that high engine depths can significantly increase the length of time BookBuilder takes to make a repertoire.
+                        These determine how OpeningBuilder will use engine analysis when generating your repertoire. Note that high engine depths can significantly increase the length of time OpeningBuilder takes to make a repertoire.
                     </div>
 
                     <div class="form-group">
@@ -1919,7 +1963,7 @@
 
             <div class="progress-container" id="progress-container">
                 <div class="progress-header">
-                    <h2 class="progress-title">BookBuilder - Generating Repertoire</h2>
+                    <h2 class="progress-title">OpeningBuilder - Generating Repertoire</h2>
                     <div class="progress-stage" id="progress-stage">Initializing...</div>
                 </div>
 
@@ -2070,7 +2114,7 @@
                        target="_blank"
                        rel="noopener noreferrer"
                        class="footer-link"
-                       title="Read the blog post about why BookBuilder was created">
+                       title="Read the blog post about why OpeningBuilder was created">
                         <i data-lucide="book-open" class="icon"></i>
                         <span>Why does this exist?</span>
                     </a>
@@ -2146,7 +2190,7 @@
                 <!-- Introduction section -->
                 <div class="modal-section">
                     <p>
-                        BookBuilder generates standard PGN (Portable Game Notation) files that can be
+                        OpeningBuilder generates standard PGN (Portable Game Notation) files that can be
                         imported into most chess software and websites. Here's how to use your output:
                     </p>
                 </div>
