@@ -1,6 +1,6 @@
 # BookBuilder
 
-An automatic practical chess opening repertoire builder - now running entirely in your browser.
+An automatic practical chess opening repertoire builder - running entirely in your browser.
 
 ## Quick Start
 
@@ -11,72 +11,68 @@ npm run dev
 # Open http://localhost:3000/app.html
 ```
 
-Or just open `client/app.html` directly in your browser.
+Or open `client/app.html` directly in a modern browser.
 
 ## Features
 
-- **Lichess Database Integration** - Query millions of games for opening statistics
+- **Lichess Database** - Query millions of games for opening statistics
 - **Stockfish Analysis** - Engine-validated move selection via WebAssembly
 - **Smart Move Selection** - Statistical algorithms to find practical moves
-- **PGN Export** - Download repertoire files for Chessable, ChessTempo, etc.
+- **PGN Export** - Download files for Chessable, ChessTempo, etc.
 
 ## Configuration
 
-### Opening Books
-- Define your repertoire starting positions
-- Support for multiple openings per file
-- Priority-based line ordering
-
-### Database Settings
-- Rating range filtering (1000-2800+)
-- Time control selection (Blitz, Rapid, Classical)
-- Analysis depth configuration
-
-### Engine Settings
-- Stockfish depth (10-40)
-- Soundness limits (centipawn tolerance)
-- Engine finishing for incomplete lines
+| Setting | Description |
+|---------|-------------|
+| Rating Range | Filter games by player rating (1000-2800+) |
+| Time Controls | Blitz, Rapid, Classical, Correspondence |
+| Analysis Depth | How many moves deep to analyze |
+| Engine Depth | Stockfish analysis depth (10-40) |
+| Soundness Limit | Maximum centipawn loss allowed |
 
 ## Development
 
 ```bash
-# Run tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Lint and validate
-npm run validate
+npm test              # Run 349 tests across 21 suites
+npm run test:coverage # With coverage report
+npm run validate      # Lint + all tests
 ```
 
 ## Architecture
 
 ```
 client/
-├── app.html              # Main application
+├── app.html                    # Main application
 ├── src/
-│   ├── BookBuilder.js    # Core orchestration
-│   ├── api/              # Lichess API client
-│   ├── engine/           # Stockfish integration
-│   ├── pgn/              # PGN generation
-│   ├── ui/               # Form and progress UI
-│   └── utils/            # Logging, utilities
-└── tests/                # Jest test suite
+│   ├── BookBuilder.js          # Core orchestration
+│   ├── algorithm/
+│   │   └── MoveSelector.js     # Move selection with statistics
+│   ├── api/
+│   │   └── LichessClient.js    # Lichess API integration
+│   ├── chess/
+│   │   └── ChessEngine.js      # Position validation (chess.js)
+│   ├── engine/
+│   │   ├── StockfishEngine.js  # Browser Stockfish (WebAssembly)
+│   │   └── NodeStockfishEngine.js  # Node.js Stockfish (testing)
+│   ├── pgn/
+│   │   ├── PgnGenerator.js     # PGN output formatting
+│   │   └── PgnTreeMerger.js    # Variation tree merging
+│   ├── stats/
+│   │   └── Statistics.js       # Win rate calculations
+│   ├── ui/
+│   │   ├── FormController.js   # Form management
+│   │   ├── FileGenerator.js    # Download handling
+│   │   ├── ProgressTracker.js  # Progress display
+│   │   └── ErrorHandler.js     # Error display
+│   └── utils/
+│       ├── Logger.js           # Configurable logging
+│       └── PgnProcessor.js     # PGN input parsing
+└── tests/                      # Jest test suite
 ```
 
 ## Browser Support
 
-- Chrome 90+ (recommended)
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-## Acknowledgements
-
-- [Lichess.org](https://lichess.org) for the chess database API
-- [Stockfish](https://stockfishchess.org) for the chess engine
-- [chess.js](https://github.com/jhlywa/chess.js) for move validation
+Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 
 ## Learn More
 
