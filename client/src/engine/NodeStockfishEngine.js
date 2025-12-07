@@ -149,7 +149,7 @@ class NodeStockfishEngine {
                 // loadEngine will spawn Node.js with this script
                 const stockfishPath = path.join(
                     __dirname,
-                    '../../node_modules/stockfish/src/stockfish-17.1-single-a496a04.js'
+                    '../../node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.js'
                 );
 
                 // Create the engine instance
