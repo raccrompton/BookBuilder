@@ -56,7 +56,7 @@
     <script type="module">
         // Import and expose Stockfish WebAssembly from npm package
         // We use the single-threaded version for simplicity (no SharedArrayBuffer needed)
-        import('/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js').then(module => {
+        import('/node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.js').then(module => {
             // Make the Stockfish factory function globally available
             window.StockfishFactory = module.default || module.Stockfish;
 

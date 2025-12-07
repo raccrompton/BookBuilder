@@ -162,11 +162,12 @@ class StockfishEngine {
 
                 // Create a Web Worker with the Stockfish JS file
                 // The stockfish npm package is designed to self-initialize when loaded as a worker
-                // We use the single-threaded version which doesn't require SharedArrayBuffer/CORS
-                // Note: The WASM is split into 6 parts (~80MB total) which takes time to load
-                // When loaded as a worker, stockfish automatically finds the WASM files
-                // in the same directory by deriving the path from the JS file location
-                const stockfishPath = '/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js';
+                // We use the LITE single-threaded version which:
+                // - Doesn't require SharedArrayBuffer/CORS headers
+                // - Uses a SINGLE 7MB WASM file (no multi-part fetch issues)
+                // - Still ~3600 ELO - more than enough for opening analysis
+                // - Loads faster and more reliably than the 75MB full version
+                const stockfishPath = '/node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.js';
 
                 this.worker = new Worker(stockfishPath);
 
