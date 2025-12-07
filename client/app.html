@@ -1536,14 +1536,6 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="engine-threads">Engine Threads</label>
-                            <input type="number" id="engine-threads" name="engine-threads" class="form-input"
-                                   min="1" max="16" value="1" step="1">
-                            <div class="form-help">
-                                Increase this number to speed the engine up. It's how many threads you want the engine to use (check your comp and set 1 if unsure).
-                            </div>
-                        </div>
                     </div>
 
                     <div class="form-group">
@@ -2059,8 +2051,28 @@
             }
         }
 
-        function updateGenerationStatus(count) {
-            document.getElementById('generation-status-text').textContent = `${count} positions processed`;
+        /**
+         * Update the generation status overlay with current progress metrics
+         *
+         * Called by FormController.handleBookBuilderProgress() during active generation.
+         * Shows dual counters for better UX - positions update slowly but moves update rapidly,
+         * so users see constant activity and know the app isn't frozen.
+         *
+         * @param {number} positions - Number of unique chess positions processed
+         * @param {number} moves - Number of individual move candidates analyzed
+         */
+        function updateGenerationStatus(positions, moves) {
+            // Build the optional "moves analyzed" part using a ternary operator
+            // Ternary syntax: condition ? valueIfTrue : valueIfFalse
+            // We only show ", X moves analyzed" if moves > 0 to avoid "0 moves analyzed"
+            // Template literal: backticks with ${} allow embedding variables in strings
+            const movesText = moves > 0 ? `, ${moves} moves analyzed` : '';
+
+            // Update the DOM element's text content with the formatted status message
+            // document.getElementById() finds the HTML element with id="generation-status-text"
+            // .textContent sets the text displayed inside that element (plain text, no HTML)
+            document.getElementById('generation-status-text').textContent =
+                `${positions} positions${movesText}`;
         }
 
         function hideGenerationStatus() {
@@ -2378,7 +2390,6 @@
             setFormField('soundness-limit', sample.soundnessLimit);
             setFormField('move-loss-limit', sample.moveLossLimit);
             setFormField('ignore-loss-limit', sample.ignoreLossLimit);
-            setFormField('engine-threads', sample.engineThreads);
             setFormField('engine-hash', sample.engineHash);
 
             // Close the dropdown after selection

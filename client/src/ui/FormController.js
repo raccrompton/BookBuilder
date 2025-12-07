@@ -426,16 +426,45 @@ class FormController {
     }
 
     /**
-     * Handle progress updates from BookBuilder
-     * @param {Object} progressData - Progress data from BookBuilder
+     * Handle progress updates from BookBuilder and update the UI
+     *
+     * Acts as a bridge between BookBuilder (which tracks chess processing) and the UI
+     * (which shows progress to the user). Extracts position and move counts from the
+     * progress data and displays them in the generation status overlay.
+     *
+     * @param {Object} progressData - Progress data object from BookBuilder
+     * @param {number} [progressData.current] - Current position count (newer property)
+     * @param {number} [progressData.positionsProcessed] - Position count (legacy property)
+     * @param {number} [progressData.moves] - Number of individual moves analyzed
+     *
+     * @example
+     * // progressData = { current: 42, moves: 387 }
+     * // Updates UI to show "42 positions, 387 moves analyzed"
      */
     handleBookBuilderProgress(progressData) {
+        // Log the raw progress data object so we can debug what BookBuilder is sending us
         log.log('📊 [FormController] BookBuilder progress:', progressData);
 
-        // Update the simple generation status
-        const count = progressData.current || progressData.positionsProcessed || 0;
+        // Extract position count from the progress data using the fallback pattern
+        // We check progressData.current first (newer property), then positionsProcessed (legacy)
+        // The || operator means "use the first truthy value, or 0 if both are missing/falsy"
+        // This defensive pattern ensures we always have a valid number to display
+        const positions = progressData.current || progressData.positionsProcessed || 0;
+
+        // Extract moves count with a default of 0 if not provided
+        // "moves" represents individual move candidates analyzed - it increments faster than
+        // positions because each position may have many candidate moves being evaluated
+        const moves = progressData.moves || 0;
+
+        // Update the UI if the global function exists (defensive programming)
+        // The typeof check prevents errors if updateGenerationStatus isn't defined yet
+        // This can happen if app.html hasn't fully loaded, or in test environments
         if (typeof updateGenerationStatus === 'function') {
-            updateGenerationStatus(count);
+            // Call the global UI function with both metrics
+            // WHY TWO METRICS: positions increment slowly (every few seconds), but moves
+            // increment rapidly - this creates constant visual activity so users know
+            // the app is actively working and hasn't frozen
+            updateGenerationStatus(positions, moves);
         }
     }
 
@@ -453,7 +482,6 @@ class FormController {
             log.log('🔧 [FormController] Initializing Stockfish engine...');
             this.stockfishEngine = new StockfishEngine({
                 depth: config.ENGINEDEPTH || 20,
-                threads: config.ENGINETHREADS || 1,
                 hash: config.ENGINEHASH || 128
             });
 
@@ -810,7 +838,6 @@ class FormController {
             SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit-centipawns']) || -99,
             MOVELOSSLIMIT: parseInt(formConfig['move-loss-limit-centipawns']) || -99,
             IGNORELOSSLIMIT: parseInt(formConfig['ignore-loss-limit']) || 300,
-            ENGINETHREADS: parseInt(formConfig['engine-threads']) || 1,
             ENGINEHASH: parseInt(formConfig['engine-hash']) || 320,
 
             // Lazy engine evaluation: analyze moves one at a time starting with highest probability
@@ -962,7 +989,6 @@ class FormController {
         log.log(`   Soundness Limit: ${formData['soundness-limit'] || 'N/A'} centipawns`);
         log.log(`   Move Loss Limit: ${formData['move-loss-limit'] || 'N/A'} centipawns`);
         log.log(`   Ignore Loss Limit: ${formData['ignore-loss-limit'] || 'N/A'}`);
-        log.log(`   Engine Threads: ${formData['engine-threads'] || 'N/A'}`);
         log.log(`   Engine Hash: ${formData['engine-hash'] || 'N/A'} MB`);
         log.log('');
 

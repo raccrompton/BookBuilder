@@ -115,9 +115,6 @@ export const sampleOpenings = {
       // Ignore Loss Limit - if we're ahead by this much, ignore move loss
       ignoreLossLimit: 300,
 
-      // Engine Threads - CPU threads for engine (1-16)
-      engineThreads: 1,
-
       // Engine Hash - RAM for engine in MB (16-10240)
       engineHash: 320
     },

@@ -48,7 +48,7 @@
  * - Position evaluation (returns centipawn score)
  * - Best move calculation
  * - Move quality analysis (how much centipawn loss)
- * - Configurable depth, threads, and hash table size
+ * - Configurable depth and hash table size
  *
  * DEPENDENCIES:
  * - stockfish npm package (npm install stockfish)
@@ -79,7 +79,6 @@ class StockfishEngine {
      *
      * @param {Object} config - Configuration options
      *   @param {number} config.depth - Analysis depth (higher = stronger but slower)
-     *   @param {number} config.threads - CPU threads to use (1 for single-core)
      *   @param {number} config.hash - Hash table size in MB (memory for positions)
      *   @param {number} config.timeout - Max time in ms for operations
      */
@@ -99,10 +98,6 @@ class StockfishEngine {
         // Depth 20 is strong but takes a few seconds per position
         // Each additional depth roughly doubles the calculation time
         this.depth = config.depth || 20;
-
-        // Number of CPU threads for parallel search
-        // More threads = faster, but 1 is safest for browser compatibility
-        this.threads = config.threads || 1;
 
         // Hash table size in megabytes
         // Stores previously calculated positions to avoid redundant work
@@ -275,10 +270,8 @@ class StockfishEngine {
      * Handle engine initialization completion
      */
     handleEngineReady() {
-        // Configure engine settings
-        if (this.threads > 1) {
-            this.sendUCICommand(`setoption name Threads value ${this.threads}`);
-        }
+        // Configure engine hash setting if different from Stockfish default
+        // Note: We use single-threaded WASM build, so no Threads setting needed
         if (this.hash !== 128) {
             this.sendUCICommand(`setoption name Hash value ${this.hash}`);
         }
@@ -698,7 +691,6 @@ class StockfishEngine {
     getConfig() {
         return {
             depth: this.depth,
-            threads: this.threads,
             hash: this.hash,
             timeout: this.timeout
         };
@@ -709,7 +701,6 @@ class StockfishEngine {
      */
     updateConfig(config) {
         if (config.depth !== undefined) this.depth = config.depth;
-        if (config.threads !== undefined) this.threads = config.threads;
         if (config.hash !== undefined) this.hash = config.hash;
         if (config.timeout !== undefined) this.timeout = config.timeout;
     }

@@ -683,6 +683,12 @@ class BookBuilder {
                 );
             }
 
+            // Count ALL moves returned by Lichess before filtering - the filtering itself
+            // is analysis work (checking likelihood thresholds), so we count every move
+            // we consider, not just those that pass. This makes the counter increment
+            // faster, giving users better visual feedback that work is happening.
+            this.progressState.movesAnalyzed += continuations.moves.length;
+
             const validContinuations = continuations.moves.filter(move =>
                 this.isValidContinuation(move, cumulativeLikelihood)
             );
@@ -702,8 +708,7 @@ class BookBuilder {
 
             for (const move of validContinuations) {
                 try {
-                    // Update progress for move analysis
-                    this.progressState.movesAnalyzed++;
+                    // Track how many continuations we're processing in this position
                     this.progressState.continuationsFound = validContinuations.length;
 
                     // **ENHANCED MOVE VALIDATION PIPELINE**
