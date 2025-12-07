@@ -282,6 +282,12 @@ class LichessClient {
                 // -------------------------------------------------------------
                 // Make the HTTP Request
                 // -------------------------------------------------------------
+                // Wait half a second before making the request to be respectful of Lichess's servers
+                // This "throttling" (slowing down) helps prevent hitting rate limits - Lichess
+                // restricts how many requests you can make per minute to keep their service fast
+                // for everyone. We wait proactively instead of waiting for a 429 error.
+                await this._sleep(500);
+
                 // fetch() is the modern browser API for HTTP requests
                 // It returns a Promise that resolves to a Response object
                 const response = await fetch(url, {
