@@ -224,11 +224,14 @@ class ErrorHandler {
                 ${debugInfo}
             </div>
             <div class="error-actions">
-                <button onclick="this.copyErrorToClipboard('${errorId}')" class="btn btn-secondary">
-                    📋 Copy Error Details
+                <button onclick="window.errorHandler.copyErrorToClipboard('${errorId}')" class="btn btn-secondary">
+                    Copy Error Details
                 </button>
-                <button onclick="this.downloadErrorLog()" class="btn btn-secondary">
-                    💾 Download Error Log
+                <button onclick="window.errorHandler.downloadErrorLog()" class="btn btn-secondary">
+                    Download Error Log
+                </button>
+                <button onclick="window.errorHandler.openEmailReport('${errorId}')" class="btn btn-secondary">
+                    Report via Email
                 </button>
                 <button onclick="document.getElementById('error-container').style.display='none'" class="btn btn-primary">
                     Dismiss
@@ -420,6 +423,46 @@ Environment:
         URL.revokeObjectURL(url);
 
         this.showTemporaryMessage('Error log downloaded');
+    }
+
+    /**
+     * Open email client with error report
+     *
+     * WHY THIS APPROACH?
+     * mailto URLs have length limits (~2000 chars), so we can't include
+     * the full error details in the URL. Instead, we:
+     * 1. Copy the full error details to clipboard
+     * 2. Open email with subject line and paste instructions
+     *
+     * This gives the user a pre-addressed email and the error data
+     * ready to paste in one click.
+     *
+     * @param {string} errorId - The error ID to report
+     */
+    openEmailReport(errorId) {
+        // First, copy the full error details to clipboard
+        // This ensures user has all the data ready to paste
+        this.copyErrorToClipboard(errorId);
+
+        // Get error details to create a meaningful subject line
+        // The displayError() method stores error data as window[`errorDetails_${errorId}`]
+        // so we can retrieve it later for clipboard/email features
+        const errorDetails = window[`errorDetails_${errorId}`];
+
+        // Build the subject line with error title for easy identification
+        // encodeURIComponent ensures special characters don't break the URL
+        const subject = encodeURIComponent(
+            `BookBuilder Error Report - ${errorDetails?.title || 'Unknown Error'}`
+        );
+
+        // Body contains simple instructions - the actual error data is in clipboard
+        const body = encodeURIComponent(
+            'Please paste the error details from your clipboard below:\n\n'
+        );
+
+        // Open the user's default email client with pre-filled fields
+        // Using window.location.href ensures it works across all browsers
+        window.location.href = `mailto:alex@alexcrompton.com?subject=${subject}&body=${body}`;
     }
 
     /**
