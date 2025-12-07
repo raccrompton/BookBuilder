@@ -681,9 +681,6 @@ class BookBuilder {
                     false,
                     `Failed to get position continuations for FEN: ${fen}`
                 );
-                // Unreachable in deterministic mode, but kept for completeness
-                await this.finalizeLine(lineData);
-                return [];
             }
 
             const validContinuations = continuations.moves.filter(move =>
@@ -1054,10 +1051,16 @@ class BookBuilder {
             log.log(`   No position stats available`);
         }
 
+        // Initialize statistics tracking variables
         let winRate = 0;
         let totalGames = 0;
+        // Track if this is a terminal position (checkmate/draw) vs real database stats
+        // This allows the UI to display honest labels instead of fake percentages
+        let isTerminalPosition = false;
+        let terminalType = null;
 
         if (stats && stats.white + stats.draws + stats.black > 0) {
+            // We have real Lichess database statistics for this position
             const winRateResult = this.statisticsEngine.calculateWinRate(
                 stats.white,
                 stats.black,
@@ -1075,18 +1078,32 @@ class BookBuilder {
             // Handle legitimate null results (no games played from position)
             if (winRate === null || winRate === undefined) {
                 // This matches Python logic: check for mate or insufficient data
-                winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
+                // calculateFallbackWinRate now returns an object with winRate and terminalType
+                const fallbackResult = this.calculateFallbackWinRate(lineData.fen, lineData);
+                winRate = fallbackResult.winRate;
+                isTerminalPosition = true;
+                terminalType = fallbackResult.terminalType;
+                // Override totalGames since this is a terminal position, not real database stats
+                totalGames = 1;
             }
         } else {
-            // Handle mate/draw positions - calculateFallbackWinRate throws if no real data
-            winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
-            // For terminal positions (checkmate/draw), use 1 game since outcome is deterministic
+            // No database stats - handle terminal positions (checkmate/draw)
+            // calculateFallbackWinRate throws if position is not terminal (no fake stats)
+            const fallbackResult = this.calculateFallbackWinRate(lineData.fen, lineData);
+            winRate = fallbackResult.winRate;
+            isTerminalPosition = true;
+            terminalType = fallbackResult.terminalType;
+            // For terminal positions, use 1 game since outcome is deterministic
             totalGames = 1;
         }
 
         // Validate winRate is a proper number (should not be NaN after proper extraction)
         log.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
         log.log(`   Total games: ${totalGames}`);
+        // Log terminal position info for debugging
+        if (isTerminalPosition) {
+            log.log(`   Terminal position: ${terminalType}`);
+        }
 
         if (isNaN(winRate) || !isFinite(winRate)) {
             log.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
@@ -1094,16 +1111,26 @@ class BookBuilder {
         }
 
         log.log(`   ✅ Adding line to finalLines collection`);
+        // Build statistics object with all required fields
+        // isTerminalPosition and terminalType allow UI to display honest labels
+        const statisticsObj = {
+            cumulativePlayrate: lineData.cumulativeLikelihood,
+            winrate: winRate,
+            totalGames: totalGames
+        };
+        // Only add terminal position fields if this is actually a terminal position
+        // This keeps the statistics object clean for normal positions
+        if (isTerminalPosition) {
+            statisticsObj.isTerminalPosition = true;
+            statisticsObj.terminalType = terminalType;
+        }
+
         this.finalLines.push({
             pgn: lineData.pgn,
             moves: this.extractMovesFromPgn(lineData.pgn),
             cumulativeLikelihood: lineData.cumulativeLikelihood,
             likelihoodPath: lineData.likelihoodPath,
-            statistics: {
-                cumulativePlayrate: lineData.cumulativeLikelihood,
-                winrate: winRate,
-                totalGames: totalGames
-            }
+            statistics: statisticsObj
         });
 
         log.log(`🏁 [BookBuilder] Line finalization completed. Total final lines: ${this.finalLines.length}`);
@@ -1487,29 +1514,64 @@ class BookBuilder {
     }
 
     /**
-     * Calculate fallback win rate for positions with insufficient data
+     * Calculate fallback win rate for terminal positions (checkmate/draw)
+     *
+     * WHAT IT DOES:
+     * Determines the win rate for positions that have no Lichess database statistics
+     * because they are terminal positions (checkmate or draw). Returns both the
+     * calculated win rate and the type of terminal position for transparent display.
+     *
+     * WHY WE RETURN AN OBJECT:
+     * We need to know whether this was a checkmate or draw so the UI can display
+     * an honest label like "Position outcome: Checkmate (win)" instead of fake
+     * statistics like "100% over 1 games".
+     *
+     * PARAMETERS:
+     * @param {string} fen - The FEN string of the position to evaluate
+     * @param {Object} lineData - Contains perspective info for determining win/loss
+     *
+     * RETURNS:
+     * @returns {{winRate: number, terminalType: string}} Object containing:
+     *   - winRate: 0.0, 0.5, or 1.0 based on position outcome
+     *   - terminalType: 'checkmate' or 'draw' for display purposes
+     *
+     * THROWS:
+     * Error if position is not terminal (no fake stats for normal positions)
      */
     calculateFallbackWinRate(fen, lineData) {
-        // Load position and check game state
+        // Load the position into the chess engine to check game state
         this.chessEngine.loadPosition(fen);
 
+        // Check if position is checkmate - the side to move has been mated
         if (this.chessEngine.isCheckmate()) {
-            // In checkmate, the side to move is the loser
+            // Get whose turn it is - they are the side that got mated
             const turnColor = this.chessEngine.getTurn(); // 'w' or 'b'
             const isWhiteToMove = turnColor === 'w';
 
-            // If white is to move and in checkmate, black wins (perspective white = 0.0)
-            // If black is to move and in checkmate, white wins (perspective white = 1.0)
+            // Determine win rate based on who got mated and our perspective:
+            // - If white to move and in checkmate: black wins (white perspective = 0.0 loss)
+            // - If black to move and in checkmate: white wins (white perspective = 1.0 win)
+            let winRate;
             if (lineData.perspective === 'white') {
-                return isWhiteToMove ? 0.0 : 1.0;
+                winRate = isWhiteToMove ? 0.0 : 1.0;
             } else {
-                return isWhiteToMove ? 1.0 : 0.0;
+                winRate = isWhiteToMove ? 1.0 : 0.0;
             }
+            // Return object with winRate and terminalType for transparent display
+            return { winRate, terminalType: 'checkmate' };
         }
+
+        // Check if position is a draw (stalemate, insufficient material, etc.)
         if (this.chessEngine.isDraw()) {
-            return this.config.DRAWSAREHALF ? 0.5 : 0.0;
+            // DRAWSAREHALF config controls how draws are scored:
+            // - 1: Draws count as 0.5 (half a win, like tournament scoring)
+            // - 0: Draws count as 0.0 (treated as losses for repertoire purposes)
+            const winRate = this.config.DRAWSAREHALF ? 0.5 : 0.0;
+            return { winRate, terminalType: 'draw' };
         }
-        // No fake stats - throw error if we don't have real data
+
+        // Position is not terminal - we should never reach here with real data
+        // Throw error rather than silently manufacturing fake statistics
         throw new Error(`No statistics available for position: ${fen}`);
     }
 

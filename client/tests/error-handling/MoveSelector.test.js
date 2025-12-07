@@ -24,20 +24,16 @@ describe('MoveSelector Error Handling', () => {
 
         it('throws error when all moves fail engine validation', async () => {
             const mockCandidates = [
-                { san: 'e4', winrate: 0.55, playrate: 0.3, white: 100, black: 80, draws: 20 },
-                { san: 'Nf3', winrate: 0.52, playrate: 0.2, white: 80, black: 70, draws: 10 }
+                { san: 'e4', uci: 'e2e4', winrate: 0.55, playrate: 0.3, white: 100, black: 80, draws: 20 },
+                { san: 'Nf3', uci: 'g1f3', winrate: 0.52, playrate: 0.2, white: 80, black: 70, draws: 10 }
             ];
 
-            // Mock engine analysis that rejects all moves
-            const mockEngineAnalysis = {
-                bestMove: 'd4',
-                moveAnalyses: [
-                    { move: 'e4', centipawns: -200 }, // Below SOUNDNESSLIMIT
-                    { move: 'Nf3', centipawns: -150 } // Below SOUNDNESSLIMIT
-                ]
+            // Mock engine with proper methods that rejects all candidate moves
+            const mockEngine = {
+                getBestMove: jest.fn().mockResolvedValue('d2d4'),  // Engine best is different from candidates
+                evaluatePosition: jest.fn().mockResolvedValue(50),
+                analyzeMove: jest.fn().mockResolvedValue({ moveLoss: 200, evaluation: -150 })  // High loss = rejected
             };
-
-            mockEngineClient.analyzePosition.mockResolvedValue(mockEngineAnalysis);
 
             // Mock statisticsEngine with validateMoveDataQuality method
             const mockStatisticsEngine = {
@@ -51,11 +47,11 @@ describe('MoveSelector Error Handling', () => {
                 fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
             };
 
-            // Note: The current MoveSelector implementation falls back to statistical selection
-            // when all moves fail engine validation (matching Python behavior), so it doesn't throw
-            const result = await moveSelector.selectBestMove(mockPosition, mockCandidates, mockEngineClient, mockStatisticsEngine);
-            expect(result).toBeDefined();
-            expect(result.selectedMove).toBeDefined();
+            // MoveSelector now throws when all candidates are rejected by engine
+            // (removed silent fallback behavior)
+            await expect(
+                moveSelector.selectBestMove(mockPosition, mockCandidates, mockEngine, mockStatisticsEngine)
+            ).rejects.toThrow('Engine rejected all');
         });
 
         it('includes candidate count in result when engine filters moves', async () => {
