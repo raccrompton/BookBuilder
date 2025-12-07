@@ -88,7 +88,8 @@ describe('MoveSelector Error Handling', () => {
         beforeEach(() => {
             moveSelector = new MoveSelector({
                 CAREABOUTENGINE: 1,
-                SOUNDNESSLIMIT: -50
+                SOUNDNESSLIMIT: -50,
+                LAZY_ENGINE: 0  // Use legacy batch path for these tests (they mock internal methods)
             });
         });
 

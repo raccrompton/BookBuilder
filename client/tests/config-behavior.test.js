@@ -508,7 +508,8 @@ describe('CAREABOUTENGINE Configuration Behavior', () => {
             SOUNDNESSLIMIT: -50,
             LOSSLIMIT: -100,
             MINGAMES: 0,
-            MINPLAYRATE: 0
+            MINPLAYRATE: 0,
+            LAZY_ENGINE: 0  // Use legacy batch path to test that analyzeMove is called for all candidates
         });
 
         // Mock engine that approves e4 but rejects others
