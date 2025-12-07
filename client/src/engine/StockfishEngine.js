@@ -71,7 +71,7 @@ const log = Logger.get('StockfishEngine');
 
 // Chess.js: Used for FEN validation before sending positions to Stockfish WASM
 // Invalid FEN positions can crash the WASM engine with "RuntimeError: unreachable"
-import { Chess } from 'chess.js';
+import { Chess } from '/node_modules/chess.js/dist/esm/chess.js';
 
 class StockfishEngine {
     /**

@@ -12,17 +12,17 @@ describe('ChessEngine - Step 1: Chess Foundation', () => {
             // Test starting position (should always work)
             const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
             expect(engine.parsePosition(startingFen)).toBe(true);
-            expect(engine.getFEN()).toBe(startingFen);
+            expect(engine.getFen()).toBe(startingFen);
 
             // Test Ruy Lopez position: 1.e4 e5 2.Nf3 Nc6 3.Bb5
             const ruyLopezFen = 'r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3';
             expect(engine.parsePosition(ruyLopezFen)).toBe(true);
-            expect(engine.getFEN()).toBe(ruyLopezFen);
+            expect(engine.getFen()).toBe(ruyLopezFen);
 
             // Test King's Indian Defense position: 1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6
             const kingsIndianFen = 'rnbqk2r/ppp1ppbp/3p1np1/8/2PPP3/2N5/PP3PPP/R1BQKBNR w KQkq - 0 5';
             expect(engine.parsePosition(kingsIndianFen)).toBe(true);
-            expect(engine.getFEN()).toBe(kingsIndianFen);
+            expect(engine.getFen()).toBe(kingsIndianFen);
         });
 
         test('handles invalid FEN strings gracefully', () => {
@@ -53,7 +53,7 @@ describe('ChessEngine - Step 1: Chess Foundation', () => {
             engine.parsePosition(startingFen);
 
             engine.validateMove('e2', 'e4');
-            expect(engine.getFEN()).toBe(startingFen); // Position should be unchanged
+            expect(engine.getFen()).toBe(startingFen); // Position should be unchanged
         });
     });
 
@@ -95,7 +95,7 @@ describe('ChessEngine - Step 1: Chess Foundation', () => {
             engine.parsePosition(startingFen);
 
             engine.generateSAN({ from: 'e2', to: 'e4' });
-            expect(engine.getFEN()).toBe(startingFen); // Position should be unchanged
+            expect(engine.getFen()).toBe(startingFen); // Position should be unchanged
         });
     });
 
@@ -145,7 +145,7 @@ describe('ChessEngine - Step 1: Chess Foundation', () => {
             expect(engine.makeMove('Bb5')).toBeTruthy();
 
             // Should be able to get the FEN of this position
-            const ruyLopezFen = engine.getFEN();
+            const ruyLopezFen = engine.getFen();
             expect(ruyLopezFen).toContain('1B2p3'); // Ruy Lopez bishop position
 
             // King's Indian line: 1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6
@@ -160,7 +160,7 @@ describe('ChessEngine - Step 1: Chess Foundation', () => {
             expect(engine.makeMove('d6')).toBeTruthy();
 
             // Should be able to get the FEN of this position
-            const kingsIndianFen = engine.getFEN();
+            const kingsIndianFen = engine.getFen();
             expect(kingsIndianFen).toContain('ppbp'); // King's Indian pawn structure
         });
     });

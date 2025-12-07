@@ -298,7 +298,14 @@
         .form-checkbox {
             width: 1rem;
             height: 1rem;
+            margin: 0;                   /* Reset browser default margins */
+            flex-shrink: 0;              /* Prevent checkbox from shrinking */
             accent-color: var(--primary-color);
+        }
+
+        /* Remove bottom margin from labels inside checkbox items */
+        .checkbox-item .form-label {
+            margin-bottom: 0;            /* Override default .form-label margin */
         }
 
         .range-container {
@@ -1350,6 +1357,193 @@
             width: 1rem;
             height: 1rem;
         }
+
+        /* =============================================================================
+           FOOTER LINKS
+           Text links in the footer for blog post and usage info.
+           Styled as subtle links that don't compete with the main controls.
+           ============================================================================= */
+
+        /* Container for footer links - sits between theme switcher and debug toggle */
+        .footer-links {
+            display: flex;              /* Arrange links horizontally */
+            gap: 1.5rem;                /* Space between links */
+            align-items: center;        /* Vertically center the links */
+        }
+
+        /* Individual footer link styling */
+        .footer-link {
+            display: flex;              /* Allow icon + text inline */
+            align-items: center;        /* Vertically center icon with text */
+            gap: 0.375rem;              /* Small space between icon and text */
+            color: var(--text-secondary);  /* Subtle gray color */
+            font-size: 0.8125rem;       /* Match theme toggle font size */
+            text-decoration: none;      /* Remove default underline */
+            cursor: pointer;            /* Show clickable cursor */
+            transition: color 0.15s ease;  /* Smooth color change on hover */
+            background: none;           /* Reset button background */
+            border: none;               /* Reset button border */
+            padding: 0;                 /* Reset button padding */
+            font-family: inherit;       /* Use same font as rest of app */
+        }
+
+        /* Hover state - make link more prominent */
+        .footer-link:hover {
+            color: var(--primary-color);  /* Use primary blue on hover */
+        }
+
+        /* Icon inside footer links */
+        .footer-link .icon {
+            width: 0.875rem;            /* Slightly smaller icon */
+            height: 0.875rem;
+        }
+
+        /* =============================================================================
+           MODAL / POPUP STYLES
+           A centered overlay modal for displaying information.
+           Uses a semi-transparent backdrop to focus attention on the modal content.
+           ============================================================================= */
+
+        /* Dark overlay that covers the entire screen behind the modal */
+        .modal-overlay {
+            position: fixed;            /* Stay in place even when scrolling */
+            top: 0;                     /* Cover from top... */
+            left: 0;                    /* ...and left edge */
+            right: 0;                   /* Extend to right edge */
+            bottom: 0;                  /* Extend to bottom edge */
+            background: rgba(0, 0, 0, 0.5);  /* Semi-transparent black backdrop */
+            display: flex;              /* Use flexbox to center the modal */
+            justify-content: center;    /* Center horizontally */
+            align-items: center;        /* Center vertically */
+            z-index: 1000;              /* Appear above all other content */
+            opacity: 0;                 /* Start invisible (for animation) */
+            visibility: hidden;         /* Also hide from screen readers initially */
+            transition: opacity 0.2s ease, visibility 0.2s ease;  /* Smooth fade */
+        }
+
+        /* When modal is visible (has 'active' class) */
+        .modal-overlay.active {
+            opacity: 1;                 /* Fully visible */
+            visibility: visible;        /* Accessible to screen readers */
+        }
+
+        /* The modal box itself - white card on the dark overlay */
+        .modal-content {
+            background: var(--surface);  /* White in light mode, dark gray in dark mode */
+            border-radius: 12px;        /* Rounded corners */
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);  /* Prominent shadow */
+            max-width: 600px;           /* Don't get too wide */
+            width: 90%;                 /* Responsive width on small screens */
+            max-height: 85vh;           /* Don't exceed viewport height */
+            overflow: hidden;           /* Clip content to rounded corners */
+            transform: scale(0.95);     /* Start slightly smaller (for animation) */
+            transition: transform 0.2s ease;  /* Smooth scale animation */
+        }
+
+        /* When modal is active, scale to full size */
+        .modal-overlay.active .modal-content {
+            transform: scale(1);        /* Full size */
+        }
+
+        /* Modal header with title and close button */
+        .modal-header {
+            display: flex;              /* Arrange title and close button */
+            justify-content: space-between;  /* Title left, close button right */
+            align-items: center;        /* Vertically center */
+            padding: 1.25rem 1.5rem;    /* Inner spacing */
+            border-bottom: 1px solid var(--border);  /* Separator line */
+        }
+
+        /* Modal title text */
+        .modal-title {
+            font-size: 1.125rem;        /* Slightly larger than body text */
+            font-weight: 600;           /* Semi-bold */
+            color: var(--text-primary); /* Main text color */
+            margin: 0;                  /* Reset default margins */
+        }
+
+        /* Close button (X) in modal header */
+        .modal-close {
+            display: flex;              /* Center the X icon */
+            align-items: center;
+            justify-content: center;
+            width: 32px;                /* Fixed size for easy clicking */
+            height: 32px;
+            border: none;               /* No border */
+            background: transparent;    /* Transparent background */
+            color: var(--text-secondary);  /* Gray color */
+            cursor: pointer;            /* Show clickable cursor */
+            border-radius: 6px;         /* Rounded corners */
+            transition: all 0.15s ease; /* Smooth hover transition */
+        }
+
+        /* Close button hover state */
+        .modal-close:hover {
+            background: var(--surface-hover);  /* Light background on hover */
+            color: var(--text-primary);  /* Darker text on hover */
+        }
+
+        /* Main content area of the modal */
+        .modal-body {
+            padding: 1.5rem;            /* Inner spacing */
+            overflow-y: auto;           /* Scroll if content is too long */
+            max-height: calc(85vh - 120px);  /* Leave room for header and footer */
+        }
+
+        /* Section within modal body */
+        .modal-section {
+            margin-bottom: 1.5rem;      /* Space between sections */
+        }
+
+        /* Remove bottom margin from last section */
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Section heading within modal */
+        .modal-section h3 {
+            font-size: 0.9375rem;       /* 15px - slightly smaller than modal title */
+            font-weight: 600;           /* Semi-bold */
+            color: var(--text-primary); /* Main text color */
+            margin: 0 0 0.75rem 0;      /* Bottom margin only */
+            display: flex;              /* Align icon with text */
+            align-items: center;
+            gap: 0.5rem;                /* Space between icon and text */
+        }
+
+        /* Icon in section heading */
+        .modal-section h3 .icon {
+            color: var(--primary-color);  /* Blue icon */
+        }
+
+        /* Paragraph text in modal */
+        .modal-section p {
+            font-size: 0.875rem;        /* Slightly smaller than heading */
+            color: var(--text-secondary);  /* Gray text */
+            line-height: 1.6;           /* Comfortable line spacing */
+            margin: 0 0 0.5rem 0;       /* Small bottom margin */
+        }
+
+        /* List styling in modal */
+        .modal-section ul {
+            margin: 0;                  /* Reset default margins */
+            padding-left: 1.25rem;      /* Indent list items */
+        }
+
+        /* List items in modal */
+        .modal-section li {
+            font-size: 0.875rem;        /* Match paragraph size */
+            color: var(--text-secondary);  /* Gray text */
+            line-height: 1.6;           /* Comfortable spacing */
+            margin-bottom: 0.375rem;    /* Space between items */
+        }
+
+        /* Platform name in list - highlighted */
+        .platform-name {
+            font-weight: 500;           /* Medium weight - stands out */
+            color: var(--text-primary); /* Main text color */
+        }
+
         .debug-category label {
             font-size: 0.8rem;
             color: var(--text-primary);
@@ -1436,13 +1630,13 @@
                     <div class="form-section">
                     <h2 class="section-title"><i data-lucide="database" class="icon"></i> Lichess Database Settings</h2>
                     <div class="form-help">
-                        These settings determine what data from the Lichess opening explorer you wish BookBuilder to consider when creating your repertoire.
+                        Lichess.org maintains a database of millions of real games. The "opening explorer" shows how often each move is played and its win/draw/loss rates. These settings control which games BookBuilder draws data from when building your repertoire.
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Time Controls</label>
                         <div class="form-help">
-                            What time controls would you like to use data from?
+                            Which game speeds to include. Players often choose different moves in bullet (very fast) vs classical (slow) games. Select time controls that match how you typically play.
                         </div>
                         <div class="form-checkbox-group">
                             <div class="checkbox-item">
@@ -1471,7 +1665,7 @@
                     <div class="form-group">
                         <label class="form-label">Rating Bands</label>
                         <div class="form-help">
-                            What rating bands would you like to use data from?
+                            Filter by the Lichess rating of players in the database. Select ratings close to your level to see what opponents at that strength typically play. Higher-rated games often feature more theoretical moves.
                         </div>
                         <div class="form-checkbox-group">
                             <div class="checkbox-item">
@@ -1522,7 +1716,7 @@
                             <option value="0.001">1 in 2000 games (excessive!)</option>
                         </select>
                         <div class="form-help">
-                            BookBuilder will calculate the likelihood of your opponent's move being played in your games. Increasing the second number here will therefore increase the size of your repertoire. For example, if you select 1 in 500 games, BookBuilder will prepare a repertoire with all your opponent's replies that are likely to occur more than once per 500 games you play, according to the data from your Lichess Database settings. This 1 in X games number assumes you are always playing with white or black. It includes the probability of reaching the starting position of your repertoire, even if that position is fairly deep (eg Najdorf). BookBuilder assumes that the moves you play are always chosen and so do not affect the probability of reaching a position.
+                            Controls how rare a move must be before BookBuilder ignores it. "1 in 100 games" means: only prepare for opponent moves you'd face at least once every 100 games. Lower numbers = smaller repertoire covering only common moves. Higher numbers = larger repertoire covering rare sidelines too. The probability accounts for how likely you are to even reach that position.
                         </div>
                     </div>
 
@@ -1531,7 +1725,7 @@
                         <input type="number" id="opponent-min-games" name="opponent-min-games" class="form-input"
                                min="1" max="100" value="10" step="1">
                         <div class="form-help">
-                            Moves in the Lichess Database played less times than this will not be included in your repertoire. You don't want to be generating likely lines from tiny amounts of games.
+                            Ignore opponent moves that appear in fewer than this many games in the database. This filters out unreliable data from rarely-played moves where the sample size is too small to trust.
                         </div>
                     </div>
                 </div>
@@ -1588,7 +1782,7 @@
                                 <span class="range-value">%</span>
                             </div>
                             <div class="form-help">
-                                The higher this confidence level, the more conservative BookBuilder becomes in move selection. Higher confidence requires moves to have more data and better statistical evidence before being selected. This sets the statistical confidence interval (95% = α=0.05) for evaluating move quality.
+                                How certain BookBuilder needs to be before trusting a move's winrate. Higher values = more conservative, requiring more games as evidence before selecting a move. Lower values = more willing to trust moves with less data. 95% is a good balance.
                             </div>
                         </div>
                     </div>
@@ -1630,7 +1824,7 @@
                         <input type="number" id="engine-depth" name="engine-depth" class="form-input"
                                min="10" max="40" value="20" step="1">
                         <div class="form-help">
-                            This is the depth the engine will use when evaluating moves. The recommended minimum is 20 for stable evaluations in the opening phase.
+                            How many moves ahead the engine calculates. Higher depth = more accurate evaluation but slower analysis. Depth 20 is recommended for reliable opening analysis.
                         </div>
                     </div>
 
@@ -1640,46 +1834,46 @@
                             <label for="engine-finishing" class="form-label">Engine Finishing</label>
                         </div>
                         <div class="form-help">
-                            If there is an opponent continuation we wish to consider, but we don't have sufficient data for our reply according to our filters, we can use the engine to generate the best reply until there are no opponent continuations that meet our criteria.
+                            When the database runs out of data for a position but your opponent still has moves to prepare for, the engine will suggest the best reply. This prevents your repertoire from ending abruptly in positions where opponents might still play something unexpected.
                         </div>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label" for="soundness-limit">Soundness Limit in Centipawns</label>
+                            <label class="form-label" for="soundness-limit">Soundness Limit (centipawns)</label>
                             <input type="number" id="soundness-limit" name="soundness-limit" class="form-input" value="-99">
                             <div class="form-help">
-                                The maximum engine evaluation we are willing to accept, provided the winrate is better (-300 = losing by 3 pawns in evaluation). We never give up a forced mate, of course.
+                                The worst engine evaluation you're willing to accept for a higher winrate move. Centipawns measure position advantage: 100 = 1 pawn ahead, -100 = 1 pawn behind. Example: -300 means you'd accept being down 3 pawns if the winrate is good. The default -99 is very lenient (nearly 1 pawn). Forced mates are never accepted.
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="move-loss-limit">Move Loss Limit in Centipawns</label>
+                            <label class="form-label" for="move-loss-limit">Move Loss Limit (centipawns)</label>
                             <input type="number" id="move-loss-limit" name="move-loss-limit" class="form-input" value="-99">
                             <div class="form-help">
-                                The maximum evaluation we are willing to lose on a single move to play a higher winrate move. We never give up a forced mate. It's recommended to be fairly loose, for example -50, because engines are fairly inconsistent in the openings, especially on low depths.
+                                How much evaluation you're willing to sacrifice on a single move to play something with a higher winrate. Example: -50 means you'd accept losing half a pawn of advantage for a better practical result. The default -99 is lenient. Being loose here (e.g., -50 to -100) is recommended since engine evaluations in openings can be inconsistent.
                             </div>
                         </div>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label" for="ignore-loss-limit">Ignore Loss Limit</label>
+                            <label class="form-label" for="ignore-loss-limit">Ignore Loss Limit (centipawns)</label>
                             <input type="number" id="ignore-loss-limit" name="ignore-loss-limit" class="form-input"
                                    min="0" max="1000" value="300" step="10">
                             <div class="form-help">
-                                If we have a centipawns advantage above this, we won't care if we play a move that exceeds the move loss limit, if it has a higher win rate (is easier to win).
+                                When you're already winning by this much, the Move Loss Limit is ignored. The idea: if you're up 3 pawns (300 centipawns), playing a simpler move that's "only" up 2 pawns but has a higher winrate is fine. Default 300 = 3 pawns advantage.
                             </div>
                         </div>
 
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="engine-hash">Engine Hash</label>
+                        <label class="form-label" for="engine-hash">Engine Memory (MB)</label>
                         <input type="number" id="engine-hash" name="engine-hash" class="form-input"
                                min="16" max="10240" value="320" step="16">
                         <div class="form-help">
-                            Increase this number to speed the engine up. It's how much hash (RAM) you want the engine to use (check your comp and set to 16 if unsure).
+                            How much memory (in megabytes) the engine can use to store positions it has already analyzed. More memory = faster analysis since it doesn't recalculate the same positions. Default 320 MB works well for most computers. If unsure or on a low-memory device, try 16-64 MB.
                         </div>
                     </div>
                 </div>
@@ -1860,6 +2054,32 @@
                         <span>System</span>
                     </button>
                 </div>
+
+                <!-- Footer links for additional info -->
+                <div class="footer-links">
+                    <!-- Link to the original blog post explaining the project's purpose -->
+                    <!-- target="_blank" opens in new tab so users don't lose their work -->
+                    <!-- rel="noopener noreferrer" is CRITICAL for security - it prevents the -->
+                    <!-- new page from accessing this window via window.opener (reverse tabnabbing attack) -->
+                    <a href="https://www.alexcrompton.com/blog/automatically-creating-a-practical-opening-repertoire-or-why-your-chess-openings-suck"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="footer-link"
+                       title="Read the blog post about why BookBuilder was created">
+                        <i data-lucide="book-open" class="icon"></i>
+                        <span>Why does this exist?</span>
+                    </a>
+
+                    <!-- Button to open modal explaining how to use the output -->
+                    <button type="button"
+                            id="usage-info-btn"
+                            class="footer-link"
+                            title="Learn how to use the generated PGN files">
+                        <i data-lucide="help-circle" class="icon"></i>
+                        <span>How to use output</span>
+                    </button>
+                </div>
+
                 <!-- Debug panel toggle (existing functionality) -->
                 <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">
                     <i data-lucide="settings" class="icon"></i>
@@ -1878,6 +2098,139 @@
             </div>
             <div class="debug-panel-content" id="debug-categories">
                 <!-- Categories populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- =============================================================================
+         USAGE INFO MODAL
+         Explains how to use the PGN output with various chess platforms.
+         Placed outside the main container so it can overlay the entire page.
+
+         ACCESSIBILITY ATTRIBUTES EXPLAINED:
+         - role="dialog" tells screen readers this is a dialog/popup (not regular content)
+         - aria-modal="true" tells assistive tech that content behind is inert/blocked
+         - aria-labelledby links this dialog to its title for screen reader announcement
+         ============================================================================= -->
+    <div id="usage-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="usage-modal-title">
+        <div class="modal-content">
+            <!-- Modal header with title and close button -->
+            <div class="modal-header">
+                <h2 id="usage-modal-title" class="modal-title">How to Use Your Repertoire</h2>
+                <button type="button" class="modal-close" aria-label="Close modal" id="usage-modal-close">
+                    <i data-lucide="x" class="icon"></i>
+                </button>
+            </div>
+
+            <!-- Modal body with usage instructions -->
+            <div class="modal-body">
+                <!-- Introduction section -->
+                <div class="modal-section">
+                    <p>
+                        BookBuilder generates standard PGN (Portable Game Notation) files that can be
+                        imported into most chess software and websites. Here's how to use your output:
+                    </p>
+                </div>
+
+                <!-- Lichess Studies section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="database" class="icon"></i>
+                        Lichess Studies
+                    </h3>
+                    <p>
+                        <span class="platform-name">Lichess</span> studies are free and excellent for
+                        organizing repertoires.
+                    </p>
+                    <ul>
+                        <li>Go to <strong>Learn &rarr; Studies</strong> on Lichess</li>
+                        <li>Create a new study or open an existing one</li>
+                        <li>Click the <strong>+</strong> button to add a chapter</li>
+                        <li>Select <strong>PGN</strong> and paste your generated content</li>
+                    </ul>
+                </div>
+
+                <!-- Chessable section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="graduation-cap" class="icon"></i>
+                        Chessable
+                    </h3>
+                    <p>
+                        <span class="platform-name">Chessable</span> uses spaced repetition to help
+                        you memorize your repertoire.
+                    </p>
+                    <ul>
+                        <li>Create a free course at <strong>chessable.com/author</strong></li>
+                        <li>Use <strong>Import PGN</strong> to upload your file</li>
+                        <li>Chessable will create trainable variations automatically</li>
+                    </ul>
+                </div>
+
+                <!-- Chess Tempo section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="clock" class="icon"></i>
+                        Chess Tempo
+                    </h3>
+                    <p>
+                        <span class="platform-name">Chess Tempo</span> offers opening training with
+                        detailed statistics.
+                    </p>
+                    <ul>
+                        <li>Go to <strong>Openings &rarr; Opening Training</strong></li>
+                        <li>Click <strong>Import PGN</strong> and upload your file</li>
+                        <li>Use "Train" mode to practice the variations</li>
+                    </ul>
+                </div>
+
+                <!-- Chessbook section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="smartphone" class="icon"></i>
+                        Chessbook (Mobile)
+                    </h3>
+                    <p>
+                        <span class="platform-name">Chessbook</span> is a mobile app with an excellent
+                        repertoire trainer.
+                    </p>
+                    <ul>
+                        <li>Open the Chessbook app</li>
+                        <li>Go to <strong>Repertoire &rarr; Import</strong></li>
+                        <li>Select your PGN file or paste the content</li>
+                    </ul>
+                </div>
+
+                <!-- ChessBase section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="hard-drive" class="icon"></i>
+                        ChessBase
+                    </h3>
+                    <p>
+                        <span class="platform-name">ChessBase</span> is professional database software
+                        for serious study.
+                    </p>
+                    <ul>
+                        <li>Open ChessBase and go to <strong>File &rarr; Open &rarr; Open Database</strong></li>
+                        <li>Select your PGN file to open it directly</li>
+                        <li>Or drag and drop the PGN file into ChessBase</li>
+                    </ul>
+                </div>
+
+                <!-- Tips section -->
+                <div class="modal-section">
+                    <h3>
+                        <i data-lucide="lightbulb" class="icon"></i>
+                        Tips
+                    </h3>
+                    <ul>
+                        <li>The PGN includes all variations as nested lines - most platforms handle this automatically</li>
+                        <li>Engine evaluations are included as comments where available</li>
+                        <li>You can edit the PGN in any text editor before importing</li>
+                        <li>Consider splitting large repertoires into separate files by opening</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -2062,6 +2415,120 @@
                 applyTheme,
                 getSavedTheme,
                 getSystemPreference
+            };
+        })();
+
+        // =============================================================================
+        // MODAL MANAGEMENT
+        // Handles opening/closing the usage info modal popup.
+        // The modal explains how to use the generated PGN with various platforms.
+        // =============================================================================
+
+        /**
+         * ModalManager - Handles modal popup functionality
+         *
+         * This IIFE manages the usage info modal. It attaches event listeners
+         * once the DOM is ready and handles:
+         * - Opening the modal when the button is clicked
+         * - Closing the modal via the close button, clicking outside, or pressing Escape
+         * - Accessibility considerations (focus trapping, aria attributes)
+         */
+        (function initModalManager() {
+            /**
+             * Opens the usage info modal.
+             * Adds the 'active' class which triggers CSS transitions for visibility.
+             * Also prevents body scrolling while modal is open.
+             */
+            function openModal() {
+                // Get the modal overlay element
+                const modal = document.getElementById('usage-modal');
+                if (!modal) return;
+
+                // Add 'active' class to show the modal (CSS handles animation)
+                modal.classList.add('active');
+
+                // Prevent scrolling on the body while modal is open
+                // This keeps focus on the modal content
+                document.body.style.overflow = 'hidden';
+
+                // Move focus to the close button for accessibility
+                // Screen reader users need a clear way to close the modal
+                const closeBtn = document.getElementById('usage-modal-close');
+                if (closeBtn) closeBtn.focus();
+            }
+
+            /**
+             * Closes the usage info modal.
+             * Removes the 'active' class which triggers CSS transitions to hide it.
+             * Restores body scrolling.
+             */
+            function closeModal() {
+                // Get the modal overlay element
+                const modal = document.getElementById('usage-modal');
+                if (!modal) return;
+
+                // Remove 'active' class to hide the modal
+                modal.classList.remove('active');
+
+                // Restore body scrolling
+                document.body.style.overflow = '';
+
+                // Return focus to the button that opened the modal
+                // This is important for keyboard navigation
+                const openBtn = document.getElementById('usage-info-btn');
+                if (openBtn) openBtn.focus();
+            }
+
+            /**
+             * Attaches all event listeners for modal interaction.
+             * Called once the DOM is fully loaded.
+             */
+            function attachEventListeners() {
+                // Open modal when the "How to use output" button is clicked
+                const openBtn = document.getElementById('usage-info-btn');
+                if (openBtn) {
+                    openBtn.addEventListener('click', openModal);
+                }
+
+                // Close modal when the X button is clicked
+                const closeBtn = document.getElementById('usage-modal-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', closeModal);
+                }
+
+                // Close modal when clicking on the overlay (outside the modal content)
+                const modal = document.getElementById('usage-modal');
+                if (modal) {
+                    modal.addEventListener('click', (event) => {
+                        // Only close if the click was directly on the overlay
+                        // (not on the modal content which is a child element)
+                        if (event.target === modal) {
+                            closeModal();
+                        }
+                    });
+                }
+
+                // Close modal when pressing the Escape key
+                // This is a common accessibility pattern for modals
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        const modal = document.getElementById('usage-modal');
+                        // Only close if the modal is currently visible
+                        if (modal && modal.classList.contains('active')) {
+                            closeModal();
+                        }
+                    }
+                });
+            }
+
+            // Attach event listeners once the DOM is ready
+            // DOMContentLoaded fires when HTML is parsed, before images/CSS finish loading
+            document.addEventListener('DOMContentLoaded', attachEventListeners);
+
+            // Expose the modal functions globally for potential external use
+            window.ModalManager = {
+                openModal,
+                closeModal
             };
         })();
 

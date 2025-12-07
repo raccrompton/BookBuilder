@@ -115,7 +115,7 @@ describe('Contract: extractMovesFromPgn', () => {
         const mockChessEngine = { // Mock chess engine with minimal interface
             chess: new Chess(), // Actual chess.js instance for constructor access
             loadPosition: jest.fn(), // Mock function for position loading
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'), // Returns starting FEN
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'), // Returns starting FEN
         };
 
         const mockLichessClient = { // Mock Lichess client - not needed for this test
@@ -155,7 +155,7 @@ describe('Contract: extractMovesFromPgn', () => {
         const mockChessEngine = {
             chess: new Chess(),
             loadPosition: jest.fn(),
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
         };
 
         try {
@@ -197,7 +197,7 @@ describe('Refactored Behavior: extractMovesFromPgn (post-refactor)', () => {
         const mockChessEngine = {
             chess: new Chess(),
             loadPosition: jest.fn(),
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
         };
 
         const builder = new BookBuilder(testConfig, mockChessEngine, { getPositionStats: jest.fn() });
@@ -217,7 +217,7 @@ describe('Refactored Behavior: extractMovesFromPgn (post-refactor)', () => {
         const mockChessEngine = {
             chess: new Chess(),
             loadPosition: jest.fn(),
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
         };
 
         const builder = new BookBuilder(testConfig, mockChessEngine, { getPositionStats: jest.fn() });
@@ -259,7 +259,7 @@ describe('Contract: updatePgn output is valid PGN', () => {
         const mockChessEngine = {
             chess: new Chess(), // Real chess.js for constructor access
             loadPosition: jest.fn(),
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
         };
 
         try {
@@ -294,7 +294,7 @@ describe('Contract: updatePgn output is valid PGN', () => {
         const mockChessEngine = {
             chess: new Chess(),
             loadPosition: jest.fn(),
-            getFEN: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+            getFen: jest.fn(() => 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
         };
 
         try {

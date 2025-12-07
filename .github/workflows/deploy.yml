@@ -32,7 +32,11 @@ jobs:
     - name: Run tests
       working-directory: ./client
       run: npm test
-      
+
+    - name: Lint code
+      working-directory: ./client
+      run: npm run lint
+
     - name: Build application
       working-directory: ./client
       run: |

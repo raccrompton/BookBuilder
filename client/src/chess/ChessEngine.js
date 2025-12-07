@@ -146,7 +146,7 @@ export class ChessEngine {
    * Get current FEN string
    * @returns {string} - Current position in FEN notation
    */
-    getFEN() {
+    getFen() {
         return this.chess.fen();
     }
 
@@ -298,13 +298,6 @@ export class ChessEngine {
         return this.chess.history();
     }
 
-    /**
-   * Get current FEN string (alias for getFEN)
-   * @returns {string} - Current position in FEN notation
-   */
-    getFen() {
-        return this.chess.fen();
-    }
 
     /**
    * Load position from FEN (alias for parsePosition)
