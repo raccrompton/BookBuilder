@@ -594,9 +594,12 @@ class BookBuilder {
 
             log.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
 
-            // Update progress with current position processing
+            // Update progress message for this batch (don't update positionsProcessed here!)
+            // The actual counter is incremented inside expandLine() for each position.
+            // Previously this line was setting positionsProcessed which caused conflicts:
+            // - It would jump ahead by batch size, then get capped at totalEstimated-1
+            // - This made the counter oscillate around totalEstimated instead of increasing
             this.emitProgress({
-                positionsProcessed: Math.min(this.progressState.positionsProcessed + currentBatch.length, this.progressState.totalEstimated - 1),
                 currentMessage: `Processing batch ${iterationCount}: ${currentBatch.length} positions, ${this.processingQueue.length} remaining...`
             });
 
