@@ -6,12 +6,21 @@
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
-        style-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' https://lichess.org https://explorer.lichess.ovh https://unpkg.com;
         worker-src 'self' blob:;
         img-src 'self' data: https:;
     ">
     <title>BookBuilder</title>
+
+    <!-- Inter Font - Modern, screen-optimized typeface used by Supabase, Linear, Vercel -->
+    <!-- Preconnect hints tell the browser to establish connections early for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Load Inter font with weights 400 (normal), 500 (medium), 600 (semibold), 700 (bold) -->
+    <!-- display=swap ensures text remains visible while the font loads -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Lucide Icons - Clean, minimal SVG icon library -->
     <!-- Pinned to specific version to prevent breaking changes -->
@@ -44,58 +53,81 @@
            ============================================================================= */
 
         /* Light mode colors (default) */
+        /* Color palette refined based on modern UI best practices */
         :root {
-            --primary-color: #2563eb;      /* Blue - primary actions, buttons, links */
-            --primary-hover: #1d4ed8;      /* Darker blue for hover states */
-            --secondary-color: #64748b;    /* Slate gray - secondary elements */
-            --success-color: #10b981;      /* Green - success messages, valid states */
-            --warning-color: #f59e0b;      /* Amber - warning indicators */
-            --danger-color: #ef4444;       /* Red - errors, destructive actions */
-            --background: #f8fafc;         /* Light gray - page background */
-            --surface: #ffffff;            /* White - cards, containers */
-            --border: #e2e8f0;             /* Light border between elements */
-            --text-primary: #1e293b;       /* Dark text - headings, important content */
-            --text-secondary: #64748b;     /* Medium gray text - descriptions */
-            --text-muted: #94a3b8;         /* Light gray text - hints, placeholders */
+            /* Primary blue - main actions, buttons, links */
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            /* Secondary elements */
+            --secondary-color: #64748b;
+            /* Semantic colors for states */
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            /* Backgrounds - soft off-white instead of stark white */
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --surface-elevated: #ffffff;
+            /* Borders with subtle variant for hover states */
+            --border: #e2e8f0;
+            --border-subtle: #f1f5f9;
+            /* Text hierarchy - darker primary for better contrast */
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            /* Shadows */
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            /* Input field colors for form elements */
+            /* Input field colors */
             --input-background: #ffffff;
             --input-text: #1e293b;
-            /* Error state colors - red tones for error messages/containers */
+            --input-border: #d1d5db;
+            /* Error state colors */
             --error-background: #fef2f2;
             --error-border: #fecaca;
             --error-text: #991b1b;
-            /* Success state colors - green tones for success messages */
+            /* Success state colors */
             --success-background: #f0fdf4;
             --success-border: #bbf7d0;
             --success-text: #166534;
         }
 
         /* Dark mode colors - applied when data-theme="dark" is set on <html> */
+        /* Based on GitHub's dark mode palette - avoid pure black, use blue-tinted grays */
+        /* Colors are ~20% desaturated compared to light mode for better dark mode appearance */
         [data-theme="dark"] {
-            --primary-color: #3b82f6;      /* Slightly brighter blue for dark backgrounds */
-            --primary-hover: #60a5fa;      /* Lighter blue for hover (inverse of light mode) */
-            --secondary-color: #94a3b8;    /* Lighter slate for better contrast */
-            --success-color: #34d399;      /* Brighter green for dark backgrounds */
-            --warning-color: #fbbf24;      /* Brighter amber */
-            --danger-color: #f87171;       /* Lighter red for better visibility */
-            --background: #0f172a;         /* Very dark blue-gray - page background */
-            --surface: #1e293b;            /* Dark slate - cards, containers */
-            --border: #334155;             /* Medium slate border */
-            --text-primary: #f1f5f9;       /* Very light text - headings */
-            --text-secondary: #cbd5e1;     /* Light gray text - descriptions */
-            --text-muted: #64748b;         /* Medium gray text - hints */
+            /* Primary blue - lighter/desaturated for dark backgrounds */
+            --primary-color: #60a5fa;
+            --primary-hover: #93c5fd;
+            /* Secondary elements */
+            --secondary-color: #94a3b8;
+            /* Semantic colors - brighter versions for dark backgrounds */
+            --success-color: #34d399;
+            --warning-color: #fbbf24;
+            --danger-color: #f87171;
+            /* Backgrounds - dark gray with subtle blue tint (not pure black) */
+            --background: #0c0f14;
+            --surface: #161b22;
+            --surface-elevated: #1c2128;
+            /* Borders - subtle but visible on dark backgrounds */
+            --border: #30363d;
+            --border-subtle: #21262d;
+            /* Text - off-white to reduce eye strain (not pure white) */
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            /* Shadows - darker in dark mode, though we use elevation instead */
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
-            /* Input field colors - ensure readability in dark mode */
-            --input-background: #1e293b;
-            --input-text: #f1f5f9;
-            /* Error state colors - dark red tones that work on dark backgrounds */
+            /* Input field colors */
+            --input-background: #0d1117;
+            --input-text: #e6edf3;
+            --input-border: #30363d;
+            /* Error state colors */
             --error-background: #450a0a;
             --error-border: #7f1d1d;
             --error-text: #fca5a5;
-            /* Success state colors - dark green tones for dark backgrounds */
+            /* Success state colors */
             --success-background: #052e16;
             --success-border: #166534;
             --success-text: #86efac;
@@ -108,16 +140,24 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            /* Inter font with system font fallbacks for when Inter isn't loaded yet */
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            /* Font smoothing for crisp text rendering on Mac/Windows */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             background-color: var(--background);
             color: var(--text-primary);
             line-height: 1.6;
+            /* Slight negative letter-spacing improves Inter's readability */
+            letter-spacing: -0.01em;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
+            /* Add bottom padding to account for fixed nav buttons */
+            padding-bottom: 6rem;
         }
 
         .header {
@@ -128,8 +168,14 @@
         .header h1 {
             font-size: 2.5rem;
             font-weight: 700;
-            color: var(--primary-color);
             margin-bottom: 0.5rem;
+            /* Tighter letter-spacing makes headings look more polished with Inter */
+            letter-spacing: -0.025em;
+            /* Gradient text effect for a more polished look */
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .header p {
@@ -145,9 +191,18 @@
             padding: 2rem;
             margin-bottom: 2rem;
             background: var(--surface);
-            border-radius: 1rem;
+            /* Sharper 6px border-radius for a crisper, more modern look */
+            border-radius: 6px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
+        }
+
+        /* Dark mode: use elevated surface for better depth perception */
+        /* In dark mode, we use lighter surfaces for elevation instead of shadows */
+        [data-theme="dark"] .form-section-container {
+            background: var(--surface-elevated);
+            /* Reduce shadow in dark mode - elevation comes from lighter color */
+            box-shadow: none;
         }
 
         .form-section {
@@ -157,6 +212,8 @@
         .section-title {
             font-size: 1.25rem;
             font-weight: 600;
+            /* Tighter letter-spacing for headings with Inter font */
+            letter-spacing: -0.025em;
             color: var(--text-primary);
             margin-bottom: 1rem;
             display: flex;
@@ -180,10 +237,14 @@
         .form-textarea {
             width: 100%;
             padding: 0.75rem;
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
+            /* Use --input-border for more visible input borders */
+            border: 1px solid var(--input-border, var(--border));
+            /* Sharper 6px radius for crisper look */
+            border-radius: 6px;
             font-size: 1rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            /* Subtle inner shadow adds depth */
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
             /* Use theme-aware colors so inputs are readable in both modes */
             background-color: var(--input-background);
             color: var(--input-text);
@@ -194,7 +255,10 @@
         .form-textarea:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            /* Combine inner shadow with focus ring */
+            box-shadow:
+                inset 0 1px 2px rgba(0, 0, 0, 0.04),
+                0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .form-textarea {
@@ -272,11 +336,12 @@
         }
 
         .form-help {
-            font-size: 0.875rem;
+            /* Slightly smaller help text (13px) for better hierarchy */
+            font-size: 0.8125rem;
+            line-height: 1.5;
             color: var(--text-muted);
             margin-top: 0.5rem;
             margin-bottom: 1.5rem;
-            line-height: 1.5;
         }
 
         /* Help text inside form-group doesn't need bottom margin */
@@ -297,10 +362,12 @@
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
-            border-radius: 0.5rem;
+            /* Sharper 6px radius */
+            border-radius: 6px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            /* Faster, smoother transition */
+            transition: all 0.15s ease;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
@@ -308,12 +375,21 @@
         }
 
         .btn-primary {
-            background: var(--primary-color);
+            /* Subtle vertical gradient for depth */
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+            /* Border adds definition */
+            border: 1px solid #1d4ed8;
             color: white;
+            /* Subtle shadow for lift */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
         .btn-primary:hover {
-            background: var(--primary-hover);
+            /* Lighter gradient on hover */
+            background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+            /* Subtle lift effect */
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
         }
 
         .btn-secondary {
@@ -323,8 +399,20 @@
         }
 
         .btn-secondary:hover {
-            /* Use background variable for theme-aware hover state */
-            background: var(--background);
+            /* Subtle background change on hover */
+            background: var(--border-subtle, var(--background));
+            border-color: var(--text-muted);
+        }
+
+        /* Dark mode: use desaturated colors for primary button */
+        [data-theme="dark"] .btn-primary {
+            /* Lighter, desaturated gradient for dark mode */
+            background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+            border: 1px solid #3b82f6;
+        }
+
+        [data-theme="dark"] .btn-primary:hover {
+            background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%);
         }
 
         /* ============================================================
@@ -348,7 +436,7 @@
             min-width: 280px;                       /* Wide enough for opening names */
             background: var(--surface);             /* Match theme surface color */
             border: 1px solid var(--border);        /* Subtle border matching theme */
-            border-radius: 8px;                     /* Rounded corners for modern look */
+            border-radius: 6px;                     /* Sharper corners for crisper look */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* Elevation shadow */
             z-index: 1000;                          /* Ensure dropdown appears above other content */
             margin-bottom: 4px;                     /* Small gap between menu and button */
@@ -464,7 +552,8 @@
             text-align: center;
             padding: 1.5rem;
             background: var(--surface);
-            border-radius: 1rem;
+            /* Sharper 6px radius */
+            border-radius: 6px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
         }
@@ -568,7 +657,7 @@
             align-items: center;
             padding: 1rem;
             background: rgba(37, 99, 235, 0.05);
-            border-radius: 0.5rem;
+            border-radius: 6px;
             border: 1px solid rgba(37, 99, 235, 0.1);
         }
 
@@ -725,7 +814,7 @@
             /* Use theme-aware error colors so it's readable in both modes */
             background: var(--error-background);
             border: 1px solid var(--error-border);
-            border-radius: 0.5rem;
+            border-radius: 6px;
             color: var(--error-text);
         }
 
@@ -736,7 +825,7 @@
             /* Use theme-aware success colors for dark mode compatibility */
             background: var(--success-background);
             border: 1px solid var(--success-border);
-            border-radius: 0.5rem;
+            border-radius: 6px;
             color: var(--success-text);
         }
 
@@ -744,7 +833,7 @@
             margin-top: 2rem;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 1rem;
+            border-radius: 6px;
             box-shadow: var(--shadow-lg);
             overflow: hidden;
         }
@@ -887,7 +976,7 @@
             padding: 0.75rem;
             background: #f0fdf4;
             border: 1px solid #bbf7d0;
-            border-radius: 0.5rem;
+            border-radius: 6px;
             color: #166534;
             font-size: 0.875rem;
         }
@@ -897,36 +986,48 @@
         }
 
         /* Tab System Styles */
+        /* Segmented control style - contained tabs with background */
         .tab-navigation {
             display: flex;
             margin-bottom: 2rem;
-            border-bottom: 2px solid var(--border);
+            /* Container background and border */
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            /* Inner padding for tab buttons */
+            padding: 4px;
+            gap: 2px;
             overflow-x: auto;
         }
 
         .tab-button {
             flex: 1;
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
             border: none;
-            background: none;
+            /* Transparent background by default */
+            background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            border-bottom: 3px solid transparent;
+            /* Inner border-radius for tabs */
+            border-radius: 4px;
             white-space: nowrap;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
             text-align: center;
         }
 
-        .tab-button:hover {
-            color: var(--primary-color);
-            background: rgba(37, 99, 235, 0.05);
+        .tab-button:hover:not(.active) {
+            color: var(--text-primary);
+            /* Subtle hover background */
+            background: var(--border-subtle, rgba(0, 0, 0, 0.03));
         }
 
         .tab-button.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-            background: rgba(37, 99, 235, 0.05);
+            /* Active tab gets primary color background */
+            background: var(--primary-color);
+            color: white;
+            /* Subtle shadow for depth */
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
         }
 
         .tab-content {
@@ -938,17 +1039,29 @@
         }
 
         .tab-navigation-buttons {
-            position: sticky;
-            bottom: 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 2rem;
-            padding: 1rem 1.5rem;
-            background: var(--surface);
-            border-top: 1px solid var(--border);
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 100;
+            /*
+             * Navigation buttons bar fixed to the bottom of the viewport.
+             * Uses a centering technique: left: 50% moves the left edge to center,
+             * then translateX(-50%) shifts it back by half its own width.
+             * Width is constrained to match .container (which has padding: 2rem on each side = 4rem total).
+             */
+            position: fixed;             /* Remove from document flow, position relative to viewport */
+            bottom: 0;                   /* Stick to the bottom edge of the browser window */
+            left: 50%;                   /* Move left edge to horizontal center of viewport */
+            transform: translateX(-50%); /* Shift left by 50% of element's width to truly center it */
+            width: calc(100% - 4rem);    /* Full width minus .container's padding (2rem * 2 sides) */
+            max-width: 1200px;           /* Cap at same max-width as .container for visual alignment */
+            display: flex;               /* Flexbox layout for button groups */
+            justify-content: space-between; /* Push left/center/right groups to edges */
+            align-items: center;         /* Vertically center items within the bar */
+            padding: 1rem 2rem;          /* Inner spacing: less vertical, more horizontal */
+            background: var(--surface);  /* Theme-aware background color */
+            border-top: 1px solid var(--border);   /* Top border for visual separation */
+            border-left: 1px solid var(--border);  /* Side borders since element doesn't span full width */
+            border-right: 1px solid var(--border);
+            border-radius: 6px 6px 0 0;  /* Rounded top corners only (bottom is flush with viewport) */
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1); /* Upward shadow for subtle elevation */
+            z-index: 100;                /* Stack above page content but below modals */
         }
 
         .nav-button-group {
@@ -959,12 +1072,12 @@
         .btn-nav {
             padding: 0.75rem 1.5rem;
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
+            border-radius: 6px;
             background: var(--surface);
             color: var(--text-primary);
             cursor: pointer;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
@@ -1011,8 +1124,14 @@
             }
 
             .tab-navigation-buttons {
-                flex-direction: column;
-                gap: 1rem;
+                /*
+                 * Mobile adjustments: .container uses padding: 1rem on mobile (vs 2rem desktop),
+                 * so we reduce our width calc to match (1rem * 2 sides = 2rem total).
+                 * Stack buttons vertically since horizontal space is limited.
+                 */
+                width: calc(100% - 2rem);  /* Match mobile .container padding (1rem each side) */
+                flex-direction: column;    /* Stack button groups vertically instead of side-by-side */
+                gap: 1rem;                 /* Spacing between stacked button groups */
             }
 
             .nav-button-group {
@@ -1056,13 +1175,13 @@
         /* Debug Panel Styles */
         .debug-toggle {
             padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+            border-radius: 6px;
             background: var(--secondary-color);
             color: white;
             border: none;
             cursor: pointer;
             font-size: 0.875rem;
-            transition: background 0.2s;
+            transition: background 0.15s ease;
         }
         .debug-toggle:hover {
             background: var(--text-primary);
@@ -1141,29 +1260,46 @@
             gap: 1rem;       /* Space between toggle buttons */
         }
 
-        /* Theme toggle button - cycles through: system → light → dark */
-        .theme-toggle {
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            background: var(--secondary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: background 0.2s;
+        /* Theme Switcher - Segmented control with 3 options */
+        /* Modern pill-style toggle for Light / Dark / System modes */
+        .theme-switcher {
+            display: inline-flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px;
+            gap: 2px;
+        }
+
+        .theme-option {
             display: flex;
             align-items: center;
-            gap: 0.5rem;    /* Space between icon and text */
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
 
-        .theme-toggle:hover {
-            background: var(--text-primary);
+        .theme-option:hover:not(.active) {
+            color: var(--text-primary);
+            background: var(--border-subtle, rgba(0, 0, 0, 0.03));
         }
 
-        /* Icon inside theme toggle button - shows current mode */
-        .theme-toggle-icon {
-            display: inline-flex;  /* Inline flex for proper icon alignment */
-            align-items: center;
+        .theme-option.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-option .icon {
+            width: 0.875rem;
+            height: 0.875rem;
         }
 
         /* =============================================================================
@@ -1230,7 +1366,7 @@
     <div class="container">
         <div class="header">
             <h1>BookBuilder</h1>
-            <p>Automated Repertoire Building</p>
+            <p>Automated Chess Repertoire Building</p>
         </div>
 
         <form id="bookbuilder-form" class="form-container">
@@ -1709,13 +1845,21 @@
         <footer style="margin-top: 3rem; padding: 1rem; text-align: center; border-top: 1px solid var(--border);">
             <!-- Container for both toggle buttons, centered with flex -->
             <div class="footer-controls">
-                <!-- Theme toggle: cycles through system → light → dark modes -->
-                <!-- The icon and text update dynamically via JavaScript -->
-                <button id="theme-toggle" class="theme-toggle" title="Toggle Theme (System/Light/Dark)"
-                        aria-label="Toggle theme mode. Current: System" aria-live="polite">
-                    <span class="theme-toggle-icon" aria-hidden="true"><i data-lucide="monitor" class="icon"></i></span>
-                    <span class="theme-toggle-text">System</span>
-                </button>
+                <!-- Theme switcher: segmented control for Light / Dark / System -->
+                <div class="theme-switcher" role="group" aria-label="Theme selection">
+                    <button class="theme-option" data-theme="light" aria-label="Light mode" title="Light mode">
+                        <i data-lucide="sun" class="icon"></i>
+                        <span>Light</span>
+                    </button>
+                    <button class="theme-option" data-theme="dark" aria-label="Dark mode" title="Dark mode">
+                        <i data-lucide="moon" class="icon"></i>
+                        <span>Dark</span>
+                    </button>
+                    <button class="theme-option active" data-theme="system" aria-label="System preference" title="Follow system preference">
+                        <i data-lucide="monitor" class="icon"></i>
+                        <span>System</span>
+                    </button>
+                </div>
                 <!-- Debug panel toggle (existing functionality) -->
                 <button id="debug-toggle" class="debug-toggle" title="Toggle Debug Panel">
                     <i data-lucide="settings" class="icon"></i>
@@ -1844,65 +1988,41 @@
             }
 
             /**
-             * Updates the theme toggle button's icon, text, and ARIA label to reflect current mode.
-             * Called after theme changes to keep the UI and accessibility tree in sync.
-             * Uses Lucide icons (SVG) instead of emojis for a cleaner look.
+             * Updates the theme switcher UI to reflect the current mode.
+             * Adds 'active' class to the selected button and removes from others.
              *
-             * @param {string} mode - The current theme mode
+             * @param {string} mode - The current theme mode ('system', 'light', or 'dark')
              */
-            function updateToggleButton(mode) {
-                // Find the button and its child elements
-                const button = document.getElementById('theme-toggle');
-                const iconEl = document.querySelector('.theme-toggle-icon');
-                const textEl = document.querySelector('.theme-toggle-text');
+            function updateThemeSwitcher(mode) {
+                // Find all theme option buttons
+                const buttons = document.querySelectorAll('.theme-option');
 
-                if (!iconEl || !textEl) return;  // Elements not in DOM yet
-
-                // Map each mode to its Lucide icon name and label
-                // These icon names correspond to Lucide's icon library
-                const modeDisplay = {
-                    system: { icon: 'monitor', text: 'System' },
-                    light:  { icon: 'sun', text: 'Light' },
-                    dark:   { icon: 'moon', text: 'Dark' }
-                };
-
-                // Update the button with the current mode's icon and text
-                const display = modeDisplay[mode];
-                // Use innerHTML to insert the Lucide icon element
-                iconEl.innerHTML = `<i data-lucide="${display.icon}" class="icon"></i>`;
-                textEl.textContent = display.text;
-
-                // Re-render Lucide icons for the newly added element
-                // This is needed because Lucide replaces <i> tags with SVGs on init
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-
-                // Update ARIA label for screen readers
-                // This helps users who rely on assistive technology know the current state
-                if (button) {
-                    button.setAttribute('aria-label', `Toggle theme mode. Current: ${display.text}`);
-                }
+                // Update active state on each button
+                buttons.forEach(button => {
+                    // Check if this button's data-theme matches the current mode
+                    const isActive = button.getAttribute('data-theme') === mode;
+                    // Toggle the 'active' class accordingly
+                    button.classList.toggle('active', isActive);
+                });
             }
 
             /**
-             * Cycles to the next theme mode in the sequence: system → light → dark → system
-             * This is called when the user clicks the theme toggle button.
+             * Handles theme selection when a user clicks a theme option button.
+             * Sets the theme directly instead of cycling through modes.
+             *
+             * @param {string} mode - The theme mode to apply ('system', 'light', or 'dark')
              */
-            function cycleTheme() {
-                // Get current mode and find its position in the array
-                const currentMode = getSavedTheme();
-                const currentIndex = THEME_MODES.indexOf(currentMode);
-
-                // Move to the next mode, wrapping around at the end
-                // The modulo operator (%) ensures we cycle back to 0 after the last item
-                const nextIndex = (currentIndex + 1) % THEME_MODES.length;
-                const nextMode = THEME_MODES[nextIndex];
+            function selectTheme(mode) {
+                // Validate the mode is one of our supported options
+                if (!THEME_MODES.includes(mode)) {
+                    console.warn('Invalid theme mode:', mode);
+                    return;
+                }
 
                 // Save and apply the new theme
-                saveTheme(nextMode);
-                applyTheme(nextMode);
-                updateToggleButton(nextMode);
+                saveTheme(mode);
+                applyTheme(mode);
+                updateThemeSwitcher(mode);
             }
 
             // --- INITIALIZATION ---
@@ -1921,21 +2041,24 @@
                 }
             });
 
-            // Wait for DOM to be ready before attaching button listener
+            // Wait for DOM to be ready before attaching button listeners
             document.addEventListener('DOMContentLoaded', () => {
-                // Update button to show current mode
-                updateToggleButton(savedTheme);
+                // Update switcher to show current mode
+                updateThemeSwitcher(savedTheme);
 
-                // Attach click handler to the theme toggle button
-                const toggleBtn = document.getElementById('theme-toggle');
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', cycleTheme);
-                }
+                // Attach click handlers to each theme option button
+                document.querySelectorAll('.theme-option').forEach(button => {
+                    button.addEventListener('click', () => {
+                        // Get the theme from the button's data attribute
+                        const theme = button.getAttribute('data-theme');
+                        selectTheme(theme);
+                    });
+                });
             });
 
             // Expose theme functions globally for potential external use
             window.ThemeManager = {
-                cycleTheme,
+                selectTheme,
                 applyTheme,
                 getSavedTheme,
                 getSystemPreference
