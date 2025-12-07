@@ -813,6 +813,10 @@ class FormController {
             ENGINETHREADS: parseInt(formConfig['engine-threads']) || 1,
             ENGINEHASH: parseInt(formConfig['engine-hash']) || 320,
 
+            // Lazy engine evaluation: analyze moves one at a time starting with highest probability
+            // 1 = lazy (default, more efficient), 0 = batch all candidates upfront (legacy)
+            LAZY_ENGINE: 1,
+
             // Pass the initialized StockfishEngine instance to BookBuilder
             // (FormController already initialized it, so don't create a second one)
             stockfishEngine: this.stockfishEngine,
