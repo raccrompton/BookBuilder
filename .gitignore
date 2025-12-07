@@ -4,3 +4,12 @@ build
 dist
 BookBuilder.spec
 node_modules
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Browser test page (not needed in repo)
+client/browser-tests.html
+
+# Documentation drafts (if recreated)
+claudedocs/
