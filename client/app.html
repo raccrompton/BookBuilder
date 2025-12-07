@@ -1090,7 +1090,7 @@
             left: 50%;                   /* Move left edge to horizontal center of viewport */
             transform: translateX(-50%); /* Shift left by 50% of element's width to truly center it */
             width: calc(100% - 4rem);    /* Full width minus .container's padding (2rem * 2 sides) */
-            max-width: 1200px;           /* Cap at same max-width as .container for visual alignment */
+            max-width: calc(1200px - 4rem); /* Match container content width (1200px minus 2rem padding each side) */
             display: flex;               /* Flexbox layout for button groups */
             justify-content: space-between; /* Push left/center/right groups to edges */
             align-items: center;         /* Vertically center items within the bar */
@@ -1658,11 +1658,11 @@
             <div class="tab-content active" id="tab-pgn-input">
                 <div class="form-section-container" id="pgn-input">
                 <div class="form-section">
-                    <h2 class="section-title"><i data-lucide="file-text" class="icon"></i> Chess Game (PGN Format)</h2>
+                    <h2 class="section-title"><i data-lucide="file-text" class="icon"></i> Enter starting position</h2>
 
                     <div class="form-group">
                         <label class="form-label" for="pgn-input-text">
-                            Paste Your Chess Game (PGN)
+                            Type or paste a PGN to 
                         </label>
                         <textarea
                             id="pgn-input-text"
@@ -1683,7 +1683,7 @@
                             rows="12"
                         ></textarea>
                         <div class="form-help">
-                            <strong>This is your starting position.</strong> Paste the opening moves you want to build a repertoire from. OpeningBuilder will generate responses to every move your opponents might play from this position.
+                            <strong>This is your opening repertoire's starting position.</strong> Paste the opening moves you want to build a repertoire from. OpeningBuilder will generate responses to every move your opponents might play from this position.
                             <br><br>
                             <strong>Which color?</strong> The repertoire is built for whoever made the <em>last</em> move. For example:
                             <br>• <code>1. e4</code> → White repertoire (responding to Black's replies to 1.e4)
