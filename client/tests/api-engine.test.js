@@ -31,7 +31,6 @@ describe('Step 2: Lichess API + Stockfish Engine Integration', () => {
         if (isBrowserEnvironment) {
             stockfishEngine = new StockfishEngine({
                 depth: 15, // Reduced for testing speed
-                threads: 1,
                 hash: 64
             });
         }
@@ -194,12 +193,10 @@ describe('Step 2: Lichess API + Stockfish Engine Integration', () => {
         test('configures engine settings correctly', () => {
             const testEngine = new StockfishEngine({
                 depth: 15,
-                threads: 1,
                 hash: 64
             });
 
             expect(testEngine.depth).toBe(15);
-            expect(testEngine.threads).toBe(1);
             expect(testEngine.hash).toBe(64);
         });
     });
@@ -244,8 +241,7 @@ describe('Step 2: Lichess API + Stockfish Engine Integration', () => {
             await stockfishEngine.initialize();
 
             // Test that engine respects configuration
-            expect(stockfishEngine.depth).toBe(15); // Test depth
-            expect(stockfishEngine.threads).toBe(1);
+            expect(stockfishEngine.depth).toBe(15);
             expect(stockfishEngine.hash).toBe(64);
 
             // Test evaluation consistency
