@@ -13,7 +13,7 @@
     "test:quick": "jest --testPathPattern='(unit|chess-engine)'",
     "dev": "http-server . -p 3000 -c-1 --ext js",
     "build": "npm run test:quick && npm run build:dist",
-    "build:dist": "mkdir -p dist && cp app.html dist/index.html && cp -r src dist/",
+    "build:dist": "mkdir -p dist/node_modules/@badrap && cp app.html dist/index.html && cp -r src dist/ && cp -r node_modules/chess.js dist/node_modules/ && cp -r node_modules/chessops dist/node_modules/ && cp -r node_modules/@badrap/result dist/node_modules/@badrap/",
     "lint": "eslint src/ tests/ --ext .js",
     "format": "prettier --write src/ tests/",
     "serve": "http-server dist -p 8080 -c-1",

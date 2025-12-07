@@ -14,6 +14,27 @@
     ">
     <title>OpeningBuilder</title>
 
+    <!--
+      FAVICON (Browser Tab Icon)
+
+      What: Small "OB" logo shown in browser tabs and bookmarks
+      Why SVG: Vector format scales perfectly from 16px (mobile) to 32px+ (desktop)
+      Why inline data URI: Keeps app self-contained - no extra HTTP request needed
+
+      The URL-encoded SVG below draws:
+      - 32x32 black rounded square background (rx=4 for rounded corners)
+      - White "OB" text centered (OpeningBuilder initials)
+      - Arial font for consistent cross-platform rendering
+
+      Decoded SVG:
+      <svg viewBox="0 0 32 32">
+        <rect fill="#000" width="32" height="32" rx="4"/>
+        <text x="16" y="22" font-family="Arial" font-size="14" font-weight="bold"
+              fill="#fff" text-anchor="middle">OB</text>
+      </svg>
+    -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23000' width='32' height='32' rx='4'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-size='14' font-weight='bold' fill='%23fff' text-anchor='middle'%3EOB%3C/text%3E%3C/svg%3E">
+
     <!-- Inter Font - Modern, screen-optimized typeface used by Supabase, Linear, Vercel -->
     <!-- Preconnect hints tell the browser to establish connections early for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
