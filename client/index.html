@@ -126,7 +126,6 @@
 
         const stockfishEngine = new StockfishEngine({
             depth: 15,
-            threads: 1,
             hash: 128
         });
 
@@ -228,7 +227,7 @@
                 await stockfishEngine.initialize();
 
                 log('engineOutput', '✅ Engine initialized successfully', 'success');
-                log('engineOutput', `Configuration: Depth=${stockfishEngine.depth}, Threads=${stockfishEngine.threads}, Hash=${stockfishEngine.hash}MB`, 'info');
+                log('engineOutput', `Configuration: Depth=${stockfishEngine.depth}, Hash=${stockfishEngine.hash}MB`, 'info');
 
             } catch (error) {
                 log('engineOutput', `❌ Engine initialization failed: ${error.message}`, 'error');
