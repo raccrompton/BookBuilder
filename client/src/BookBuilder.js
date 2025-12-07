@@ -1078,9 +1078,10 @@ class BookBuilder {
                 winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
             }
         } else {
-            // Handle mate positions or insufficient data
+            // Handle mate/draw positions - calculateFallbackWinRate throws if no real data
             winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
-            totalGames = this.getFallbackGameCount(lineData);
+            // For terminal positions (checkmate/draw), use 1 game since outcome is deterministic
+            totalGames = 1;
         }
 
         // Validate winRate is a proper number (should not be NaN after proper extraction)
@@ -1508,16 +1509,8 @@ class BookBuilder {
         if (this.chessEngine.isDraw()) {
             return this.config.DRAWSAREHALF ? 0.5 : 0.0;
         }
-        return 0.5; // Default for insufficient data
-    }
-
-    /**
-     * Get fallback game count for mate positions
-     */
-    getFallbackGameCount(lineData) {
-        return lineData.likelihoodPath.length > 0 ?
-            this.config.MINGAMES :
-            this.config.CONTINUATIONGAMES;
+        // No fake stats - throw error if we don't have real data
+        throw new Error(`No statistics available for position: ${fen}`);
     }
 
     /**
