@@ -182,12 +182,12 @@ const createConfigForTest = (outputFormat, annotationStyle) => {
  */
 const PgnMathHelpers = {
     parseCumulativePlayrate(pgnOutput) {
-        const match = pgnOutput.match(/Line cumulative playrate:\s*\+([0-9.]+)%/);
+        const match = pgnOutput.match(/Line cumulative playrate:\s*([0-9.]+)%/);
         return match ? parseFloat(match[1]) / 100 : null;
     },
 
     parseWinrate(pgnOutput) {
-        const match = pgnOutput.match(/Line winrate[^:]*:\s*\+([0-9.]+)%/);
+        const match = pgnOutput.match(/Line winrate[^:]*:\s*([0-9.]+)%/);
         return match ? parseFloat(match[1]) / 100 : null;
     },
 
@@ -203,7 +203,7 @@ const PgnMathHelpers = {
 
     parseMovePlayrates(pgnOutput) {
         const playrates = new Map();
-        const movePlayrateRegex = /\+([0-9.]+)%\s+([a-zA-Z0-9+#=\-]+)/g;
+        const movePlayrateRegex = /([0-9.]+)%\s+([a-zA-Z0-9+#=\-]+)/g;
         let match;
         while ((match = movePlayrateRegex.exec(pgnOutput)) !== null) {
             const percentage = parseFloat(match[1]);
@@ -300,10 +300,10 @@ describe('PgnGenerator Core Functionality', () => {
 
             // Should have statistics block
             expect(result).toMatch(/\{Move playrates:/);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+65\.97%\s+d6/);
-            expect(result).toMatch(/Line cumulative playrate: \+8\.42%/);
-            expect(result).toMatch(/Line winrate \(excluding draws\): \+56\.80% over 2,847,593 games/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/65\.97%\s+d6/);
+            expect(result).toMatch(/Line cumulative playrate: 8\.42%/);
+            expect(result).toMatch(/Line winrate \(excluding draws\): 56\.80% over 2,847,593 games/);
         });
 
         test('handles line with no statistical data', async () => {
@@ -374,9 +374,8 @@ describe('PgnGenerator Core Functionality', () => {
             };
 
             const result = await generator.generateMoveSequence(testLine);
-            // Chess.js generates a full PGN header even for empty games
-            expect(result).toMatch(/\[Event "\?"\]/);
-            expect(result).toMatch(/\[Result "\*"\]/);
+            // Empty move array returns just the result marker
+            expect(result).toBe('*');
         });
     });
 
@@ -398,13 +397,13 @@ describe('PgnGenerator Core Functionality', () => {
             const result = generator.formatMoveAnnotations(testLine);
 
             // Should have proper percentage formatting
-            expect(result).toMatch(/\+45\.00%\s+e4/);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+89\.00%\s+Nf3/);
+            expect(result).toMatch(/45\.00%\s+e4/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/89\.00%\s+Nf3/);
 
             // Should have cumulative and winrate
-            expect(result).toMatch(/Line cumulative playrate: \+12\.34%/);
-            expect(result).toMatch(/Line winrate \(excluding draws\): \+56\.70% over 1,000,000 games/);
+            expect(result).toMatch(/Line cumulative playrate: 12\.34%/);
+            expect(result).toMatch(/Line winrate \(excluding draws\): 56\.70% over 1,000,000 games/);
         });
 
         test('handles missing playrate data', () => {
@@ -420,8 +419,8 @@ describe('PgnGenerator Core Functionality', () => {
 
             // Should only include moves with playrate data
             expect(result).not.toMatch(/e4/);
-            expect(result).toMatch(/\+25\.00%\s+c5/);
-            expect(result).toMatch(/Line cumulative playrate: \+5\.00%/);
+            expect(result).toMatch(/25\.00%\s+c5/);
+            expect(result).toMatch(/Line cumulative playrate: 5\.00%/);
         });
     });
 
@@ -441,9 +440,9 @@ describe('PgnGenerator Core Functionality', () => {
             const result = generator.formatMoveAnnotations(testLine);
 
             // Check rounding to 2 decimal places
-            expect(result).toMatch(/\+12\.35%\s+e4/);
-            expect(result).toMatch(/Line cumulative playrate: \+98\.77%/);
-            expect(result).toMatch(/Line winrate \(excluding draws\): \+55\.56% over 1,234,567 games/);
+            expect(result).toMatch(/12\.35%\s+e4/);
+            expect(result).toMatch(/Line cumulative playrate: 98\.77%/);
+            expect(result).toMatch(/Line winrate \(excluding draws\): 55\.56% over 1,234,567 games/);
         });
     });
 });
@@ -477,8 +476,8 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
 
             // Traditional move playrates blocks
             expect(result).toMatch(/\{Move playrates:/g);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+65\.97%\s+d6/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/65\.97%\s+d6/);
             expect(result).toMatch(/Line cumulative playrate:/);
 
             // NO inline annotations
@@ -507,8 +506,8 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
 
             // Should have move playrates section (chessops may add space after {)
             expect(result).toMatch(/\{\s*Move playrates:/);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+65\.97%\s+d6/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/65\.97%\s+d6/);
         });
     });
 
@@ -582,8 +581,8 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
             expect(result).toMatch(/5\.\s*Nc3\s+a6/);
 
             // Should have playrate annotations in endBlock format (not inline currently)
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+65\.97%\s+d6/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/65\.97%\s+d6/);
         });
 
         test('handles Sicilian Accelerated Dragon with black ending move', async () => {
@@ -603,10 +602,10 @@ describe('FileGenerator Configuration Matrix Tests (2 Configurations)', () => {
 
             // Should have traditional statistics block (chessops may add space after {)
             expect(result).toMatch(/\{\s*Move playrates:/);
-            expect(result).toMatch(/\+25\.28%\s+c5/);
-            expect(result).toMatch(/\+50\.14%\s+Nc6/);
-            expect(result).toMatch(/\+97\.23%\s+cxd4/);
-            expect(result).toMatch(/\+31\.45%\s+g6/);
+            expect(result).toMatch(/25\.28%\s+c5/);
+            expect(result).toMatch(/50\.14%\s+Nc6/);
+            expect(result).toMatch(/97\.23%\s+cxd4/);
+            expect(result).toMatch(/31\.45%\s+g6/);
         });
     });
 });
