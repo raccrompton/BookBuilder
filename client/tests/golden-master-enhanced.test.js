@@ -90,7 +90,8 @@ class GoldenMasterMockClient {
         } else if (this.scenario === 'kings_indian') {
             return this.getKingsIndianPositionStats(fen);
         }
-        return { moves: [] };
+        // Default: return position stats to prevent "No statistics available" error
+        return { white: 1000, draws: 200, black: 800, moves: [] };
     }
 
     async getMoveStats(fen) {
@@ -109,20 +110,24 @@ class GoldenMasterMockClient {
 
     getRuyLopezPositionStats(fen) {
         // Simulate the progression through Ruy Lopez
+        // All responses include white/black/draws at top level for finalizeLine win rate calculation
         if (fen.includes('e3 0 1')) { // After 1.e4
             return {
+                white: 1842286, draws: 518644, black: 1537888,
                 moves: [
                     { san: 'e5', uci: 'e7e5', white: 1842286, draws: 518644, black: 1537888, playrate: 0.4059, totalGames: 3898818 }
                 ]
             };
         } else if (fen.includes('e6 0 2')) { // After 1.e4 e5
             return {
+                white: 1147389, draws: 322847, black: 955832,
                 moves: [
                     { san: 'Nc6', uci: 'b8c6', white: 1147389, draws: 322847, black: 955832, playrate: 0.6221, totalGames: 2426068 }
                 ]
             };
         } else if (fen.includes('1 2')) { // After 1.e4 e5 2.Nf3
             return {
+                white: 5383652, draws: 1616348, black: 2916238,
                 moves: [
                     { san: 'Nf6', uci: 'g8f6', white: 5383652, draws: 1616348, black: 2916238, playrate: 0.2028, totalGames: 9916238 },
                     { san: 'd6', uci: 'd7d6', white: 4360452, draws: 1283652, black: 2395388, playrate: 0.2084, totalGames: 8039492 },
@@ -130,31 +135,37 @@ class GoldenMasterMockClient {
                 ]
             };
         }
-        return { moves: [] };
+        // Default: return position stats for any other position (prevents "No statistics available" error)
+        return { white: 1000, draws: 200, black: 800, moves: [] };
     }
 
     getKingsIndianPositionStats(fen) {
         // Simulate Kings Indian progression
+        // All responses include white/black/draws at top level for finalizeLine win rate calculation
         if (fen.includes('1 2')) { // After 1.d4 Nf6
             return {
+                white: 847392, draws: 201847, black: 639273,
                 moves: [
                     { san: 'c4', uci: 'c2c4', white: 847392, draws: 201847, black: 639273, playrate: 0.4142, totalGames: 1688512 }
                 ]
             };
         } else if (fen.includes('0 3')) { // After 1.d4 Nf6 2.c4 g6
             return {
+                white: 648392, draws: 157294, black: 501847,
                 moves: [
                     { san: 'Nc3', uci: 'b1c3', white: 648392, draws: 157294, black: 501847, playrate: 0.7661, totalGames: 1307533 }
                 ]
             };
         } else if (fen.includes('w KQkq')) { // Final position
             return {
+                white: 9504562, draws: 2663478, black: 8568330,
                 moves: [
                     { san: 'e4', uci: 'e2e4', white: 9504562, draws: 2663478, black: 8568330, playrate: 0.5789, totalGames: 20736370 }
                 ]
             };
         }
-        return { moves: [] };
+        // Default: return position stats for any other position (prevents "No statistics available" error)
+        return { white: 1000, draws: 200, black: 800, moves: [] };
     }
 }
 

@@ -360,7 +360,8 @@ describe('MoveSelector - Step 4: Move Selection Algorithm', () => {
             expect(result).toBeNull();
         });
 
-        test('handles engine errors gracefully', async () => {
+        test('propagates engine errors to caller', async () => {
+            // Engine errors should propagate - no silent fallback
             const errorEngine = {
                 getBestMove: async () => { throw new Error('Engine failed'); },
                 analyzeMove: async () => { throw new Error('Analysis failed'); },
@@ -379,16 +380,15 @@ describe('MoveSelector - Step 4: Move Selection Algorithm', () => {
                 }
             ];
 
-            const result = await moveSelector.selectBestMove(
-                position,
-                candidates,
-                errorEngine,
-                statistics
-            );
-
-            expect(result.selectedMove).toBeDefined(); // Should still select based on statistics
-            expect(result.engineAnalysis).toBeNull(); // Engine analysis should be null
-            expect(result.selectionReason).toContain('no engine validation');
+            // Engine errors should now throw instead of silently falling back
+            await expect(
+                moveSelector.selectBestMove(
+                    position,
+                    candidates,
+                    errorEngine,
+                    statistics
+                )
+            ).rejects.toThrow('Engine failed');
         });
     });
 

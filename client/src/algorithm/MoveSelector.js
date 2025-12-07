@@ -435,11 +435,14 @@ class MoveSelector {
         }
 
         if (viableCandidates.length === 0) {
-            // When CAREABOUTENGINE=1 and no moves pass engine validation, fall back to statistical selection
+            // When CAREABOUTENGINE=1 and no moves pass engine validation, throw error
             if (this.config.CAREABOUTENGINE === 1 && engineAnalysis) {
-                log.log(`⚠️ Engine rejected all ${qualityCandidates.length} candidate moves, falling back to statistical selection`);
+                throw new Error(
+                    `Engine rejected all ${qualityCandidates.length} candidate moves. ` +
+                    `Engine best: ${engineAnalysis.bestMove}`
+                );
             }
-            // Fall back to statistical selection (non-blocking approach matching Python behavior)
+            // Only fall back if engine was not enabled (stats-only mode is intentional)
             viableCandidates = qualityCandidates;
         }
 
@@ -668,8 +671,10 @@ class MoveSelector {
             log.log(`✅ Engine analysis completed successfully`);
             return result;
         } catch (error) {
-            log.warn(`❌ Engine analysis failed:`, error.message);
-            return null;
+            // Engine analysis errors should propagate to caller
+            // Returning null enables silent fallback which hides engine failures
+            log.error(`❌ Engine analysis failed:`, error.message);
+            throw error;
         }
     }
 
@@ -1048,14 +1053,10 @@ class MoveSelector {
             positionEval = await engineClient.evaluatePosition(position.fen);
             log.log(`   Position evaluation: ${positionEval}`);
         } catch (error) {
-            // Engine failed - fall back to pure statistical selection
-            log.warn(`   ⚠️ Engine error: ${error.message}, falling back to statistical selection`);
-            return {
-                selectedMove: rankedCandidates[0],
-                engineAnalysis: null,
-                reason: 'engine-error',
-                engineCallCount: 0
-            };
+            // Engine failed - propagate error to caller
+            // Engine errors should not be silently swallowed with fallback selection
+            log.error(`   ❌ Engine error: ${error.message}`);
+            throw error;
         }
 
         // STEP 3: Try candidates in statistical order (lazy evaluation)
@@ -1104,19 +1105,12 @@ class MoveSelector {
             log.log(`   ❌ ${candidate.uci} rejected by engine, trying next candidate...`);
         }
 
-        // FALLBACK: All candidates rejected by engine
-        // Match Python behavior: use statistical best anyway (non-blocking)
-        log.log(`   ⚠️ All ${rankedCandidates.length} candidates rejected by engine, falling back to statistical best`);
-        return {
-            selectedMove: rankedCandidates[0],  // Best statistical move
-            engineAnalysis: {
-                bestMove: engineBestMove,
-                positionEval,  // Include for consistency with legacy path
-                moveAnalyses: {}
-            },
-            reason: 'fallback-all-rejected',
-            engineCallCount
-        };
+        // ERROR: All candidates rejected by engine
+        // This indicates the position has no sound moves according to engine
+        throw new Error(
+            `Engine rejected all ${rankedCandidates.length} candidate moves. ` +
+            `Engine best: ${engineBestMove}, Position eval: ${positionEval}`
+        );
     }
 }
 

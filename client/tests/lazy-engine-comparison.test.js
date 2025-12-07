@@ -314,8 +314,12 @@ describe('Lazy Engine Evaluation - Comparison Tests', () => {
 
     describe('Move Selection Equivalence', () => {
         // Run each fixture through both paths and compare results
-        TEST_FIXTURES.forEach((fixture, index) => {
-            test(`${index + 1}. ${fixture.name}`, async () => {
+        // Skip fixture 8 (index 7) - it's the "all rejected" case which now throws
+        // (intentionally removed silent fallback behavior - tested separately below)
+        TEST_FIXTURES.filter((_, index) => index !== 7).forEach((fixture, index) => {
+            // Adjust display index for skipped fixture
+            const displayIndex = index >= 7 ? index + 2 : index + 1;
+            test(`${displayIndex}. ${fixture.name}`, async () => {
                 // Create mock engines for each path
                 const lazyEngine = new CountingMockEngine(fixture.engineConfig);
                 const batchEngine = new CountingMockEngine(fixture.engineConfig);
@@ -352,6 +356,25 @@ describe('Lazy Engine Evaluation - Comparison Tests', () => {
 
                 expect(lazyCalls).toBeLessThanOrEqual(batchCalls);
             });
+        });
+
+        // Test that both paths throw for "all rejected" case (fixture 8)
+        test('8. All candidates rejected - both paths throw error', async () => {
+            const fixture = TEST_FIXTURES[7];
+            const lazyEngine = new CountingMockEngine(fixture.engineConfig);
+            const batchEngine = new CountingMockEngine(fixture.engineConfig);
+
+            const lazySelector = new MoveSelector(TestUtils.createTestConfig({ LAZY_ENGINE: 1 }));
+            const batchSelector = new MoveSelector(TestUtils.createTestConfig({ LAZY_ENGINE: 0 }));
+
+            // Both paths should throw for all-rejected case
+            await expect(
+                lazySelector.selectBestMove(fixture.position, fixture.candidates, lazyEngine, statisticsEngine)
+            ).rejects.toThrow('Engine rejected all');
+
+            await expect(
+                batchSelector.selectBestMove(fixture.position, fixture.candidates, batchEngine, statisticsEngine)
+            ).rejects.toThrow('Engine rejected all');
         });
     });
 
@@ -458,27 +481,27 @@ describe('Lazy Engine Evaluation - Comparison Tests', () => {
             expect(result).toBeNull();
         });
 
-        test('Fallback when all candidates rejected', async () => {
-            // Fixture 8 has all candidates rejected
+        test('Throws error when all candidates rejected', async () => {
+            // Fixture 8 has all candidates rejected - should now throw error
             const fixture = TEST_FIXTURES[7];
             const engine = new CountingMockEngine(fixture.engineConfig);
 
             const config = TestUtils.createTestConfig({ LAZY_ENGINE: 1 });
             const selector = new MoveSelector(config);
 
-            const result = await selector.selectBestMove(
-                fixture.position,
-                fixture.candidates,
-                engine,
-                statisticsEngine
-            );
-
-            // Should fall back to statistical best
-            expect(result.selectedMove?.san).toBe(fixture.expectedMove);
-            expect(result.selectionReason).toContain('rejected');
+            // All candidates rejected should now throw instead of silently falling back
+            await expect(
+                selector.selectBestMove(
+                    fixture.position,
+                    fixture.candidates,
+                    engine,
+                    statisticsEngine
+                )
+            ).rejects.toThrow('Engine rejected all');
         });
 
-        test('Engine error falls back to statistical selection', async () => {
+        test('Engine error propagates to caller', async () => {
+            // Engine errors should propagate - no silent fallback
             const errorEngine = {
                 getBestMove: async () => { throw new Error('Engine failed'); },
                 analyzeMove: async () => { throw new Error('Analysis failed'); },
@@ -493,15 +516,14 @@ describe('Lazy Engine Evaluation - Comparison Tests', () => {
                 { san: 'd4', uci: 'd2d4', white: 900, black: 750, draws: 150, playrate: 0.4 }
             ];
 
-            const result = await selector.selectBestMove(
-                { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' },
-                candidates,
-                errorEngine,
-                statisticsEngine
-            );
-
-            expect(result.selectedMove).toBeDefined();
-            expect(result.engineAnalysis).toBeNull();
+            await expect(
+                selector.selectBestMove(
+                    { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' },
+                    candidates,
+                    errorEngine,
+                    statisticsEngine
+                )
+            ).rejects.toThrow('Engine failed');
         });
     });
 
@@ -510,7 +532,11 @@ describe('Lazy Engine Evaluation - Comparison Tests', () => {
             let totalLazyCalls = 0;
             let totalBatchCalls = 0;
 
-            for (const fixture of TEST_FIXTURES) {
+            // Skip fixture 8 (index 7) - it's the "all rejected" case which now throws
+            // (intentionally removed silent fallback behavior)
+            const fixturesForPerformanceTest = TEST_FIXTURES.filter((_, index) => index !== 7);
+
+            for (const fixture of fixturesForPerformanceTest) {
                 const lazyEngine = new CountingMockEngine(fixture.engineConfig);
                 const batchEngine = new CountingMockEngine(fixture.engineConfig);
 
