@@ -754,6 +754,12 @@ class BookBuilder {
                         continue;
                     }
 
+                    // Count our candidate response moves for progress tracking (mirrors line 690 for opponent moves)
+                    // Why: movesAnalyzed tracks ALL moves we evaluate from Lichess API, not just those we use
+                    // This gives users visual feedback that work is happening, even if filtering rejects many moves
+                    // positionData.moves is the API response containing candidate moves for our repertoire
+                    this.progressState.movesAnalyzed += positionData.moves.length;
+
                     log.log(`[BookBuilder] Position after opponent move has ${positionData.moves.length} candidate responses`);
                     log.log(`   Top 3 candidates:`, positionData.moves.slice(0, 3).map(m => ({
                         san: m.san,
