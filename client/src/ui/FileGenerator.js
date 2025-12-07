@@ -774,7 +774,7 @@ class FileGenerator {
         // Add move playrates
         for (const [san, playrate] of movePlayrates) {
             const playratePercent = (playrate * 100).toFixed(2);
-            annotations += `\n+${playratePercent}%\t${san}`;
+            annotations += `\n${playratePercent}%\t${san}`;
         }
 
         // Add combined line statistics
@@ -798,7 +798,7 @@ class FileGenerator {
 
         if (totalCumulativePlayrate > 0) {
             const avgCumulative = (totalCumulativePlayrate / lines.length * 100).toFixed(2);
-            annotations += `\nLine cumulative playrate: +${avgCumulative}%`;
+            annotations += `\nLine cumulative playrate: ${avgCumulative}%`;
         }
 
         if (totalGames > 0) {
@@ -806,7 +806,7 @@ class FileGenerator {
             const winratePercent = (avgWinRate * 100).toFixed(2);
             const gamesFormatted = totalGames.toLocaleString();
 
-            annotations += `\nLine winrate (combined): +${winratePercent}% over ${gamesFormatted} games`;
+            annotations += `\nLine winrate (combined): ${winratePercent}% over ${gamesFormatted} games`;
         }
 
         annotations += '\n}';
@@ -1391,7 +1391,7 @@ class FileGenerator {
         // Add winrate
         const winratePercent = (winrate * 100).toFixed(1);
         const gamesFormatted = games.toLocaleString();
-        detailedStats.push(`${prefix ? prefix + ' ' : ''}+${winratePercent}% (${gamesFormatted})`);
+        detailedStats.push(`${prefix ? prefix + ' ' : ''}${winratePercent}% (${gamesFormatted})`);
 
         return detailedStats.length > 0 ? `{${detailedStats.join(', ')}}` : '';
     }
@@ -1415,7 +1415,7 @@ class FileGenerator {
                 // Only add moves with valid playrate and san
                 if (move.playrate !== undefined && move.san) {
                     const playratePercent = (move.playrate * 100).toFixed(2);
-                    annotations += `+${playratePercent}%\t${move.san}\n`;
+                    annotations += `${playratePercent}%\t${move.san}\n`;
                 }
             }
         }
@@ -1425,7 +1425,7 @@ class FileGenerator {
             // Use statistics object format
             if (lineData.statistics.cumulativePlayrate !== undefined) {
                 const cumulativePlayrate = (lineData.statistics.cumulativePlayrate * 100).toFixed(2);
-                annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+                annotations += `Line cumulative playrate: ${cumulativePlayrate}%\n`;
             }
 
             // Add winrate information
@@ -1441,13 +1441,13 @@ class FileGenerator {
                     winrateDescription = 'Line winrate (draws as half points)';
                 }
 
-                annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+                annotations += `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
             }
         } else {
             // Fallback to direct properties on lineData
             if (lineData.cumulativeLikelihood !== undefined) {
                 const cumulativePlayrate = (lineData.cumulativeLikelihood * 100).toFixed(2);
-                annotations += `Line cumulative playrate: +${cumulativePlayrate}%\n`;
+                annotations += `Line cumulative playrate: ${cumulativePlayrate}%\n`;
             }
 
             // Check for winRate/totalGames on lineData directly
@@ -1465,7 +1465,7 @@ class FileGenerator {
                     winrateDescription = 'Line winrate (draws as half points)';
                 }
 
-                annotations += `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`;
+                annotations += `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
             }
         }
 

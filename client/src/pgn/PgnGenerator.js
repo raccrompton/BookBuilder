@@ -174,7 +174,12 @@ class PgnGenerator {
             // Get properly formatted PGN from chess.js
             const properPgn = chess.pgn();
             log.log(`[PgnGenerator] Chess.js formatted PGN: ${properPgn}`);
-            return properPgn;
+
+            // Strip default headers - chess.js adds [Event "?"], [Site "?"], etc.
+            // We only want the moves portion (starting with "1.")
+            const strippedPgn = this.stripPgnHeaders(properPgn);
+            log.log(`[PgnGenerator] Moves only: ${strippedPgn}`);
+            return strippedPgn;
 
         } catch (error) {
             log.error(`[PgnGenerator] Error with chess.js PGN generation: ${error.message}`);
@@ -202,7 +207,7 @@ class PgnGenerator {
                 log.log(`         Move ${i + 1}: ${move.san} (playrate: ${move.playrate?.toFixed(4)})`); // Log move details
                 if (move.playrate !== undefined && move.san) { // Only add if we have both playrate and move notation
                     const playratePercent = (move.playrate * 100).toFixed(2); // Convert decimal to percentage
-                    const moveAnnotation = `+${playratePercent}% ${move.san}`; // Format: "+55.79% e4" (+ prefix, percentage before move)
+                    const moveAnnotation = `${playratePercent}% ${move.san}`; // Format: "55.79% e4" (percentage before move)
                     log.log(`            Adding annotation: "${moveAnnotation}"`); // Log the annotation
                     moveAnnotations.push(moveAnnotation); // Add to collection
                 }
@@ -220,7 +225,7 @@ class PgnGenerator {
         if (line.statistics) { // Check if statistics object exists
             log.log(`         Using line.statistics:`, line.statistics); // Log raw statistics
             const cumulativePlayrate = (line.statistics.cumulativePlayrate * 100).toFixed(2); // Convert to percentage
-            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%\n`; // + sign prefix, no period
+            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%\n`; // No period after percentage
             log.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
 
@@ -236,7 +241,7 @@ class PgnGenerator {
                     winrateDescription = 'Line winrate (draws as half points)'; // Use half-point language
                 }
 
-                const winrateAnnotation = `${winrateDescription}: +${winratePercent}% over ${gamesFormatted} games`; // + sign prefix
+                const winrateAnnotation = `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
                 log.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
                 annotations += winrateAnnotation; // Add to output (no newline before closing brace)
             } else {
@@ -246,7 +251,7 @@ class PgnGenerator {
             log.log(`         Using line.cumulativeLikelihood: ${line.cumulativeLikelihood}`); // Log fallback source
             // Use cumulativeLikelihood from line object if no statistics
             const cumulativePlayrate = (line.cumulativeLikelihood * 100).toFixed(2); // Convert to percentage
-            const cumulativeAnnotation = `Line cumulative playrate: +${cumulativePlayrate}%`; // + sign prefix
+            const cumulativeAnnotation = `Line cumulative playrate: ${cumulativePlayrate}%`;
             log.log(`         Cumulative playrate annotation: "${cumulativeAnnotation.trim()}"`); // Log annotation
             annotations += cumulativeAnnotation; // Add to output
         } else {
@@ -328,8 +333,10 @@ class PgnGenerator {
         const header = `[Event "${eventName}"]`;
         log.log(`   Generated header: ${header}`);
 
-        // Use the pgn string directly - it contains the actual move sequence
-        const moves = line.pgn || '';
+        // Strip any existing headers from line.pgn - chess.js adds default headers
+        // We only want the moves, we'll add our own Event header above
+        const rawPgn = line.pgn || '';
+        const moves = this.stripPgnHeaders(rawPgn);
         log.log(`   Moves section: "${moves}"`);
 
         log.log(`   Generating move annotations...`);
@@ -398,13 +405,13 @@ class PgnGenerator {
     }
 
     /**
-   * Format a decimal value as a percentage with + prefix
+   * Format a decimal value as a percentage string
    * @param {number} value - Decimal value (0-1)
-   * @returns {string} Formatted percentage (e.g., "+25.83%")
+   * @returns {string} Formatted percentage (e.g., "25.83%")
    */
     formatPercentage(value) {
         const percentage = (value * 100).toFixed(2);
-        return `+${percentage}%`;
+        return `${percentage}%`;
     }
 
     /**
@@ -414,6 +421,28 @@ class PgnGenerator {
    */
     formatGameCount(count) {
         return count.toString();
+    }
+
+    /**
+     * Strip PGN headers from a PGN string, returning only the moves
+     * chess.js adds default headers like [Event "?"], [Site "?"], etc.
+     * We want only the move text (e.g., "1. e4 e5 2. Nf3 Nc6")
+     * @param {string} pgn - Full PGN string with headers
+     * @returns {string} Just the moves portion without headers
+     */
+    stripPgnHeaders(pgn) {
+        if (!pgn) return ''; // Handle empty input
+
+        // PGN headers are lines starting with [ and ending with ]
+        // Split into lines, filter out header lines, rejoin
+        const lines = pgn.split('\n');
+        const moveLines = lines.filter(line => {
+            const trimmed = line.trim();
+            // Skip header lines (start with [) and empty lines before moves
+            return trimmed && !trimmed.startsWith('[');
+        });
+
+        return moveLines.join(' ').trim(); // Join with space for proper move formatting
     }
 
     /**
