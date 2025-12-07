@@ -230,20 +230,41 @@ class PgnGenerator {
             annotations += cumulativeAnnotation; // Add to output
 
             if (line.statistics.winrate !== undefined && line.statistics.totalGames !== undefined) { // Check for winrate data
-                const winratePercent = (line.statistics.winrate * 100).toFixed(2); // Convert to percentage
-                const gamesFormatted = line.statistics.totalGames.toLocaleString(); // Format with commas (eg "1,234")
-                log.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`); // Log values
+                // Check if this is a terminal position (checkmate/draw) that needs transparent labeling
+                // Terminal positions have manufactured stats that shouldn't be displayed as database data
+                if (line.statistics.isTerminalPosition) {
+                    // Build honest annotation based on terminal position type
+                    let terminalAnnotation;
+                    if (line.statistics.terminalType === 'checkmate') {
+                        // For checkmate, show win or loss based on the winrate value
+                        // winrate of 1.0 means we delivered checkmate (win for our perspective)
+                        // winrate of 0.0 means we got checkmated (loss for our perspective)
+                        const outcome = line.statistics.winrate === 1 ? 'win' : 'loss';
+                        terminalAnnotation = `Position outcome: Checkmate (${outcome})`;
+                    } else {
+                        // For draws, show the value being used based on DRAWSAREHALF config
+                        // This is transparent about the config preference being applied
+                        terminalAnnotation = `Position outcome: Draw (counted as ${line.statistics.winrate})`;
+                    }
+                    log.log(`         Terminal position annotation: "${terminalAnnotation}"`);
+                    annotations += terminalAnnotation;
+                } else {
+                    // Normal position with real Lichess database statistics
+                    const winratePercent = (line.statistics.winrate * 100).toFixed(2); // Convert to percentage
+                    const gamesFormatted = line.statistics.totalGames.toLocaleString(); // Format with commas (eg "1,234")
+                    log.log(`         Win rate: ${winratePercent}%, Games: ${gamesFormatted}`); // Log values
 
-                let winrateDescription; // Build description based on draw handling setting
-                if (this.config.DRAWSAREHALF === 0) { // If draws are excluded from winrate
-                    winrateDescription = 'Line winrate (excluding draws)'; // Use excluding language
-                } else { // If draws count as half points
-                    winrateDescription = 'Line winrate (draws as half points)'; // Use half-point language
+                    let winrateDescription; // Build description based on draw handling setting
+                    if (this.config.DRAWSAREHALF === 0) { // If draws are excluded from winrate
+                        winrateDescription = 'Line winrate (excluding draws)'; // Use excluding language
+                    } else { // If draws count as half points
+                        winrateDescription = 'Line winrate (draws as half points)'; // Use half-point language
+                    }
+
+                    const winrateAnnotation = `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
+                    log.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
+                    annotations += winrateAnnotation; // Add to output (no newline before closing brace)
                 }
-
-                const winrateAnnotation = `${winrateDescription}: ${winratePercent}% over ${gamesFormatted} games`;
-                log.log(`         Win rate annotation: "${winrateAnnotation}"`); // Log the annotation
-                annotations += winrateAnnotation; // Add to output (no newline before closing brace)
             } else {
                 log.log(`         Win rate data incomplete: winrate=${line.statistics.winrate}, games=${line.statistics.totalGames}`); // Log missing data
             }

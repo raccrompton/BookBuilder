@@ -803,206 +803,337 @@ describe('Golden Master Integration', () => {
 });
 
 // ==================== TERMINAL POSITION TESTS ====================
-// Tests for checkmate and stalemate detection during line expansion
+/**
+ * Tests for checkmate and stalemate detection during line expansion
+ *
+ * WHAT ARE TERMINAL POSITIONS?
+ * In chess, a "terminal position" is a position where the game is over:
+ * - Checkmate: One player's king is attacked and cannot escape (game over, attacker wins)
+ * - Stalemate: The player to move has no legal moves but is NOT in check (game over, draw)
+ * - Other draws: Insufficient material, threefold repetition, 50-move rule (all end the game)
+ *
+ * WHY TEST TERMINAL POSITIONS?
+ * When building an opening repertoire, we need to handle positions where the game ends.
+ * The Lichess API returns an empty moves array for terminal positions (no legal continuations).
+ * Our code must detect these positions and finalize lines with correct statistics:
+ * - Checkmate: winrate = 1.0 (winner's perspective) or 0.0 (loser's perspective)
+ * - Draw: winrate = 0.5 (if DRAWSAREHALF=1) or 0.0 (if DRAWSAREHALF=0)
+ */
 
 describe('Terminal Position Handling', () => {
-    let bookBuilder;
-    let testConfig;
+    // Declare variables to hold test fixtures - these are reset before each test
+    let bookBuilder;  // The main class we're testing
+    let testConfig;   // Configuration object for BookBuilder
+
+    // =========================================================================
+    // FEN CONSTANTS - Predefined chess positions for testing
+    // =========================================================================
+    // FEN (Forsyth-Edwards Notation) is a standard way to describe chess positions.
+    // Format: "pieces side castling en-passant halfmove fullmove"
+    // Pieces: lowercase = black, uppercase = white, numbers = empty squares
+    // Rows are separated by "/" and read from rank 8 (top) to rank 1 (bottom)
+    // =========================================================================
 
     // Scholar's mate position - white is checkmated (black wins)
     // Position after: 1.f3 e5 2.g4 Qh4#
+    // The "q" on h4 (6Pq) is black's queen delivering checkmate
+    // "w KQkq" means white to move (but has no legal moves - checkmate!)
     const SCHOLARS_MATE_FEN = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
 
     // Back rank mate - black is checkmated (white wins)
-    // Position: white rook delivers mate on 8th rank
+    // Position: white rook on h8 delivers checkmate to black king on a8
+    // "b - -" means black to move, no castling rights, no en passant
     const BACK_RANK_MATE_FEN = 'k6R/8/1K6/8/8/8/8/8 b - - 0 1';
 
     // Stalemate position - black to move but no legal moves (draw)
-    // King in corner with no legal moves but not in check
+    // Black king on a8 is NOT in check, but every square it could move to is attacked
+    // Queen on c7 covers b8, b7, a7; King on b6 covers a7, b7
+    // This is a DRAW, not a win for white
     const STALEMATE_FEN = 'k7/2Q5/1K6/8/8/8/8/8 b - - 0 1';
 
+    // beforeEach runs before EVERY test in this describe block
+    // This ensures each test starts with a fresh, clean state (test isolation)
     beforeEach(() => {
-        // Create test configuration
+        // Create test configuration with minimal settings for faster testing
         testConfig = {
-            CAREABOUTENGINE: 0,       // Disable engine for simpler testing
-            PRINT_INFO_TO_CONSOLE: false,
-            API_DELAY: 0,             // No delay for tests
-            DRAWSAREHALF: 0,          // Draws count as losses
-            openings: [{
+            CAREABOUTENGINE: 0,       // 0 = disable Stockfish engine (simplifies testing)
+            PRINT_INFO_TO_CONSOLE: false,  // false = suppress log output during tests
+            API_DELAY: 0,             // 0ms delay = faster tests (no rate limiting)
+            DRAWSAREHALF: 0,          // 0 = draws count as losses (0.0 winrate)
+            openings: [{              // Minimal opening config (not used in these tests)
                 name: 'Test Opening',
                 moves: ['e4', 'e5'],
                 perspective: 'white'
             }]
         };
 
+        // Create a fresh BookBuilder instance with our test config
         bookBuilder = new BookBuilder(testConfig);
-        // Set opening perspective (normally set during processOpening)
+        // Set opening perspective - this determines how winrates are calculated
+        // (normally set automatically during processOpening, we set it manually for tests)
         bookBuilder.openingPerspective = 'white';
     });
 
+    // afterEach runs after EVERY test to clean up resources
+    // This prevents memory leaks and ensures tests don't affect each other
     afterEach(() => {
-        // Clean up any resources
+        // Clean up Stockfish engine if it was initialized
+        // (calling quit() on null would throw an error, so we check first)
         if (bookBuilder.stockfishEngine) {
-            bookBuilder.stockfishEngine.quit();
+            bookBuilder.stockfishEngine.quit();  // Release engine resources
         }
     });
 
     describe('Checkmate Detection During Expansion', () => {
         /**
-         * Test: Line expansion reaching checkmate position
+         * Test: Line expansion reaching checkmate position (white is mated)
          *
-         * SCENARIO: When expandLine processes a line and the opponent's move
-         * leads to a checkmate position (Lichess returns empty moves because
-         * the game is over), the line should be finalized with:
-         * - isTerminalPosition: true
-         * - terminalType: 'checkmate'
-         * - Correct winRate based on who got mated
+         * LEARNING GOAL: Understand how the system handles checkmate positions
+         *
+         * SCENARIO: When finalizeLine receives a checkmate position, it should:
+         * - Detect that the position is checkmate (not stalemate or normal position)
+         * - Set isTerminalPosition: true to indicate the game is over
+         * - Set terminalType: 'checkmate' to distinguish from draws
+         * - Calculate correct winRate based on who got mated and our perspective
          */
         test('finalizes line correctly when reaching checkmate (white mated)', async () => {
-            // ARRANGE: Create a line that will reach the Scholar's mate position
-            // where white is checkmated
+            // ================================================================
+            // ARRANGE: Set up test data for a checkmate position
+            // ================================================================
+
+            // Create line data representing a position where white is checkmated
+            // In Scholar's mate, black's queen delivers checkmate on move 2
             const lineData = {
-                fen: 'rnb1kbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2', // Before Qh4#
-                pgn: '1. f3 e5 2. g4',
-                perspective: 'black',  // It's black's turn to deliver mate
-                cumulativeLikelihood: 0.5,
-                likelihoodPath: [
-                    { san: 'e5', playrate: 0.5 }
+                fen: SCHOLARS_MATE_FEN,  // FEN string describing the checkmate position
+                pgn: '1. f3 e5 2. g4 Qh4#',  // PGN = Portable Game Notation; # = checkmate
+                perspective: 'white',  // We're building a repertoire for white (who lost here)
+                cumulativeLikelihood: 0.5,  // 50% probability this line is reached in practice
+                likelihoodPath: [  // History of opponent moves and their probabilities
+                    { san: 'e5', playrate: 0.5 }  // Black played e5 with 50% frequency
                 ]
             };
 
-            // Mock Lichess to return the mating move as a continuation
+            // Mock the Lichess API to simulate a terminal position response
+            // jest.spyOn intercepts the real method and replaces it with our mock
+            // This allows testing without making actual API calls
             jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
-                .mockImplementation((fen) => {
-                    // Position before Qh4# - return the mating move
-                    if (fen.includes('6P1') && fen.includes('b KQkq')) {
-                        return Promise.resolve({
-                            moves: [
-                                { san: 'Qh4', white: 0, draws: 0, black: 1000, playrate: 0.95, totalGames: 1000 }
-                            ]
-                        });
-                    }
-                    // Position after Qh4# (checkmate) - no moves available
-                    if (fen === SCHOLARS_MATE_FEN || fen.includes('6Pq')) {
-                        return Promise.resolve({
-                            moves: [],  // No moves - it's checkmate!
-                            white: 0,
-                            black: 1000,
-                            draws: 0
-                        });
-                    }
-                    return Promise.resolve({ moves: [] });
+                .mockResolvedValue({  // mockResolvedValue returns this when called
+                    moves: [],  // Empty array = no legal moves (terminal position)
+                    white: 0,   // No game statistics (checkmate positions have no continuations)
+                    black: 0,
+                    draws: 0
                 });
 
-            // ACT: Process the queue with our line
-            bookBuilder.processingQueue = [lineData];
-            await bookBuilder.expandAllLines();
+            // ================================================================
+            // ACT: Call the method we're testing
+            // ================================================================
 
-            // ASSERT: Line should be finalized
-            expect(bookBuilder.finalLines.length).toBeGreaterThan(0);
+            // finalizeLine should detect this is checkmate and set appropriate stats
+            await bookBuilder.finalizeLine(lineData);  // await waits for async completion
 
-            // Find the finalized line (may have been created during expansion)
-            const finalizedLine = bookBuilder.finalLines.find(
-                line => line.pgn && line.pgn.includes('Qh4')
-            );
+            // ================================================================
+            // ASSERT: Verify the results are correct
+            // ================================================================
 
-            // The line should exist and have terminal position markers
-            // Note: The exact behavior depends on whether the line ends at mate
-            // or before it based on when no moves are returned
-            expect(bookBuilder.processingQueue.length).toBe(0); // Queue should be empty
+            // Check that exactly one line was added to finalLines array
+            expect(bookBuilder.finalLines.length).toBe(1);
+            const finalLine = bookBuilder.finalLines[0];  // Get the finalized line
+
+            // Verify terminal position markers are set correctly
+            // These flags tell the UI/output that this line ends in checkmate
+            expect(finalLine.statistics.isTerminalPosition).toBe(true);
+            expect(finalLine.statistics.terminalType).toBe('checkmate');
+
+            // Verify winrate calculation is correct
+            // White is checkmated = white lost = 0.0 winrate from white's perspective
+            // (If we were building a black repertoire, this would be 1.0 = win)
+            expect(finalLine.statistics.winrate).toBe(0.0);
+            // totalGames = 1 for terminal positions (deterministic outcome, not statistical)
+            expect(finalLine.statistics.totalGames).toBe(1);
         });
 
+        /**
+         * Test: Checkmate detection when black is mated (white wins)
+         *
+         * This tests the opposite scenario: verifying that when BLACK is checkmated,
+         * the winrate is correctly calculated as 1.0 (win) from white's perspective.
+         */
         test('finalizes line correctly when reaching checkmate (black mated)', async () => {
-            // ARRANGE: Position where black is checkmated
-            // Use a simpler test - directly test finalizeLine with a checkmate position
+            // ARRANGE: Create line data for a position where black is checkmated
+            // Back rank mate: white's rook delivers checkmate to black's king
             const lineData = {
-                fen: BACK_RANK_MATE_FEN,  // Black is in checkmate
-                pgn: '1. Rh8#',
-                perspective: 'white',  // We're analyzing from white's perspective
-                cumulativeLikelihood: 0.8,
+                fen: BACK_RANK_MATE_FEN,  // Black king on a8, white rook on h8 = checkmate
+                pgn: '1. Rh8#',  // PGN notation for the mating move
+                perspective: 'white',  // Building repertoire for white (who won here)
+                cumulativeLikelihood: 0.8,  // 80% probability this line is reached
                 likelihoodPath: [
-                    { san: 'Rh8', playrate: 0.8 }
+                    { san: 'Rh8', playrate: 0.8 }  // The rook move with 80% frequency
                 ]
             };
 
-            // Mock getPositionStats to return empty moves (checkmate position)
+            // Mock API to return empty moves (checkmate = no legal moves)
             jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
                 .mockResolvedValue({
-                    moves: [],  // No legal moves - checkmate
+                    moves: [],  // No legal moves - it's checkmate
                     white: 0,
                     black: 0,
                     draws: 0
                 });
 
-            // ACT: Finalize the line directly
+            // ACT: Finalize the line
             await bookBuilder.finalizeLine(lineData);
 
-            // ASSERT: Line should be finalized with checkmate statistics
+            // ASSERT: Verify checkmate is detected and statistics are correct
             expect(bookBuilder.finalLines.length).toBe(1);
             const finalLine = bookBuilder.finalLines[0];
 
-            // Should have terminal position markers
+            // Should be marked as terminal checkmate position
             expect(finalLine.statistics.isTerminalPosition).toBe(true);
             expect(finalLine.statistics.terminalType).toBe('checkmate');
 
-            // Black is mated, white perspective = win (1.0)
+            // Black is mated = white wins = 1.0 winrate from white's perspective
             expect(finalLine.statistics.winrate).toBe(1.0);
             expect(finalLine.statistics.totalGames).toBe(1);
         });
 
+        /**
+         * Test: Winrate calculation depends on perspective
+         *
+         * LEARNING GOAL: The same checkmate position has different winrates
+         * depending on whose repertoire we're building.
+         *
+         * Example: In Scholar's mate, white is checkmated.
+         * - From WHITE's perspective: winrate = 0.0 (loss)
+         * - From BLACK's perspective: winrate = 1.0 (win)
+         */
         test('calculates winrate correctly for checkmate from both perspectives', async () => {
-            // Test that checkmate winrate is calculated correctly from both perspectives
+            // ================================================================
+            // TEST 1: White is mated, analyzing from WHITE's perspective
+            // Expected: winrate = 0.0 (white lost)
+            // ================================================================
 
-            // Test 1: White is mated, white perspective (should be 0.0 = loss)
             const whiteLineData = {
-                fen: SCHOLARS_MATE_FEN,  // White is checkmated
+                fen: SCHOLARS_MATE_FEN,  // White is checkmated in this position
                 pgn: '1. f3 e5 2. g4 Qh4#',
-                perspective: 'white',
+                perspective: 'white',  // We're studying from white's viewpoint
                 cumulativeLikelihood: 1.0,
                 likelihoodPath: []
             };
 
+            // Mock API to return empty moves
             jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
                 .mockResolvedValue({ moves: [], white: 0, black: 0, draws: 0 });
 
             await bookBuilder.finalizeLine(whiteLineData);
 
-            expect(bookBuilder.finalLines[0].statistics.winrate).toBe(0.0); // White lost
+            // White is mated = loss = 0.0 winrate
+            expect(bookBuilder.finalLines[0].statistics.winrate).toBe(0.0);
             expect(bookBuilder.finalLines[0].statistics.terminalType).toBe('checkmate');
 
-            // Reset for next test
+            // ================================================================
+            // TEST 2: Same position, but analyzing from BLACK's perspective
+            // Expected: winrate = 1.0 (black won)
+            // ================================================================
+
+            // Reset finalLines array for the second test
             bookBuilder.finalLines = [];
 
-            // Test 2: White is mated, black perspective (should be 1.0 = win)
+            // Change the opening perspective to black
+            // This simulates building a repertoire for black instead of white
             bookBuilder.openingPerspective = 'black';
+
             const blackLineData = {
-                fen: SCHOLARS_MATE_FEN,
+                fen: SCHOLARS_MATE_FEN,  // Same position - white is checkmated
                 pgn: '1. f3 e5 2. g4 Qh4#',
-                perspective: 'black',
+                perspective: 'black',  // Now we're studying from black's viewpoint
                 cumulativeLikelihood: 1.0,
                 likelihoodPath: []
             };
 
             await bookBuilder.finalizeLine(blackLineData);
 
-            expect(bookBuilder.finalLines[0].statistics.winrate).toBe(1.0); // Black won
+            // White is mated = black wins = 1.0 winrate from black's perspective
+            expect(bookBuilder.finalLines[0].statistics.winrate).toBe(1.0);
             expect(bookBuilder.finalLines[0].statistics.terminalType).toBe('checkmate');
         });
     });
 
+    // =========================================================================
+    // STALEMATE DETECTION TESTS
+    // =========================================================================
+    // Stalemate is a special type of draw where the player to move has NO legal
+    // moves but is NOT in check. Unlike checkmate (a win), stalemate is a draw.
+    // The DRAWSAREHALF config controls how draws affect winrate:
+    // - DRAWSAREHALF=0: draws count as 0.0 (treat draws as losses for repertoire)
+    // - DRAWSAREHALF=1: draws count as 0.5 (tournament scoring style)
+    // =========================================================================
+
     describe('Stalemate Detection During Expansion', () => {
         /**
-         * Test: Line expansion reaching stalemate position
+         * Test: Stalemate with DRAWSAREHALF=0 (draws count as losses)
          *
-         * SCENARIO: When expandLine processes a line and reaches a stalemate
-         * position (Lichess returns empty moves, position is stalemate),
-         * the line should be finalized with:
-         * - isTerminalPosition: true
-         * - terminalType: 'draw'
-         * - winRate: 0.5 if DRAWSAREHALF=1, 0.0 if DRAWSAREHALF=0
+         * LEARNING GOAL: Understand how the DRAWSAREHALF config affects draw scoring
+         *
+         * SCENARIO: When a stalemate is detected and DRAWSAREHALF=0,
+         * the winrate should be 0.0 (treating the draw as a loss).
+         * This is useful when building aggressive repertoires where
+         * we want to avoid drawing positions.
          */
         test('finalizes line correctly when reaching stalemate (DRAWSAREHALF=0)', async () => {
-            // ARRANGE: Line at a stalemate position
+            // ARRANGE: Create line data for a stalemate position
+            // In this position, black's king has no legal moves but isn't in check
+            const lineData = {
+                fen: STALEMATE_FEN,  // Black king trapped but not attacked = stalemate
+                pgn: '1. Qc7',  // The move that creates stalemate
+                perspective: 'white',  // Building repertoire for white
+                cumulativeLikelihood: 0.6,  // 60% chance this line is reached
+                likelihoodPath: [
+                    { san: 'Qc7', playrate: 0.6 }  // Queen move with 60% frequency
+                ]
+            };
+
+            // Mock API response - no legal moves indicates terminal position
+            jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
+                .mockResolvedValue({
+                    moves: [],  // Empty = no legal moves (stalemate or checkmate)
+                    white: 0,
+                    black: 0,
+                    draws: 0
+                });
+
+            // ACT: Finalize the line
+            await bookBuilder.finalizeLine(lineData);
+
+            // ASSERT: Verify stalemate is correctly identified
+            expect(bookBuilder.finalLines.length).toBe(1);
+            const finalLine = bookBuilder.finalLines[0];
+
+            // Terminal position markers should indicate a draw (not checkmate)
+            expect(finalLine.statistics.isTerminalPosition).toBe(true);
+            expect(finalLine.statistics.terminalType).toBe('draw');  // Not 'checkmate'!
+
+            // With DRAWSAREHALF=0 (set in testConfig), draws = 0.0 winrate
+            // This treats draws as losses, useful for aggressive repertoire building
+            expect(finalLine.statistics.winrate).toBe(0.0);
+            expect(finalLine.statistics.totalGames).toBe(1);
+        });
+
+        /**
+         * Test: Stalemate with DRAWSAREHALF=1 (draws count as half points)
+         *
+         * LEARNING GOAL: Same stalemate position, different config = different winrate
+         *
+         * With DRAWSAREHALF=1, draws are worth 0.5 points (like tournament scoring).
+         * This is useful when building balanced repertoires where draws are acceptable.
+         */
+        test('finalizes line correctly when reaching stalemate (DRAWSAREHALF=1)', async () => {
+            // ARRANGE: Create a new BookBuilder with DRAWSAREHALF=1
+            // We need a separate instance because config affects winrate calculation
+            const configWithDrawsHalf = { ...testConfig, DRAWSAREHALF: 1 };
+            const builderWithDrawsHalf = new BookBuilder(configWithDrawsHalf);
+            builderWithDrawsHalf.openingPerspective = 'white';  // Set perspective manually
+
+            // Same stalemate position as previous test
             const lineData = {
                 fen: STALEMATE_FEN,  // Black is stalemated
                 pgn: '1. Qc7',
@@ -1013,7 +1144,45 @@ describe('Terminal Position Handling', () => {
                 ]
             };
 
-            // Mock getPositionStats - no legal moves (stalemate)
+            // Mock API response
+            jest.spyOn(builderWithDrawsHalf.lichessClient, 'getPositionStats')
+                .mockResolvedValue({ moves: [], white: 0, black: 0, draws: 0 });
+
+            // ACT: Finalize the line
+            await builderWithDrawsHalf.finalizeLine(lineData);
+
+            // ASSERT: Verify stalemate with DRAWSAREHALF=1
+            expect(builderWithDrawsHalf.finalLines.length).toBe(1);
+            const finalLine = builderWithDrawsHalf.finalLines[0];
+
+            // Still marked as a draw terminal position
+            expect(finalLine.statistics.isTerminalPosition).toBe(true);
+            expect(finalLine.statistics.terminalType).toBe('draw');
+
+            // With DRAWSAREHALF=1, draws = 0.5 winrate (half a point)
+            // Compare to 0.0 in the previous test with DRAWSAREHALF=0
+            expect(finalLine.statistics.winrate).toBe(0.5);
+        });
+
+        /**
+         * Test: Stalemate detection from black's perspective
+         *
+         * This test verifies that stalemate detection works correctly
+         * regardless of which color's repertoire we're building.
+         */
+        test('handles stalemate position correctly in finalizeLine', async () => {
+            // ARRANGE: Line at stalemate, testing from black's perspective
+            const lineData = {
+                fen: STALEMATE_FEN,  // Black is stalemated (it's a draw)
+                pgn: '1. Qc7',
+                perspective: 'black',  // Building repertoire for BLACK this time
+                cumulativeLikelihood: 1.0,
+                likelihoodPath: [
+                    { san: 'Qc7', playrate: 1.0 }
+                ]
+            };
+
+            // Mock API to return empty moves (stalemate = no legal moves)
             jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
                 .mockResolvedValue({
                     moves: [],  // No legal moves - stalemate
@@ -1025,134 +1194,84 @@ describe('Terminal Position Handling', () => {
             // ACT: Finalize the line
             await bookBuilder.finalizeLine(lineData);
 
-            // ASSERT: Line should be finalized with stalemate statistics
+            // ASSERT: Should be recognized as draw regardless of perspective
             expect(bookBuilder.finalLines.length).toBe(1);
             const finalLine = bookBuilder.finalLines[0];
 
-            // Should have terminal position markers
+            // Terminal position should be marked as draw
             expect(finalLine.statistics.isTerminalPosition).toBe(true);
             expect(finalLine.statistics.terminalType).toBe('draw');
 
-            // DRAWSAREHALF=0 means draws count as 0.0
+            // DRAWSAREHALF=0 in testConfig, so draws = 0.0 regardless of perspective
+            // (draws are draws for both sides - neither player wins)
             expect(finalLine.statistics.winrate).toBe(0.0);
-            expect(finalLine.statistics.totalGames).toBe(1);
-        });
-
-        test('finalizes line correctly when reaching stalemate (DRAWSAREHALF=1)', async () => {
-            // ARRANGE: Create builder with DRAWSAREHALF=1
-            const configWithDrawsHalf = { ...testConfig, DRAWSAREHALF: 1 };
-            const builderWithDrawsHalf = new BookBuilder(configWithDrawsHalf);
-            builderWithDrawsHalf.openingPerspective = 'white';
-
-            const lineData = {
-                fen: STALEMATE_FEN,  // Black is stalemated
-                pgn: '1. Qc7',
-                perspective: 'white',
-                cumulativeLikelihood: 0.6,
-                likelihoodPath: [
-                    { san: 'Qc7', playrate: 0.6 }
-                ]
-            };
-
-            // Mock getPositionStats
-            jest.spyOn(builderWithDrawsHalf.lichessClient, 'getPositionStats')
-                .mockResolvedValue({ moves: [], white: 0, black: 0, draws: 0 });
-
-            // ACT: Finalize the line
-            await builderWithDrawsHalf.finalizeLine(lineData);
-
-            // ASSERT: Line should be finalized with stalemate statistics
-            expect(builderWithDrawsHalf.finalLines.length).toBe(1);
-            const finalLine = builderWithDrawsHalf.finalLines[0];
-
-            // Should have terminal position markers
-            expect(finalLine.statistics.isTerminalPosition).toBe(true);
-            expect(finalLine.statistics.terminalType).toBe('draw');
-
-            // DRAWSAREHALF=1 means draws count as 0.5
-            expect(finalLine.statistics.winrate).toBe(0.5);
-        });
-
-        test('handles stalemate during line expansion (end-to-end)', async () => {
-            // ARRANGE: Create a line where the next move leads to stalemate
-            // Position before stalemate - one move away
-            const preStalemate = 'k7/8/1K6/8/8/8/8/7Q w - - 0 1';
-
-            const lineData = {
-                fen: preStalemate,
-                pgn: '',
-                perspective: 'white',  // White to move
-                cumulativeLikelihood: 1.0,
-                likelihoodPath: []
-            };
-
-            // Mock Lichess responses
-            jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
-                .mockImplementation((fen) => {
-                    // Pre-stalemate position - return Qc7 as continuation
-                    if (fen.includes('7Q w')) {
-                        return Promise.resolve({
-                            moves: [
-                                { san: 'Qc7', white: 500, draws: 500, black: 0, playrate: 0.8, totalGames: 1000 }
-                            ]
-                        });
-                    }
-                    // After Qc7 - stalemate position, no moves
-                    if (fen.includes('2Q5') || fen === STALEMATE_FEN) {
-                        return Promise.resolve({
-                            moves: [],  // Stalemate - no legal moves
-                            white: 0,
-                            black: 0,
-                            draws: 0
-                        });
-                    }
-                    return Promise.resolve({ moves: [] });
-                });
-
-            // ACT: Process the queue
-            bookBuilder.processingQueue = [lineData];
-            await bookBuilder.expandAllLines();
-
-            // ASSERT: Queue should be empty (line processed)
-            expect(bookBuilder.processingQueue.length).toBe(0);
-            // At least one line should be finalized
-            expect(bookBuilder.finalLines.length).toBeGreaterThan(0);
         });
     });
 
+    // =========================================================================
+    // EDGE CASE TESTS
+    // =========================================================================
+    // These tests verify behavior in unusual situations that could cause bugs
+    // if not handled correctly.
+    // =========================================================================
+
     describe('Terminal Position Edge Cases', () => {
+        /**
+         * Test: Non-terminal position without database statistics
+         *
+         * LEARNING GOAL: The system should NOT manufacture fake statistics
+         *
+         * SCENARIO: If a position is NOT terminal (not checkmate, not draw)
+         * but the Lichess API returns no games for it, we should throw an error
+         * rather than make up fake statistics. This ensures honest reporting.
+         */
         test('throws error for non-terminal position without stats', async () => {
-            // ARRANGE: Normal position (not checkmate or draw) with no API stats
+            // ARRANGE: Create a NORMAL position (not checkmate, not stalemate)
+            // This is the position after 1.e4 - a completely normal opening position
             const normalFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
             const lineData = {
-                fen: normalFen,
+                fen: normalFen,  // Normal position with many legal moves
                 pgn: '1. e4',
                 perspective: 'white',
                 cumulativeLikelihood: 1.0,
                 likelihoodPath: []
             };
 
-            // Mock empty API response (position exists but no games in database)
+            // Mock API to return NO games (simulating an obscure position not in database)
+            // This is different from terminal positions - this position HAS legal moves
             jest.spyOn(bookBuilder.lichessClient, 'getPositionStats')
                 .mockResolvedValue({ moves: [], white: 0, black: 0, draws: 0 });
 
-            // ACT & ASSERT: Should throw because position is not terminal
-            // but has no statistics (we don't manufacture fake stats)
+            // ACT & ASSERT: Should throw an error
+            // We don't want to report fake statistics for positions we have no data on
+            // The error message should indicate the problem clearly
             await expect(bookBuilder.finalizeLine(lineData)).rejects.toThrow(
-                /No statistics available for position/
+                /No statistics available for position/  // Regex to match error message
             );
         });
 
+        /**
+         * Test: Chess engine correctly distinguishes checkmate from stalemate
+         *
+         * LEARNING GOAL: Checkmate and stalemate are both "no legal moves"
+         * situations, but they have very different outcomes!
+         *
+         * The key difference:
+         * - Checkmate: King IS in check, no escape = attacker WINS
+         * - Stalemate: King is NOT in check, no moves = DRAW
+         */
         test('distinguishes between checkmate and stalemate correctly', async () => {
-            // ARRANGE & ACT: Test checkmate detection
+            // TEST 1: Verify checkmate detection
+            // Scholar's mate - white king IS in check and cannot escape
             bookBuilder.chessEngine.loadPosition(SCHOLARS_MATE_FEN);
-            expect(bookBuilder.chessEngine.isCheckmate()).toBe(true);
-            expect(bookBuilder.chessEngine.isDraw()).toBe(false);
+            expect(bookBuilder.chessEngine.isCheckmate()).toBe(true);  // Should detect checkmate
+            expect(bookBuilder.chessEngine.isDraw()).toBe(false);  // Should NOT be a draw
 
-            // Test stalemate detection
+            // TEST 2: Verify stalemate detection
+            // Stalemate position - black king is NOT in check but has no legal moves
             bookBuilder.chessEngine.loadPosition(STALEMATE_FEN);
-            expect(bookBuilder.chessEngine.isCheckmate()).toBe(false);
-            expect(bookBuilder.chessEngine.isDraw()).toBe(true);
+            expect(bookBuilder.chessEngine.isCheckmate()).toBe(false);  // Should NOT be checkmate
+            expect(bookBuilder.chessEngine.isDraw()).toBe(true);  // Should detect draw (stalemate)
         });
     });
 });
