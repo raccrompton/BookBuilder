@@ -1140,8 +1140,21 @@
         }
 
         @media (max-width: 768px) {
+            /* Prevent horizontal scroll on mobile - fixes empty space when swiping right */
+            html, body {
+                overflow-x: hidden;
+            }
+
+            /* Hide elements marked as desktop-only (arrows, extra text) */
+            .hide-mobile {
+                display: none;
+            }
+
             .container {
                 padding: 1rem;
+                /* Extra bottom padding to ensure footer is visible above the fixed nav bar */
+                /* Reduced from 14rem since nav bar is now 2 rows instead of 3 */
+                padding-bottom: 10rem;
             }
 
             .form-section-container {
@@ -1158,25 +1171,111 @@
                 gap: 1rem;
             }
 
+            /*
+             * MOBILE TAB NAVIGATION - Dropdown Pattern
+             * On mobile, the horizontal tabs become a collapsible dropdown.
+             * Only the active tab is shown by default; tapping it reveals all tabs.
+             * This saves horizontal space while keeping all options accessible.
+             */
+            .tab-navigation {
+                position: relative;        /* Positioning context for the dropdown arrow */
+                flex-direction: column;    /* Stack tabs vertically when expanded */
+                padding: 0;                /* Remove pill-style padding */
+                background: transparent;   /* Transparent background - each tab has its own */
+                border: none;              /* Remove container border */
+                gap: 0.5rem;               /* Space between tabs when expanded */
+            }
+
             .tab-button {
                 padding: 0.75rem 1rem;
                 font-size: 0.875rem;
+                display: none;             /* Hide all tabs by default */
+                width: 100%;               /* Full width when shown */
+                justify-content: center;   /* Center the tab text and icon */
+            }
+
+            /* Always show the currently active tab as the "dropdown trigger" */
+            .tab-button.active {
+                display: flex;             /* Override display:none - active tab is always visible */
+                border-radius: 6px;        /* Rounded corners for standalone appearance */
+                background: var(--surface);/* White/dark background for clear visibility */
+                border: 1px solid var(--border); /* Subtle border for definition */
+                color: var(--text-primary);/* Fix: desktop sets white text for blue bg, but mobile has white bg */
+            }
+
+            /* When dropdown is expanded (.expanded class added via JS), show all tabs */
+            .tab-navigation.expanded .tab-button {
+                display: flex;             /* Override display:none - show all tabs when expanded */
+            }
+
+            /*
+             * Dropdown arrow indicator - visual cue that tapping reveals more options
+             * Uses ::after pseudo-element to add content without extra HTML
+             */
+            .tab-navigation::after {
+                content: '▼';              /* Unicode down arrow character */
+                position: absolute;        /* Position relative to .tab-navigation */
+                right: 1rem;               /* Inset from right edge */
+                top: 0.75rem;              /* Align vertically with tab text */
+                font-size: 0.75rem;        /* Small size so it's subtle */
+                color: var(--text-muted);  /* Muted color for secondary visual */
+                pointer-events: none;      /* Click passes through to the tab button */
+                transition: transform 0.2s ease; /* Smooth rotation animation */
+            }
+
+            /* Rotate arrow when dropdown is expanded - points up to indicate "close" */
+            .tab-navigation.expanded::after {
+                transform: rotate(180deg); /* 180° rotation flips ▼ to ▲ */
             }
 
             .tab-navigation-buttons {
                 /*
-                 * Mobile adjustments: .container uses padding: 1rem on mobile (vs 2rem desktop),
-                 * so we reduce our width calc to match (1rem * 2 sides = 2rem total).
-                 * Stack buttons vertically since horizontal space is limited.
+                 * Mobile: Compact 2-row layout for bottom navigation.
+                 * Row 1: Load Sample (full width, centered)
+                 * Row 2: Back | Generate | Next (shared row)
+                 *
+                 * Uses flex-wrap so items can flow into multiple rows.
+                 * Sample dropdown takes 100% width forcing it to own row.
                  */
-                width: calc(100% - 2rem);  /* Match mobile .container padding (1rem each side) */
-                flex-direction: column;    /* Stack button groups vertically instead of side-by-side */
-                gap: 1rem;                 /* Spacing between stacked button groups */
+                width: 100%;               /* Full viewport width */
+                left: 0;                   /* Align to left edge instead of centering */
+                transform: none;           /* Remove translateX that caused overflow */
+                border-radius: 0;          /* Square corners when edge-to-edge */
+                border-left: none;         /* No side borders when spanning full width */
+                border-right: none;
+                padding: 0.5rem 1rem;      /* Reduced padding for compact layout */
+                flex-direction: row;       /* Horizontal flow with wrapping */
+                flex-wrap: wrap;           /* Allow items to wrap to next row */
+                gap: 0.5rem;               /* Tighter spacing between items */
+                align-items: center;       /* Vertically center items in each row */
             }
 
+            /* Load Sample takes full width, forcing it to its own row */
+            .sample-dropdown {
+                width: 100%;               /* Full width = own row */
+                display: flex;             /* Enable flexbox for centering */
+                justify-content: center;   /* Center the button horizontally */
+                order: 0;                  /* Ensure it comes first (top row) */
+            }
+
+            /*
+             * "Unwrap" the nav-button-group so Back and Next become direct flex children.
+             * display: contents makes the container disappear from layout while keeping
+             * its children. This lets us reorder Back, Generate, Next independently.
+             */
             .nav-button-group {
-                width: 100%;
-                justify-content: space-between;
+                display: contents;
+            }
+
+            /* Order buttons: Back (1) | Generate (2) | Next (3) */
+            #prev-tab {
+                order: 1;
+            }
+            .tab-navigation-buttons > .btn-primary {
+                order: 2;                  /* Generate in the middle */
+            }
+            #next-tab {
+                order: 3;
             }
 
             .pgn-display-header {
@@ -1209,6 +1308,23 @@
             .pgn-display-stats {
                 flex-direction: column;
                 gap: 0.5rem;
+            }
+
+            /*
+             * MOBILE FOOTER CONTROLS
+             * Stack footer elements vertically instead of horizontally.
+             * Prevents overflow on narrow screens where all items don't fit in one row.
+             */
+            .footer-controls {
+                flex-direction: column;    /* Stack children vertically */
+                gap: 1rem;                 /* Space between stacked elements */
+            }
+
+            /* Footer links stack vertically and center on mobile */
+            .footer-links {
+                flex-direction: column;    /* Stack links vertically */
+                gap: 0.75rem;              /* Tighter spacing when stacked */
+                align-items: center;       /* Center the links horizontally */
             }
         }
 
@@ -1658,11 +1774,11 @@
             <div class="tab-content active" id="tab-pgn-input">
                 <div class="form-section-container" id="pgn-input">
                 <div class="form-section">
-                    <h2 class="section-title"><i data-lucide="file-text" class="icon"></i> Enter starting position</h2>
+                    <h2 class="section-title"><i data-lucide="file-text" class="icon"></i> Enter repertoire starting position</h2>
 
                     <div class="form-group">
                         <label class="form-label" for="pgn-input-text">
-                            Type or paste a PGN to 
+                            Type or paste a PGN
                         </label>
                         <textarea
                             id="pgn-input-text"
@@ -1978,14 +2094,14 @@
                 </div>
                 <div class="nav-button-group">
                     <button type="button" class="btn-nav" id="prev-tab" disabled>
-                        ← Back
+                        <span class="hide-mobile">← </span>Back
                     </button>
                     <button type="button" class="btn-nav" id="next-tab">
-                        Next →
+                        Next<span class="hide-mobile"> →</span>
                     </button>
                 </div>
                 <button type="submit" class="btn btn-primary">
-                    <i data-lucide="play" class="icon"></i> Generate Repertoire
+                    <i data-lucide="play" class="icon"></i> Generate<span class="hide-mobile">Repertoire</span>
                 </button>
             </div>
 
@@ -2632,18 +2748,82 @@
         let currentTab = 0;
         const tabs = ['pgn-input', 'lichess-settings', 'opponent-filters', 'candidate-selectors', 'engine-settings'];
 
+        /**
+         * Checks if the viewport is at mobile width (768px or less).
+         * Used to conditionally apply mobile-specific behavior like the tab dropdown.
+         *
+         * HOW IT WORKS:
+         * Uses window.matchMedia(), which is like a CSS media query but in JavaScript.
+         * It checks the browser window width against our mobile breakpoint (768px).
+         * This runs live - returns different results if the user resizes their window.
+         *
+         * @returns {boolean} true if viewport is mobile-sized
+         */
+        function isMobileViewport() {
+            // window.matchMedia checks if a CSS media query matches the current viewport
+            // .matches returns true/false - true if viewport width is 768px or less
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
         function initTabSystem() {
-            // Add click listeners to tab buttons
+            // querySelector finds the first element matching a CSS selector
+            // We get a reference to the tab navigation container for mobile dropdown toggling
+            const tabNav = document.querySelector('.tab-navigation');
+
+            // querySelectorAll finds ALL elements matching the selector, returning a NodeList
+            // forEach iterates over each element; index tells us which tab (0, 1, 2, etc.)
             document.querySelectorAll('.tab-button').forEach((button, index) => {
-                button.addEventListener('click', () => switchToTab(index));
+                // addEventListener attaches a function to run when the 'click' event occurs
+                // The (e) parameter is the Event object containing info about the click
+                button.addEventListener('click', (e) => {
+                    // On mobile, if clicking the active tab, toggle dropdown instead of switching
+                    // This allows the active tab to act as a dropdown trigger
+                    if (isMobileViewport() && button.classList.contains('active')) {
+                        // classList.toggle() adds a class if absent, removes if present
+                        // This creates the expand/collapse toggle behavior
+                        tabNav.classList.toggle('expanded');
+
+                        // stopPropagation() prevents "event bubbling" - normally clicks travel
+                        // UP the DOM tree to parent elements. Without this, the click would
+                        // reach the document listener below and immediately close the dropdown
+                        e.stopPropagation();
+                    } else {
+                        // Switch to the selected tab (handles both desktop and mobile)
+                        switchToTab(index);
+                        // Collapse dropdown after selection (mobile only)
+                        if (isMobileViewport()) {
+                            // classList.remove() removes a class - collapses the dropdown
+                            tabNav.classList.remove('expanded');
+                        }
+                    }
+                });
             });
 
-            // Add click listeners to navigation buttons
+            // Document-level click listener catches all clicks on the page
+            // Used for closing the mobile dropdown when clicking outside of it
             document.addEventListener('click', (e) => {
+                // e.target is the element that was actually clicked
+                // e.target.closest() walks UP the DOM tree looking for a matching element
+                // Returns null if no ancestor matches, or the matching element if found
                 if (e.target.id === 'next-tab' || e.target.closest('#next-tab')) {
                     nextTab();
+                    // Collapse dropdown when using nav buttons on mobile
+                    if (isMobileViewport()) {
+                        tabNav.classList.remove('expanded');
+                    }
                 } else if (e.target.id === 'prev-tab' || e.target.closest('#prev-tab')) {
                     prevTab();
+                    // Collapse dropdown when using nav buttons on mobile
+                    if (isMobileViewport()) {
+                        tabNav.classList.remove('expanded');
+                    }
+                }
+
+                // Close mobile dropdown if clicking outside of the tab navigation
+                // !e.target.closest('.tab-navigation') returns true if the click was
+                // NOT inside the tab navigation (closest returns null, ! makes it true)
+                if (isMobileViewport() && !e.target.closest('.tab-navigation')) {
+                    tabNav.classList.remove('expanded');
                 }
             });
         }
