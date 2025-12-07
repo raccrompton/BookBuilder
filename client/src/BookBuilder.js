@@ -224,18 +224,6 @@ class BookBuilder {
         // We process this queue until it's empty (breadth-first search pattern)
         this.processingQueue = [];
 
-        // ---------------------------------------------------------------------
-        // STEP 6: Performance tuning parameters
-        // ---------------------------------------------------------------------
-        // These prevent us from overwhelming the Lichess API with too many requests
-
-        // BATCH_SIZE: How many positions to analyze in parallel
-        // Too high = API rate limiting, too low = slow processing
-        this.BATCH_SIZE = config.BATCH_SIZE || 5;
-
-        // API_DELAY: Milliseconds to wait between API request batches
-        // Respects Lichess rate limits and prevents being blocked
-        this.API_DELAY = config.API_DELAY || 100;
     }
 
     /**
@@ -581,69 +569,67 @@ class BookBuilder {
     }
 
     /**
-     * Iterative line expansion method (replaces Python's Leafer while loop)
-     * Processes the queue of lines until no new lines can be generated
+     * =========================================================================
+     * Iterative line expansion - processes queued lines until complete
+     * =========================================================================
+     *
+     * WHAT THIS METHOD DOES:
+     * Takes lines from the processingQueue and expands each one by finding
+     * opponent responses and our counter-moves. Continues until the queue is
+     * empty (all lines are fully explored).
+     *
+     * WHY SEQUENTIAL PROCESSING?
+     * The Lichess API has rate limits (~2 requests/second). Parallel processing
+     * would cause multiple requests to fire simultaneously, triggering 429 errors.
+     * Since the API is the bottleneck, sequential processing is just as fast
+     * and avoids rate limiting issues. The 500ms throttle in LichessClient
+     * handles the delay between requests.
+     *
+     * DESIGN PATTERN: Breadth-first search (BFS)
+     * We use a queue (first-in-first-out) so we explore all variations at the
+     * same depth before going deeper into the game tree.
+     *
+     * @returns {Promise<void>} - No return value; populates this.finalLines
      */
     async expandAllLines() {
-        let iterationCount = 0;
-        const maxIterations = 1000; // Safety limit to prevent infinite loops
+        // Track how many lines we've processed for logging and user feedback
+        let linesProcessed = 0;
 
-        while (this.processingQueue.length > 0 && iterationCount < maxIterations) {
-            iterationCount++;
-            const currentBatch = this.processingQueue.splice(0, this.BATCH_SIZE);
+        // Process one line at a time until the queue is empty
+        // The while loop continues as long as the queue has items (.length > 0)
+        while (this.processingQueue.length > 0) {
+            // Take the first line from the queue using shift()
+            // .shift() removes and returns the first element (like pop from the front)
+            // This gives us FIFO (first-in-first-out) behavior - a queue, not a stack
+            const lineData = this.processingQueue.shift();
 
-            log.log(`    Iteration ${iterationCount}: Processing ${currentBatch.length} lines, ${this.processingQueue.length} remaining`);
+            // Increment counter for user-facing progress messages
+            linesProcessed++;
 
-            // Update progress message for this batch (don't update positionsProcessed here!)
-            // The actual counter is incremented inside expandLine() for each position.
-            // Previously this line was setting positionsProcessed which caused conflicts:
-            // - It would jump ahead by batch size, then get capped at totalEstimated-1
-            // - This made the counter oscillate around totalEstimated instead of increasing
+            // Log progress for developers debugging the process
+            log.log(`    Processing line ${linesProcessed}, ${this.processingQueue.length} remaining in queue`);
+
+            // Update progress message for the user (shown in the UI)
             this.emitProgress({
-                currentMessage: `Processing batch ${iterationCount}: ${currentBatch.length} positions, ${this.processingQueue.length} remaining...`
+                currentMessage: `Processing line ${linesProcessed}, ${this.processingQueue.length} remaining...`
             });
 
-            // Process batch - SEQUENTIAL when engine is enabled to avoid UCI race conditions
-            // The shared Stockfish engine can only handle one operation at a time
-            // Parallel processing with a single engine causes interleaved UCI commands
-            // which corrupts the command stream and causes WASM crashes
-            log.log(`[BookBuilder] Processing batch of ${currentBatch.length} lines`);
+            // Expand this line - find opponent responses and our replies
+            // This makes Lichess API calls (throttled at 500ms each in LichessClient)
+            // The await pauses here until expandLine completes (async operation)
+            const newLines = await this.expandLine(lineData);
 
-            let batchResults;
-            if (this.config.CAREABOUTENGINE && this.stockfishEngine) {
-                // SEQUENTIAL processing when engine is enabled
-                // This prevents multiple expandLine() calls from sending
-                // interleaved commands to the same Stockfish instance
-                log.log(`[BookBuilder] Using sequential processing (engine analysis enabled)`);
-                batchResults = [];
-                for (const line of currentBatch) {
-                    const result = await this.expandLine(line);
-                    batchResults.push(result);
-                }
-            } else {
-                // PARALLEL processing when engine is disabled (faster)
-                log.log(`[BookBuilder] Using parallel processing (no engine analysis)`);
-                batchResults = await Promise.all(
-                    currentBatch.map(line => this.expandLine(line))
-                );
-            }
-            log.log(`[BookBuilder] Batch processing completed`);
-
-            // Add new lines to queue (flattened and filtered)
-            const newLines = batchResults.flat().filter(Boolean);
-            this.processingQueue.push(...newLines);
-
-            // Rate limiting pause to avoid overwhelming Lichess API
-            if (this.processingQueue.length > 0) {
-                await this.sleep(this.API_DELAY);
+            // Add any new lines to the queue for further processing
+            // expandLine returns an array of new lines (or empty array if line is complete)
+            if (newLines && newLines.length > 0) {
+                // The spread operator (...) unpacks the array elements
+                // .push(...newLines) is like .push(newLines[0], newLines[1], ...)
+                this.processingQueue.push(...newLines);
             }
         }
 
-        if (iterationCount >= maxIterations) {
-            log.warn(`    Maximum iterations (${maxIterations}) reached. Some lines may be incomplete.`);
-        }
-
-        log.log(`    Expansion completed after ${iterationCount} iterations`);
+        // Log completion summary for developers
+        log.log(`    Expansion completed after processing ${linesProcessed} lines`);
     }
 
     /**
@@ -1049,92 +1035,75 @@ class BookBuilder {
 
         // Use provided engine or fall back to main engine
         const chessEngine = engine || this.chessEngine;
-        try {
-            // Load the position into the chess engine
-            log.log(`   Loading position into chess engine...`);
-            chessEngine.loadPosition(lineData.fen);
 
-            log.log(`   Getting position statistics from Lichess...`);
-            const stats = await this.lichessClient.getPositionStats(lineData.fen, this.lichessApiOptions);
+        // Load the position into the chess engine
+        log.log(`   Loading position into chess engine...`);
+        chessEngine.loadPosition(lineData.fen);
 
-            if (stats) {
-                log.log(`   Position stats:`, {
-                    white: stats.white,
-                    black: stats.black,
-                    draws: stats.draws,
-                    total: stats.white + stats.draws + stats.black
-                });
-            } else {
-                log.log(`   No position stats available`);
-            }
+        log.log(`   Getting position statistics from Lichess...`);
+        const stats = await this.lichessClient.getPositionStats(lineData.fen, this.lichessApiOptions);
 
-            let winRate = 0;
-            let totalGames = 0;
-
-            if (stats && stats.white + stats.draws + stats.black > 0) {
-                const winRateResult = this.statisticsEngine.calculateWinRate(
-                    stats.white,
-                    stats.black,
-                    stats.draws,
-                    this.config.DRAWSAREHALF
-                );
-                totalGames = stats.white + stats.draws + stats.black;
-
-                // Extract the correct percentage based on REPERTOIRE perspective (not dynamic line perspective)
-                // Use the original opening perspective consistently for all winrate calculations
-                winRate = this.openingPerspective === 'white' ?
-                    winRateResult.whitePerc :
-                    winRateResult.blackPerc;
-
-                // Handle legitimate null results (no games played from position)
-                if (winRate === null || winRate === undefined) {
-                    // This matches Python logic: check for mate or insufficient data
-                    winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
-                }
-            } else {
-                // Handle mate positions or insufficient data
-                winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
-                totalGames = this.getFallbackGameCount(lineData);
-            }
-
-            // Validate winRate is a proper number (should not be NaN after proper extraction)
-            log.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
-            log.log(`   Total games: ${totalGames}`);
-
-            if (isNaN(winRate) || !isFinite(winRate)) {
-                log.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
-                throw new Error(`Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
-            }
-
-            log.log(`   ✅ Adding line to finalLines collection`);
-            this.finalLines.push({
-                pgn: lineData.pgn,
-                moves: this.extractMovesFromPgn(lineData.pgn),
-                cumulativeLikelihood: lineData.cumulativeLikelihood,
-                likelihoodPath: lineData.likelihoodPath,
-                statistics: {
-                    cumulativePlayrate: lineData.cumulativeLikelihood,
-                    winrate: winRate,
-                    totalGames: totalGames
-                }
+        if (stats) {
+            log.log(`   Position stats:`, {
+                white: stats.white,
+                black: stats.black,
+                draws: stats.draws,
+                total: stats.white + stats.draws + stats.black
             });
-
-        } catch (error) {
-            log.warn(`⚠️ [BookBuilder] Error finalizing line: ${error.message}`);
-            log.log(`   Adding line with default values instead`);
-            // Add line anyway with default values
-            this.finalLines.push({
-                pgn: lineData.pgn,
-                moves: this.extractMovesFromPgn(lineData.pgn),
-                cumulativeLikelihood: lineData.cumulativeLikelihood,
-                likelihoodPath: lineData.likelihoodPath,
-                statistics: {
-                    cumulativePlayrate: lineData.cumulativeLikelihood,
-                    winrate: 0.5,
-                    totalGames: this.config.MINGAMES
-                }
-            });
+        } else {
+            log.log(`   No position stats available`);
         }
+
+        let winRate = 0;
+        let totalGames = 0;
+
+        if (stats && stats.white + stats.draws + stats.black > 0) {
+            const winRateResult = this.statisticsEngine.calculateWinRate(
+                stats.white,
+                stats.black,
+                stats.draws,
+                this.config.DRAWSAREHALF
+            );
+            totalGames = stats.white + stats.draws + stats.black;
+
+            // Extract the correct percentage based on REPERTOIRE perspective (not dynamic line perspective)
+            // Use the original opening perspective consistently for all winrate calculations
+            winRate = this.openingPerspective === 'white' ?
+                winRateResult.whitePerc :
+                winRateResult.blackPerc;
+
+            // Handle legitimate null results (no games played from position)
+            if (winRate === null || winRate === undefined) {
+                // This matches Python logic: check for mate or insufficient data
+                winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
+            }
+        } else {
+            // Handle mate positions or insufficient data
+            winRate = this.calculateFallbackWinRate(lineData.fen, lineData);
+            totalGames = this.getFallbackGameCount(lineData);
+        }
+
+        // Validate winRate is a proper number (should not be NaN after proper extraction)
+        log.log(`   Calculated win rate: ${winRate?.toFixed(4)} (${typeof winRate})`);
+        log.log(`   Total games: ${totalGames}`);
+
+        if (isNaN(winRate) || !isFinite(winRate)) {
+            log.error(`❌ [BookBuilder] Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
+            throw new Error(`Invalid winRate after calculation: ${winRate} for position ${lineData.fen}`);
+        }
+
+        log.log(`   ✅ Adding line to finalLines collection`);
+        this.finalLines.push({
+            pgn: lineData.pgn,
+            moves: this.extractMovesFromPgn(lineData.pgn),
+            cumulativeLikelihood: lineData.cumulativeLikelihood,
+            likelihoodPath: lineData.likelihoodPath,
+            statistics: {
+                cumulativePlayrate: lineData.cumulativeLikelihood,
+                winrate: winRate,
+                totalGames: totalGames
+            }
+        });
 
         log.log(`🏁 [BookBuilder] Line finalization completed. Total final lines: ${this.finalLines.length}`);
     }
