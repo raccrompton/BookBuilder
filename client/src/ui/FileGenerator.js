@@ -80,8 +80,10 @@ class FileGenerator {
         this.currentFormats = null;  // { individualPGN, treePGN, chapterName }
 
         // Currently displayed format: 'individual' or 'tree'
-        // Defaults to 'individual' - user can toggle after generation
-        this.currentFormat = 'individual';
+        // Defaults to 'tree' because it's more compact and shows the variation structure visually
+        // Tree merges all lines into one game with parenthetical variations at divergence points
+        // User can toggle between formats after generation completes
+        this.currentFormat = 'tree';
     }
 
     /**
@@ -186,7 +188,7 @@ class FileGenerator {
 
         try {
             // Use chess.js to robustly parse the PGN moves
-            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js'); // Dynamic import for ES module
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js'); // Dynamic import for ES module
             const chess = new Chess(); // Create new chess instance
 
             chess.loadPgn(pgnMoves); // Load the PGN - chess.js handles all formatting
@@ -868,7 +870,7 @@ class FileGenerator {
             log.log(`   🔍 Parsing PGN with chess.js: "${pgn.substring(0, 50)}..."`);
 
             // Import chess.js for robust PGN parsing
-            const { Chess } = await import('../../node_modules/chess.js/dist/esm/chess.js');
+            const { Chess } = await import('/node_modules/chess.js/dist/esm/chess.js');
             const chess = new Chess();
 
             // Load the PGN - chess.js handles headers, formatting, etc.
@@ -1686,11 +1688,12 @@ class FileGenerator {
             };
         }
 
-        // Reset to default format when displaying new content
-        this.currentFormat = 'individual';
+        // Reset to tree format when displaying new content
+        // Tree is the default because it's more compact and better shows how lines branch
+        this.currentFormat = 'tree';
 
-        // Get the content for initial display (individual format by default)
-        const content = this.currentFormats.individualPGN;
+        // Get the content for initial display (tree format shows all lines merged with variations)
+        const content = this.currentFormats.treePGN;
 
         log.log(`📋 [FileGenerator] displayPGN called:`);
         log.log(`   Chapter: ${chapterName}`);
@@ -1957,11 +1960,13 @@ class FileGenerator {
         toggleContainer.className = 'format-toggle-container';
 
         // Build the toggle HTML with icons matching the project style
+        // Tree view is active by default because it's more compact and shows variation structure
+        // Individual view separates each line into its own PGN game entry (useful for some tools)
         toggleContainer.innerHTML = `
-            <button type="button" class="format-toggle-btn active" data-format="individual" id="toggle-individual">
+            <button type="button" class="format-toggle-btn" data-format="individual" id="toggle-individual">
                 <i data-lucide="list" class="icon"></i> Individual
             </button>
-            <button type="button" class="format-toggle-btn" data-format="tree" id="toggle-tree">
+            <button type="button" class="format-toggle-btn active" data-format="tree" id="toggle-tree">
                 <i data-lucide="git-branch" class="icon"></i> Tree
             </button>
         `;
