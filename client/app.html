@@ -327,6 +327,89 @@
             background: var(--background);
         }
 
+        /* ============================================================
+         * SAMPLE DROPDOWN STYLES
+         * Dropdown menu for loading pre-configured opening samples.
+         * Uses CSS-only toggle with :focus-within for accessibility.
+         * ============================================================ */
+
+        /* Container uses relative positioning so dropdown menu positions correctly */
+        .sample-dropdown {
+            position: relative;      /* Creates positioning context for absolute child */
+            display: inline-block;   /* Allows dropdown to sit inline with other buttons */
+        }
+
+        /* The dropdown menu - hidden by default, shown on button click */
+        .sample-dropdown-menu {
+            display: none;                          /* Hidden until activated */
+            position: absolute;                     /* Position relative to parent */
+            bottom: 100%;                           /* Appear above the button */
+            left: 0;                                /* Align left edge with button */
+            min-width: 280px;                       /* Wide enough for opening names */
+            background: var(--surface);             /* Match theme surface color */
+            border: 1px solid var(--border);        /* Subtle border matching theme */
+            border-radius: 8px;                     /* Rounded corners for modern look */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  /* Elevation shadow */
+            z-index: 1000;                          /* Ensure dropdown appears above other content */
+            margin-bottom: 4px;                     /* Small gap between menu and button */
+            overflow: hidden;                       /* Clip content to rounded corners */
+        }
+
+        /* Show dropdown when parent has 'open' class (toggled via JavaScript) */
+        .sample-dropdown.open .sample-dropdown-menu {
+            display: block;  /* Override display:none to show menu */
+        }
+
+        /* Rotate chevron icon when dropdown is open */
+        .sample-dropdown.open .dropdown-chevron {
+            transform: rotate(180deg);  /* Point arrow down when menu is open */
+        }
+
+        /* Smooth rotation transition for chevron icon */
+        .dropdown-chevron {
+            transition: transform 0.2s ease;  /* Animate rotation over 0.2 seconds */
+            margin-left: 4px;                 /* Space between text and icon */
+        }
+
+        /* Individual dropdown menu items - styled as buttons */
+        .sample-dropdown-item {
+            display: block;                   /* Full width, stacked vertically */
+            width: 100%;                      /* Fill container width */
+            padding: 12px 16px;               /* Comfortable click target */
+            text-align: left;                 /* Left-align text content */
+            background: none;                 /* Transparent background */
+            border: none;                     /* Remove default button border */
+            color: var(--text-primary);       /* Use theme text color */
+            cursor: pointer;                  /* Show clickable hand cursor */
+            font-size: 0.9rem;                /* Slightly smaller than body text */
+            transition: background 0.15s ease;  /* Smooth hover effect */
+        }
+
+        /* Hover state for menu items - subtle highlight */
+        .sample-dropdown-item:hover {
+            background: var(--background);  /* Use theme background for contrast */
+        }
+
+        /* Opening name in bold for emphasis */
+        .sample-dropdown-item .opening-name {
+            font-weight: 600;   /* Semi-bold for emphasis */
+            display: block;     /* Force onto own line */
+        }
+
+        /* Smaller, muted text showing the move sequence */
+        .sample-dropdown-item .opening-moves {
+            font-size: 0.8rem;              /* Smaller secondary text */
+            color: var(--text-secondary);   /* Muted color for less emphasis */
+            margin-top: 2px;                /* Small gap from name above */
+        }
+
+        /* Visual separator between menu items (White vs Black sections) */
+        .sample-dropdown-divider {
+            height: 1px;                  /* Thin horizontal line */
+            background: var(--border);    /* Use theme border color */
+            margin: 4px 0;                /* Vertical spacing around divider */
+        }
+
         /* Enhanced Progress Container - Full Screen Overlay */
         .progress-container {
             display: none;
@@ -1477,9 +1560,23 @@
 
             <!-- Global Tab Navigation -->
             <div class="tab-navigation-buttons">
-                <button type="button" class="btn btn-secondary" onclick="loadSampleConfiguration()">
-                    <i data-lucide="file-down" class="icon"></i> Load Sample
-                </button>
+                <!-- Sample Dropdown: Expandable menu with pre-configured opening samples -->
+                <div class="sample-dropdown" id="sample-dropdown">
+                    <!-- Toggle button opens/closes the dropdown menu -->
+                    <button type="button" class="btn btn-secondary" onclick="toggleSampleDropdown()">
+                        <i data-lucide="file-down" class="icon"></i>
+                        Load Sample
+                        <i data-lucide="chevron-up" class="icon dropdown-chevron"></i>
+                    </button>
+
+                    <!-- Dropdown menu - items loaded dynamically from sample-openings.json -->
+                    <div class="sample-dropdown-menu">
+                        <!-- Menu items are generated by loadSampleConfigurations() -->
+                        <div class="sample-dropdown-item" style="color: var(--text-secondary);">
+                            Loading samples...
+                        </div>
+                    </div>
+                </div>
                 <div class="nav-button-group">
                     <button type="button" class="btn-nav" id="prev-tab" disabled>
                         ← Back
@@ -2046,37 +2143,250 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function loadSampleConfiguration() {
-            const sampleConfig = {
-                'opening-books-json': JSON.stringify([
-                    {
-                        "name": "Sicilian Defense",
-                        "moves": ["e4", "c5"],
-                        "priority": 1
-                    },
-                    {
-                        "name": "French Defense",
-                        "moves": ["e4", "e6"],
-                        "priority": 2
-                    }
-                ]),
-                'engine-depth': 15,
-                'min-games': 10,
-                'engine-time': 1000
-            };
+        /* ============================================================
+         * SAMPLE DROPDOWN FUNCTIONS
+         * Toggle dropdown visibility and load pre-configured samples.
+         * Each sample includes opening moves and recommended settings.
+         * ============================================================ */
 
-            // Populate form fields
-            Object.entries(sampleConfig).forEach(([key, value]) => {
-                const element = document.getElementById(key);
-                if (element) {
-                    if (element.type === 'range') {
-                        element.value = value;
-                        updateRangeDisplay(element);
-                    } else {
-                        element.value = value;
-                    }
-                }
+        /**
+         * Toggle the sample dropdown menu open/closed.
+         * Adds/removes 'open' class which CSS uses to show/hide the menu.
+         */
+        function toggleSampleDropdown() {
+            // Find the dropdown container element
+            const dropdown = document.getElementById('sample-dropdown');
+
+            // Toggle the 'open' class - CSS handles the visual state
+            dropdown.classList.toggle('open');
+        }
+
+        /**
+         * Close dropdown when clicking outside of it.
+         * Event listener added to document to detect clicks anywhere.
+         */
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('sample-dropdown');
+
+            // If dropdown exists and click was outside of it, close it
+            if (dropdown && !dropdown.contains(event.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+
+        /**
+         * Sample opening configurations - loaded from external JS file.
+         * Edit src/config/sample-openings.js to add/modify samples.
+         */
+        let SAMPLE_CONFIGURATIONS = {};  // Will be populated when module loads
+
+        /**
+         * Load sample configurations from external JavaScript module.
+         * This allows easy editing of samples (with comments!) without modifying app.html.
+         */
+        async function loadSampleConfigurations() {
+            try {
+                // Dynamically import the configuration module
+                const { sampleOpenings } = await import('./src/config/sample-openings.js');
+
+                // Store each sample by its ID for quick lookup
+                // We keep all properties so loadSampleConfiguration can apply them
+                sampleOpenings.samples.forEach(sample => {
+                    SAMPLE_CONFIGURATIONS[sample.id] = sample;
+                });
+
+                // Build the dropdown menu dynamically
+                buildSampleDropdownMenu(sampleOpenings.samples);
+
+            } catch (error) {
+                console.error('Failed to load sample configurations:', error);
+            }
+        }
+
+        /**
+         * Build the dropdown menu HTML from the loaded samples.
+         * Groups samples by color (White/Black) with a divider between.
+         *
+         * @param {Array} samples - Array of sample objects from JSON
+         */
+        function buildSampleDropdownMenu(samples) {
+            const menu = document.querySelector('.sample-dropdown-menu');
+            if (!menu) return;
+
+            // Clear existing menu items
+            menu.innerHTML = '';
+
+            // Separate samples by color
+            const whiteSamples = samples.filter(s => s.color === 'white');
+            const blackSamples = samples.filter(s => s.color === 'black');
+
+            // Add White repertoire samples
+            whiteSamples.forEach(sample => {
+                menu.appendChild(createSampleMenuItem(sample));
             });
+
+            // Add divider between White and Black
+            if (whiteSamples.length > 0 && blackSamples.length > 0) {
+                const divider = document.createElement('div');
+                divider.className = 'sample-dropdown-divider';
+                menu.appendChild(divider);
+            }
+
+            // Add Black repertoire samples
+            blackSamples.forEach(sample => {
+                menu.appendChild(createSampleMenuItem(sample));
+            });
+
+            // Re-initialize Lucide icons for any new elements
+            lucide.createIcons();
+        }
+
+        /**
+         * Create a single dropdown menu item button.
+         *
+         * @param {Object} sample - Sample object with id, name, color, displayMoves
+         * @returns {HTMLButtonElement} The menu item button element
+         */
+        function createSampleMenuItem(sample) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'sample-dropdown-item';
+            button.onclick = () => loadSampleConfiguration(sample.id);
+
+            // Create the opening name span
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'opening-name';
+            // Add color indicator: (White) or (Black)
+            const colorLabel = sample.color === 'white' ? 'White' : 'Black';
+            nameSpan.textContent = `${sample.name} (${colorLabel})`;
+
+            // Create the moves span
+            const movesSpan = document.createElement('span');
+            movesSpan.className = 'opening-moves';
+            movesSpan.textContent = sample.displayMoves;
+
+            button.appendChild(nameSpan);
+            button.appendChild(movesSpan);
+
+            return button;
+        }
+
+        // Load samples when page loads
+        loadSampleConfigurations();
+
+        /**
+         * Convert an array of moves to PGN format string.
+         * Takes moves like ["e4", "e5", "Nf3"] and returns "1. e4 e5 2. Nf3"
+         *
+         * @param {string[]} moves - Array of moves in SAN notation
+         * @returns {string} PGN formatted string with move numbers
+         */
+        function movesToPgn(moves) {
+            let pgn = '';           // Build the PGN string incrementally
+            let moveNumber = 1;     // Track current move number (starts at 1)
+
+            // Loop through each move in the array
+            for (let i = 0; i < moves.length; i++) {
+                if (i % 2 === 0) {
+                    // Even index = White's move, add move number prefix
+                    // e.g., "1. e4" for White's first move
+                    pgn += `${moveNumber}. ${moves[i]} `;
+                } else {
+                    // Odd index = Black's move, just add the move
+                    // e.g., "e5" after "1. e4"
+                    pgn += `${moves[i]} `;
+                    moveNumber++;  // Increment move number after Black plays
+                }
+            }
+
+            return pgn.trim();  // Remove trailing whitespace
+        }
+
+        /**
+         * Helper to set a form field value if it exists in the sample config.
+         * Only updates the field if the sample has a value defined.
+         *
+         * @param {string} elementId - The form element's ID
+         * @param {*} value - The value to set (if defined)
+         * @param {string} type - 'value', 'checked', or 'select'
+         */
+        function setFormField(elementId, value, type = 'value') {
+            if (value === undefined) return;  // Skip if not defined in sample
+
+            const element = document.getElementById(elementId);
+            if (!element) return;  // Skip if element doesn't exist
+
+            if (type === 'checked') {
+                element.checked = value;  // For checkboxes
+            } else if (type === 'select') {
+                element.value = value;    // For dropdowns
+            } else {
+                element.value = value;    // For text/number inputs
+            }
+        }
+
+        /**
+         * Load a pre-configured sample into the form.
+         * Populates all form fields from the selected sample configuration.
+         *
+         * @param {string} sampleKey - Key from SAMPLE_CONFIGURATIONS (e.g., 'ruy-lopez')
+         */
+        function loadSampleConfiguration(sampleKey) {
+            // Look up the sample configuration by key
+            const sample = SAMPLE_CONFIGURATIONS[sampleKey];
+
+            // Guard clause: exit if sample doesn't exist
+            if (!sample) {
+                console.error(`Unknown sample configuration: ${sampleKey}`);
+                return;
+            }
+
+            // === PGN INPUT ===
+            const pgnString = movesToPgn(sample.moves);
+            setFormField('pgn-input-text', pgnString);
+
+            // === LICHESS DATABASE TAB ===
+            // Time Controls
+            setFormField('time-bullet', sample.timeBullet, 'checked');
+            setFormField('time-blitz', sample.timeBlitz, 'checked');
+            setFormField('time-rapid', sample.timeRapid, 'checked');
+            setFormField('time-classical', sample.timeClassical, 'checked');
+            setFormField('time-correspondence', sample.timeCorrespondence, 'checked');
+
+            // Rating Bands
+            setFormField('rating-1600', sample.rating1600, 'checked');
+            setFormField('rating-1800', sample.rating1800, 'checked');
+            setFormField('rating-2000', sample.rating2000, 'checked');
+            setFormField('rating-2200', sample.rating2200, 'checked');
+            setFormField('rating-2500', sample.rating2500, 'checked');
+
+            // === OPPONENT FILTERS TAB ===
+            setFormField('games-likelihood', sample.gamesLikelihood, 'select');
+            setFormField('opponent-min-games', sample.opponentMinGames);
+
+            // === CANDIDATE MOVES TAB ===
+            setFormField('most-played-moves', sample.mostPlayedMoves);
+            setFormField('min-playrate-percent', sample.minPlayratePercent);
+            setFormField('candidate-min-games', sample.candidateMinGames);
+            setFormField('confidence-percent', sample.confidencePercent);
+            setFormField('draws-half-point', sample.drawsHalfPoint, 'checked');
+
+            // === ENGINE FILTERS TAB ===
+            setFormField('engine-enabled', sample.engineEnabled, 'checked');
+            setFormField('engine-depth', sample.engineDepth);
+            setFormField('engine-finishing', sample.engineFinishing, 'checked');
+            setFormField('soundness-limit', sample.soundnessLimit);
+            setFormField('move-loss-limit', sample.moveLossLimit);
+            setFormField('ignore-loss-limit', sample.ignoreLossLimit);
+            setFormField('engine-threads', sample.engineThreads);
+            setFormField('engine-hash', sample.engineHash);
+
+            // Close the dropdown after selection
+            const dropdown = document.getElementById('sample-dropdown');
+            dropdown.classList.remove('open');
+
+            // Re-initialize Lucide icons
+            lucide.createIcons();
         }
     </script>
 

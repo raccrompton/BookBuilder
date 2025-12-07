@@ -12,20 +12,16 @@ const setupUIEnvironment = () => {
             <form id="bookbuilder-form" class="form-container">
                 <!-- Tabs -->
                 <div class="form-tabs">
-                    <button type="button" class="tab-button active" data-tab="opening-books">Opening Books</button>
+                    <button type="button" class="tab-button active" data-tab="pgn-input">PGN Input</button>
                     <button type="button" class="tab-button" data-tab="lichess-settings">Lichess Database</button>
                     <button type="button" class="tab-button" data-tab="move-selection">Move Selection</button>
                     <button type="button" class="tab-button" data-tab="engine-settings">Engine Settings</button>
                 </div>
 
                 <!-- Tab Contents -->
-                <div class="tab-content active" id="opening-books">
-                    <textarea id="opening-books-json" placeholder="Opening books JSON"></textarea>
-                    <select id="line-ordering">
-                        <option value="priority">Priority Order</option>
-                        <option value="popularity">Most Popular First</option>
-                    </select>
-                    <input type="checkbox" id="validate-pgn" checked>
+                <div class="tab-content active" id="pgn-input">
+                    <textarea id="pgn-input-text" placeholder="Paste PGN here"></textarea>
+                    <input type="number" id="opponent-min-games" value="10">
                 </div>
 
                 <div class="tab-content" id="lichess-settings">
@@ -50,9 +46,19 @@ const setupUIEnvironment = () => {
                     <span id="engine-depth-value">20</span>
                 </div>
 
-                <!-- Form Actions -->
+                <!-- Form Actions with Sample Dropdown -->
                 <div class="form-actions">
-                    <button type="button" onclick="loadSampleConfiguration()">Load Sample</button>
+                    <div class="sample-dropdown" id="sample-dropdown">
+                        <button type="button" onclick="toggleSampleDropdown()">Load Sample</button>
+                        <div class="sample-dropdown-menu">
+                            <button type="button" class="sample-dropdown-item" onclick="loadSampleConfiguration('sicilian')">
+                                Sicilian Defense
+                            </button>
+                            <button type="button" class="sample-dropdown-item" onclick="loadSampleConfiguration('ruy-lopez')">
+                                Ruy Lopez
+                            </button>
+                        </div>
+                    </div>
                     <button type="submit">Generate Repertoire</button>
                 </div>
             </form>
@@ -133,24 +139,74 @@ describe('UI Automation Tests', () => {
             }
         };
 
-        window.loadSampleConfiguration = () => {
-            document.getElementById('opening-books-json').value = JSON.stringify([
-                { name: 'Sicilian Defense', moves: ['e4', 'c5'], priority: 1 }
-            ]);
-            document.getElementById('variant-standard').checked = true;
-            document.getElementById('time-blitz').checked = true;
+        // Mock toggle function for sample dropdown
+        // This simulates the toggleSampleDropdown() from app.html
+        window.toggleSampleDropdown = () => {
+            const dropdown = document.getElementById('sample-dropdown');  // Find dropdown container
+            dropdown.classList.toggle('open');  // Toggle 'open' class to show/hide menu
+        };
+
+        // Mock sample configurations matching the main app
+        // WARNING: This duplicates SAMPLE_CONFIGURATIONS from app.html
+        // If you modify samples in app.html, update these test mocks to match
+        const SAMPLE_CONFIGURATIONS = {
+            'sicilian': {
+                opening: [{ name: 'Sicilian Defense', moves: ['e4', 'c5'], priority: 1 }],
+                'engine-depth': 18,   // Analysis depth in half-moves
+                'min-games': 100      // Minimum database games required
+            },
+            'ruy-lopez': {
+                opening: [{ name: 'Ruy Lopez', moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], priority: 1 }],
+                'engine-depth': 18,
+                'min-games': 50
+            }
+        };
+
+        // Mock movesToPgn helper (matches app.html implementation)
+        const movesToPgn = (moves) => {
+            let pgn = '';
+            let moveNumber = 1;
+            for (let i = 0; i < moves.length; i++) {
+                if (i % 2 === 0) {
+                    pgn += `${moveNumber}. ${moves[i]} `;
+                } else {
+                    pgn += `${moves[i]} `;
+                    moveNumber++;
+                }
+            }
+            return pgn.trim();
+        };
+
+        // Mock loadSampleConfiguration with sample key parameter
+        // This simulates the loadSampleConfiguration(sampleKey) from app.html
+        window.loadSampleConfiguration = (sampleKey) => {
+            const sample = SAMPLE_CONFIGURATIONS[sampleKey];  // Look up sample by key
+            if (sample) {
+                // Convert moves to PGN and populate the textarea
+                const pgnString = movesToPgn(sample.opening[0].moves);
+                document.getElementById('pgn-input-text').value = pgnString;
+                // Populate engine depth
+                document.getElementById('engine-depth').value = sample['engine-depth'];
+            }
+            // Also set some default form values for the test
+            document.getElementById('variant-standard').checked = true;  // Select standard chess
+            document.getElementById('time-blitz').checked = true;        // Select blitz time control
+            // Close dropdown after selection (matches real behavior)
+            const dropdown = document.getElementById('sample-dropdown');
+            dropdown.classList.remove('open');
         };
     });
 
     describe('Complete User Workflow Simulation', () => {
         it('should complete full configuration workflow', async () => {
-            // Step 1: User loads sample configuration
-            const loadButton = simulateUserClick('button[onclick="loadSampleConfiguration()"]');
-            expect(loadButton).toBeTruthy();
+            // Step 1: User loads sample configuration from dropdown
+            // First, click the dropdown item directly (simulates selecting Sicilian)
+            const sampleItem = simulateUserClick('button[onclick="loadSampleConfiguration(\'sicilian\')"]');
+            expect(sampleItem).toBeTruthy();
 
-            // Verify sample data loaded
-            const openingBooksField = document.getElementById('opening-books-json');
-            expect(openingBooksField.value).toContain('Sicilian Defense');
+            // Verify sample data loaded - should contain PGN format moves
+            const pgnInputField = document.getElementById('pgn-input-text');
+            expect(pgnInputField.value).toContain('1. e4 c5');  // Sicilian Defense opening moves
 
             // Step 2: User navigates through tabs
             const lichessTab = simulateUserClick('[data-tab="lichess-settings"]');
@@ -158,7 +214,7 @@ describe('UI Automation Tests', () => {
 
             // Verify tab switching
             expect(document.getElementById('lichess-settings').classList.contains('active')).toBe(true);
-            expect(document.getElementById('opening-books').classList.contains('active')).toBe(false);
+            expect(document.getElementById('pgn-input').classList.contains('active')).toBe(false);
 
             // Step 3: User adjusts rating ranges
             const ratingMin = simulateUserInput('#rating-min', '1800');
@@ -186,15 +242,15 @@ describe('UI Automation Tests', () => {
         });
 
         it('should handle validation errors correctly', () => {
-            // User enters invalid JSON
-            simulateUserInput('#opening-books-json', 'invalid json');
+            // User enters invalid PGN
+            simulateUserInput('#pgn-input-text', 'invalid pgn');
 
             // User tries to submit
             simulateFormSubmit();
 
             // Should trigger validation (would be caught by FormController)
-            const openingBooksField = document.getElementById('opening-books-json');
-            expect(openingBooksField.value).toBe('invalid json');
+            const pgnInputField = document.getElementById('pgn-input-text');
+            expect(pgnInputField.value).toBe('invalid pgn');
         });
 
         it('should save configuration to session storage', () => {
@@ -206,12 +262,12 @@ describe('UI Automation Tests', () => {
             Storage.prototype.getItem = jest.fn((key) => mockStorage[key]);
 
             // User makes changes
-            simulateUserInput('#opening-books-json', '{"test": "data"}');
+            simulateUserInput('#pgn-input-text', '1. e4 e5');
             simulateUserInput('#rating-min', '2000');
 
             // Simulate auto-save (would be triggered by FormController)
             sessionStorage.setItem('bookbuilder-config', JSON.stringify({
-                'opening-books-json': '{"test": "data"}',
+                'pgn-input-text': '1. e4 e5',
                 'rating-min': 2000
             }));
 
@@ -241,7 +297,6 @@ describe('UI Automation Tests', () => {
             const checkboxes = [
                 'variant-standard',
                 'time-blitz',
-                'validate-pgn',
                 'engine-enabled'
             ];
 
@@ -260,7 +315,7 @@ describe('UI Automation Tests', () => {
 
         it('should navigate through all tabs', () => {
             const tabs = [
-                'opening-books',
+                'pgn-input',
                 'lichess-settings',
                 'move-selection',
                 'engine-settings'
@@ -347,20 +402,18 @@ describe('Performance Simulation Tests', () => {
     it('should handle large form data efficiently', () => {
         const startTime = performance.now();
 
-        // Simulate large opening configuration
-        const largeConfig = Array.from({ length: 100 }, (_, i) => ({
-            name: `Opening ${i}`,
-            moves: ['e4', 'e5'],
-            priority: i
-        }));
+        // Simulate large PGN input (many moves)
+        const largePgn = Array.from({ length: 50 }, (_, i) =>
+            `${i + 1}. e4 e5`
+        ).join(' ');
 
-        simulateUserInput('#opening-books-json', JSON.stringify(largeConfig));
+        simulateUserInput('#pgn-input-text', largePgn);
 
         const endTime = performance.now();
         const duration = endTime - startTime;
 
         expect(duration).toBeLessThan(500); // Should handle large data quickly
-        expect(document.getElementById('opening-books-json').value).toContain('Opening 50');
+        expect(document.getElementById('pgn-input-text').value).toContain('50. e4');
     });
 });
 
