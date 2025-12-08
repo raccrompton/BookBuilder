@@ -848,14 +848,52 @@
         }
 
         .error-container {
+            /* Hidden by default, shown via JS when error occurs */
             display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            /* Use theme-aware error colors so it's readable in both modes */
+
+            /* OVERLAY POSITIONING:
+               Fixed position keeps it visible regardless of scroll position.
+               The translate trick centers it perfectly on screen. */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+
+            /* Size constraints to look good on all screens */
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+
+            /* Visual styling */
+            padding: 1.5rem;
             background: var(--error-background);
-            border: 1px solid var(--error-border);
-            border-radius: 6px;
+            border: 2px solid var(--error-border);
+            border-radius: 12px;
             color: var(--error-text);
+
+            /* Shadow for depth - makes it clear this is an overlay */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+            /* Ensure it appears above everything else */
+            z-index: 10000;
+        }
+
+        /* Dark backdrop behind the error modal */
+        .error-container::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        /* Semi-transparent overlay behind the error (for browsers that don't support ::backdrop) */
+        .error-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
         }
 
         .success-container {
@@ -2190,6 +2228,10 @@
                 </div>
             </div>
 
+            <!-- Error overlay backdrop - dims the page when error popup is shown -->
+            <div class="error-overlay" id="error-overlay"></div>
+
+            <!-- Error container - appears as centered modal overlay -->
             <div class="error-container" id="error-container">
                 <h4>Error</h4>
                 <p id="error-message"></p>
