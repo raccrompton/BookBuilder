@@ -526,9 +526,19 @@
 
         /* Smaller, muted text showing the move sequence */
         .sample-dropdown-item .opening-moves {
+            display: block;                 /* Force onto own line */
             font-size: 0.8rem;              /* Smaller secondary text */
             color: var(--text-secondary);   /* Muted color for less emphasis */
             margin-top: 2px;                /* Small gap from name above */
+        }
+
+        /* Description text explaining the config settings applied */
+        .sample-dropdown-item .opening-description {
+            display: block;                 /* Force onto own line */
+            font-size: 0.75rem;             /* Smaller than moves text */
+            color: var(--text-tertiary, #9ca3af);  /* Even more muted - fallback for older themes */
+            margin-top: 4px;                /* Gap from moves above */
+            font-style: italic;             /* Italics to distinguish from other text */
         }
 
         /* Visual separator between menu items (White vs Black sections) */
@@ -1822,18 +1832,8 @@
                             id="pgn-input-text"
                             name="pgn-input-text"
                             class="form-textarea"
-                            placeholder='[Event "Rated Blitz game"]
-[Site "https://lichess.org/"]
-[Date "2023.12.01"]
-[White "Player1"]
-[Black "Player2"]
-[Result "1-0"]
-[WhiteElo "1850"]
-[BlackElo "1820"]
-[Opening "Sicilian Defense: Accelerated Dragon"]
-
-1. e4 c5 2. Nf3 g6 3. d4 cxd4 4. Nxd4 Bg7 5. Be3 Nc6 6. c4 f5
-7. Nc3 Nf6 8. exf5 gxf5 9. Be2 O-O 10. O-O e5 *'
+                            placeholder='[Opening "Sicilian Defense: Accelerated Dragon"]
+1. e4 c5 2. Nf3 g6 3. d4 *'
                             rows="12"
                         ></textarea>
                         <div class="form-help">
@@ -2071,7 +2071,7 @@
                         <input type="number" id="engine-depth" name="engine-depth" class="form-input"
                                min="10" max="40" value="20" step="1">
                         <div class="form-help">
-                            How many moves ahead the engine calculates. Higher depth = more accurate evaluation but slower analysis. Depth 20 is recommended for reliable opening analysis.
+                            How many moves ahead the engine calculates. Higher depth = more accurate evaluation but slower analysis. We're not trying to pick only engine moves, but Depth 15+ is recommended for reliable analysis.
                         </div>
                     </div>
 
@@ -3175,7 +3175,7 @@
         /**
          * Create a single dropdown menu item button.
          *
-         * @param {Object} sample - Sample object with id, name, color, displayMoves
+         * @param {Object} sample - Sample object with id, name, color, displayMoves, description
          * @returns {HTMLButtonElement} The menu item button element
          */
         function createSampleMenuItem(sample) {
@@ -3198,6 +3198,15 @@
 
             button.appendChild(nameSpan);
             button.appendChild(movesSpan);
+
+            // Create the description span (if description exists)
+            // Shows a brief summary of the config settings applied
+            if (sample.description) {
+                const descSpan = document.createElement('span');
+                descSpan.className = 'opening-description';
+                descSpan.textContent = sample.description;
+                button.appendChild(descSpan);
+            }
 
             return button;
         }
