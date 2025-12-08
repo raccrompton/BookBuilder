@@ -78,6 +78,7 @@ class StockfishEngine {
      * Constructor - Initialize Stockfish engine configuration
      *
      * @param {Object} config - Configuration options
+     *   @param {string} config.variant - Engine build: 'lite' (7MB, ~3600 ELO) or 'full' (75MB, ~3700 ELO)
      *   @param {number} config.depth - Analysis depth (higher = stronger but slower)
      *   @param {number} config.hash - Hash table size in MB (memory for positions)
      *   @param {number} config.timeout - Max time in ms for operations
@@ -93,6 +94,27 @@ class StockfishEngine {
         // =====================================================================
         // Engine Configuration
         // =====================================================================
+
+        // Engine variant: determines which Stockfish WASM build to load
+        // WHAT THIS CONTROLS: The stockfish npm package ships with multiple builds.
+        // We support two single-threaded builds (no SharedArrayBuffer needed):
+        //
+        // 'lite' (default): stockfish-17.1-lite-single (7MB)
+        //   - Uses a smaller neural network (NNUE)
+        //   - ~3600 ELO playing strength
+        //   - Loads quickly - ideal for most opening analysis
+        //   - Recommended for mobile devices and slow connections
+        //
+        // 'full': stockfish-17.1-single (75MB, split into 6 WASM parts)
+        //   - Uses the complete NNUE neural network
+        //   - ~3700 ELO playing strength (~100 ELO stronger)
+        //   - Requires 75MB download (browser caches it after first load)
+        //   - Recommended for serious analysis where extra strength matters
+        //
+        // WHY DEFAULT TO 'lite': Most users don't need the extra 100 ELO.
+        // The lite version is strong enough for opening analysis (both crush humans).
+        // Users can opt-in to full version if they want maximum strength.
+        this.variant = config.variant || 'lite';
 
         // Analysis depth: Number of moves to look ahead
         // Depth 20 is strong but takes a few seconds per position
@@ -154,7 +176,7 @@ class StockfishEngine {
 
         this.initializationPromise = new Promise((resolve, reject) => {
             try {
-                log.info('Loading Stockfish via Web Worker (stockfish npm package v17.1)...');
+                log.info(`Loading Stockfish via Web Worker (stockfish npm package v17.1, variant: ${this.variant})...`);
 
                 // Store initialization resolver for later (called when 'readyok' received)
                 this.initResolver = resolve;
@@ -162,12 +184,22 @@ class StockfishEngine {
 
                 // Create a Web Worker with the Stockfish JS file
                 // The stockfish npm package is designed to self-initialize when loaded as a worker
-                // We use the LITE single-threaded version which:
-                // - Doesn't require SharedArrayBuffer/CORS headers
-                // - Uses a SINGLE 7MB WASM file (no multi-part fetch issues)
-                // - Still ~3600 ELO - more than enough for opening analysis
-                // - Loads faster and more reliably than the 75MB full version
-                const stockfishPath = '/node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.js';
+                //
+                // STOCKFISH FILENAME CONVENTION:
+                // The stockfish npm package names files with a hash suffix that changes per release.
+                // Example: stockfish-17.1-lite-single-03e3232.js where '03e3232' is the version hash.
+                // This ensures cache invalidation when Stockfish is updated.
+                //
+                // We support two variants based on user preference (this.variant):
+                // - 'lite' (default): stockfish-17.1-lite-single-*.js loads a 7MB WASM (~3600 ELO)
+                // - 'full': stockfish-17.1-single-*.js loads 6 WASM parts totaling 75MB (~3700 ELO)
+                //
+                // Both builds are single-threaded and don't require SharedArrayBuffer/CORS headers.
+                // The full version loads its 6 WASM parts automatically - Stockfish's JS loader
+                // handles the multi-part assembly internally.
+                const stockfishPath = this.variant === 'full'
+                    ? '/node_modules/stockfish/src/stockfish-17.1-single-a496a04.js'
+                    : '/node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.js';
 
                 this.worker = new Worker(stockfishPath);
 

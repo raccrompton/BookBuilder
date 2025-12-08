@@ -2012,6 +2012,22 @@
                         </div>
                     </div>
 
+                    <!-- Engine Variant Selection: Choose between lite (7MB) and full (75MB) Stockfish
+                         The lite version is ~3600 ELO and loads quickly - perfect for most users.
+                         The full version is ~3700 ELO with stronger NNUE but requires 75MB download.
+                         Both use single-threaded WASM builds that work without SharedArrayBuffer. -->
+                    <div class="form-group">
+                        <div class="checkbox-item">
+                            <!-- When unchecked (default): Uses stockfish-17.1-lite-single (7MB, fast loading)
+                                 When checked: Uses stockfish-17.1-single (75MB, ~100 ELO stronger) -->
+                            <input type="checkbox" id="engine-full" name="engine-full" class="form-checkbox">
+                            <label for="engine-full" class="form-label">Heavy Engine (~75MB)</label>
+                        </div>
+                        <div class="form-help">
+                            Download the heavy Stockfish 17 (~3700 ELO). Lite version (~3600 ELO) is used by default for faster loading.
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label" for="engine-depth">Engine Depth</label>
                         <input type="number" id="engine-depth" name="engine-depth" class="form-input"
