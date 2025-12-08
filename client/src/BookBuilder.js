@@ -689,6 +689,14 @@ class BookBuilder {
             // faster, giving users better visual feedback that work is happening.
             this.progressState.movesAnalyzed += continuations.moves.length;
 
+            // Emit progress immediately so the UI updates with the new moves count
+            // This is especially important when engine is enabled - engine analysis is slow,
+            // so we need to push updates at every opportunity to avoid UI appearing frozen
+            this.emitProgress({
+                movesAnalyzed: this.progressState.movesAnalyzed,
+                currentMessage: `Analyzing ${continuations.moves.length} opponent continuations...`
+            });
+
             const validContinuations = continuations.moves.filter(move =>
                 this.isValidContinuation(move, cumulativeLikelihood)
             );
@@ -759,6 +767,14 @@ class BookBuilder {
                     // This gives users visual feedback that work is happening, even if filtering rejects many moves
                     // positionData.moves is the API response containing candidate moves for our repertoire
                     this.progressState.movesAnalyzed += positionData.moves.length;
+
+                    // Emit progress immediately so the UI updates with the new moves count
+                    // This is critical when engine is enabled - without this call, the UI would only update
+                    // once per position (at the start of expandLine), making counters appear frozen
+                    this.emitProgress({
+                        movesAnalyzed: this.progressState.movesAnalyzed,
+                        currentMessage: `Evaluating ${positionData.moves.length} candidate responses...`
+                    });
 
                     log.log(`[BookBuilder] Position after opponent move has ${positionData.moves.length} candidate responses`);
                     log.log(`   Top 3 candidates:`, positionData.moves.slice(0, 3).map(m => ({
