@@ -42,6 +42,12 @@ export const sampleOpenings = {
       // Human-readable move sequence shown in the dropdown
       displayMoves: "1.e4 e5 2.Nf3 Nc6 3.Bb5",
 
+      // Short description explaining the config settings applied
+      // Summarizes key settings like: time controls, rating bands, soundness level
+      // Examples: "Blitz focused, for 1800s, relaxed soundness"
+      //           "All speeds, 2000+ rated, strict engine filters"
+      description: "All speeds, higher-rated games, thorough analysis, moderately strict",
+
 
       // ------ LICHESS DATABASE TAB ------
 
@@ -131,6 +137,8 @@ export const sampleOpenings = {
       color: "white",
       moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"],
       displayMoves: "1.e4 e5 2.Nf3 Nc6 3.Bc4",
+
+      description: "Balanced defaults, good starting point",
       engineDepth: 16,
       opponentMinGames: 30
     },
@@ -141,6 +149,8 @@ export const sampleOpenings = {
       color: "white",
       moves: ["d4", "d5", "Bf4"],
       displayMoves: "1.d4 d5 2.Bf4",
+
+      description: "Forgiving filters, lighter analysis, quick to build",
       engineDepth: 14,
       opponentMinGames: 20,
       // London is solid, so we can be less strict about engine settings
@@ -154,6 +164,8 @@ export const sampleOpenings = {
       color: "black",
       moves: ["d4", "d5", "c4", "e6"],
       displayMoves: "1.d4 d5 2.c4 e6",
+
+      description: "Standard depth, moderate sample requirements",
       engineDepth: 16,
       opponentMinGames: 40
     },
@@ -164,6 +176,8 @@ export const sampleOpenings = {
       color: "black",
       moves: ["e4", "c5"],
       displayMoves: "1.e4 c5",
+
+      description: "Strict and thorough: top players only, tight limits, main lines focus",
       // Sicilian is sharp - use strict settings
       engineDepth: 20,
       opponentMinGames: 100,
@@ -182,6 +196,8 @@ export const sampleOpenings = {
       color: "black",
       moves: ["e4", "c6"],
       displayMoves: "1.e4 c6",
+
+      description: "Balanced defaults, good starting point",
       engineDepth: 15,
       opponentMinGames: 30
     }
