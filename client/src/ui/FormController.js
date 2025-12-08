@@ -479,13 +479,24 @@ class FormController {
         // Initialize Stockfish engine if enabled
         // Note: config here is bookBuilderConfig which uses CAREABOUTENGINE (not engine-enabled)
         if (config.CAREABOUTENGINE) {
-            log.log('🔧 [FormController] Initializing Stockfish engine...');
+            // Determine engine variant from config
+            // WHAT THIS DOES: Reads the user's engine variant preference from the config.
+            // The variant controls which Stockfish WASM build to load:
+            //   - 'lite' (default): 7MB download, ~3600 ELO - fast loading, great for most users
+            //   - 'full': 75MB download, ~3700 ELO - stronger but takes longer to load
+            // The || 'lite' provides a fallback: if ENGINEVARIANT is undefined/null, use 'lite'
+            const engineVariant = config.ENGINEVARIANT || 'lite';
+            log.log(`🔧 [FormController] Initializing Stockfish engine (variant: ${engineVariant})...`);
+
+            // Create the StockfishEngine instance with user's configured settings
+            // We pass the variant so StockfishEngine knows which WASM file to load
             this.stockfishEngine = new StockfishEngine({
-                depth: config.ENGINEDEPTH || 20,
-                hash: config.ENGINEHASH || 128
+                depth: config.ENGINEDEPTH || 20,   // How many moves ahead to analyze
+                hash: config.ENGINEHASH || 128,    // Memory for position cache (MB)
+                variant: engineVariant              // Which Stockfish build: 'lite' or 'full'
             });
 
-            this.progressTracker.updatePhase('Initializing Stockfish engine...', 8);
+            this.progressTracker.updatePhase(`Initializing Stockfish engine (${engineVariant})...`, 8);
             await this.stockfishEngine.initialize();
             log.log('✅ [FormController] Stockfish engine ready');
         } else {
@@ -833,6 +844,14 @@ class FormController {
             // Engine settings (mapped to new form fields)
             // Note: checkbox is named 'engine-enabled' in HTML, converts to 1/0 for legacy compat
             CAREABOUTENGINE: formConfig['engine-enabled'] ? 1 : 0,
+
+            // Engine variant: Convert checkbox state to variant string
+            // HOW THIS WORKS: formConfig['engine-full'] is a boolean from the HTML checkbox
+            // The ternary operator (condition ? valueIfTrue : valueIfFalse) converts it:
+            //   - If checkbox is checked (true): use 'full' (75MB, ~3700 ELO)
+            //   - If checkbox is unchecked (false): use 'lite' (7MB, ~3600 ELO)
+            // This string gets passed to StockfishEngine which uses it to select the WASM file
+            ENGINEVARIANT: formConfig['engine-full'] ? 'full' : 'lite',
             ENGINEDEPTH: parseInt(formConfig['engine-depth']) || 20,
             ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1,
             SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit-centipawns']) || -99,
@@ -982,8 +1001,11 @@ class FormController {
         log.log('');
 
         // Engine Settings
+        // Log engine settings for debugging - helps users understand their configuration
         log.log('🤖 ENGINE SETTINGS:');
         log.log(`   Engine Enabled: ${formData['engine-enabled'] ? '✓' : '✗'}`);
+        // Show which Stockfish variant will be used: Full (75MB, stronger) or Lite (7MB, faster)
+        log.log(`   Full Engine: ${formData['engine-full'] ? '✓ (75MB)' : '✗ (Lite 7MB)'}`);
         log.log(`   Engine Depth: ${formData['engine-depth'] || 'N/A'}`);
         log.log(`   Engine Finishing: ${formData['engine-finishing'] ? '✓' : '✗'}`);
         log.log(`   Soundness Limit: ${formData['soundness-limit'] || 'N/A'} centipawns`);
