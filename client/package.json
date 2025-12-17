@@ -45,6 +45,7 @@
   "license": "GPL-3.0-or-later",
   "dependencies": {
     "@mliebelt/pgn-parser": "^1.4.18",
+    "@vercel/analytics": "^1.6.1",
     "chess.js": "^1.4.0",
     "chessops": "^0.15.0",
     "stockfish": "^17.1.0"
