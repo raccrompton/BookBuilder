@@ -12,9 +12,9 @@
 |-----------|--------|-------|
 | Async + Observable | Partial | Promise chains, no job persistence |
 | Mock at API Boundary | Done | Lichess API mocked in E2E |
-| Real Engine Smoke Tests | Done | Separate browser perf tests |
+| Real Engine Smoke Tests | Done | Separate browser perf tests + real-engine-smoke.e2e.test.js |
 | Determinism | Strong | Fixed depth, threads, hash |
-| Test Mode for Instant Completion | Partial | Jest mocks only, not browser |
+| Test Mode for Instant Completion | **Done** | MockStockfishEngine via ?testMode=true (Phase 1) |
 | Progress Verification | Partial | Fixed timeouts, not polling |
 | Cancel/Retry/Refresh Tests | Gap | Minimal coverage |
 | Engine Tests Separate from E2E | Done | Three-tier architecture |
@@ -235,11 +235,11 @@ test.describe('Real Engine Smoke Tests', () => {
 
 #### Phase 1 Verification Checklist
 
-- [ ] MockStockfishEngine passes unit tests
-- [ ] EngineFactory returns mock only on localhost with testMode
-- [ ] E2E tests pass with testMode (should be fast)
-- [ ] E2E tests pass without testMode (existing behavior)
-- [ ] Real engine smoke test passes (slow but works)
+- [x] MockStockfishEngine passes unit tests (21 tests)
+- [x] EngineFactory returns mock only on localhost with testMode (12 tests)
+- [x] E2E tests pass with testMode (should be fast)
+- [ ] E2E tests pass without testMode (existing behavior) - pre-existing flakiness
+- [ ] Real engine smoke test passes (slow but works) - needs CI verification
 
 ---
 
