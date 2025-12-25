@@ -102,89 +102,67 @@ const TEST_PGN = {
  * This simulates what the Lichess position stats endpoint returns.
  * The response includes top moves played from a position with game statistics.
  *
- * IMPORTANT: The mock must include moves that match what the algorithm expects:
- * - For starting position: e4, d4, Nf3, c4 (common first moves)
- * - For Sicilian (after 1. e4): c5, e5, e6 (common Black replies)
- * - Enough games/statistics to pass the filtering thresholds
+ * IMPORTANT: The mock must include:
+ * - `playrate` and `totalGames` fields (calculated by LichessClient._transformPositionStats)
+ * - Since route mocking bypasses LichessClient, we must include these pre-calculated
+ * - Enough games/statistics to pass the filtering thresholds (CONTINUATIONGAMES, etc.)
  */
-const createMockLichessResponse = (identifier) => ({
-    white: 100000,     // White wins from this position
-    black: 90000,      // Black wins
-    draws: 50000,      // Draws
-    moves: [
-        // Common opening moves that the algorithm might look for
-        {
-            uci: 'e2e4',
-            san: 'e4',
-            averageRating: 2100,
-            white: 35000,
-            black: 30000,
-            draws: 15000,
-            game: null
-        },
-        {
-            uci: 'd2d4',
-            san: 'd4',
-            averageRating: 2100,
-            white: 30000,
-            black: 28000,
-            draws: 14000,
-            game: null
-        },
-        {
-            uci: 'g1f3',
-            san: 'Nf3',
-            averageRating: 2050,
-            white: 20000,
-            black: 18000,
-            draws: 12000,
-            game: null
-        },
-        {
-            uci: 'c2c4',
-            san: 'c4',
-            averageRating: 2000,
-            white: 10000,
-            black: 9000,
-            draws: 5000,
-            game: null
-        },
-        // Black responses for Sicilian/other openings
-        {
-            uci: 'c7c5',
-            san: 'c5',
-            averageRating: 2100,
-            white: 25000,
-            black: 28000,
-            draws: 12000,
-            game: null
-        },
-        {
-            uci: 'e7e5',
-            san: 'e5',
-            averageRating: 2100,
-            white: 25000,
-            black: 24000,
-            draws: 13000,
-            game: null
-        },
-        {
-            uci: 'd7d5',
-            san: 'd5',
-            averageRating: 2050,
-            white: 20000,
-            black: 22000,
-            draws: 10000,
-            game: null
+const createMockLichessResponse = (identifier) => {
+    // Raw move data with game counts
+    // IMPORTANT: Include moves for BOTH the root position lookup AND later expansion.
+    // The algorithm first looks up input moves (e.g., e4, c5) in Lichess stats for root analysis,
+    // then later validates continuations. We need all these moves present.
+    const rawMoves = [
+        // REQUIRED: Starting position moves - these are looked up during analyzeRoot
+        // for the input sequence (e.g., "1. e4 c5" needs e4 and c5 in the response)
+        { uci: 'e2e4', san: 'e4', averageRating: 2100, white: 35000, black: 30000, draws: 15000, game: null },
+        { uci: 'c7c5', san: 'c5', averageRating: 2100, white: 25000, black: 28000, draws: 12000, game: null },
+        // White continuation moves (for expanding after Black's move)
+        { uci: 'd2d4', san: 'd4', averageRating: 2100, white: 30000, black: 28000, draws: 14000, game: null },
+        { uci: 'g1f3', san: 'Nf3', averageRating: 2050, white: 20000, black: 18000, draws: 12000, game: null },
+        { uci: 'b1c3', san: 'Nc3', averageRating: 2050, white: 18000, black: 16000, draws: 10000, game: null },
+        { uci: 'c2c3', san: 'c3', averageRating: 2000, white: 8000, black: 7000, draws: 4000, game: null },
+        // Black response moves (for our repertoire responses)
+        { uci: 'd7d6', san: 'd6', averageRating: 2100, white: 25000, black: 28000, draws: 12000, game: null },
+        { uci: 'b8c6', san: 'Nc6', averageRating: 2100, white: 24000, black: 26000, draws: 11000, game: null },
+        { uci: 'g8f6', san: 'Nf6', averageRating: 2050, white: 22000, black: 24000, draws: 10000, game: null },
+        { uci: 'e7e6', san: 'e6', averageRating: 2050, white: 20000, black: 22000, draws: 10000, game: null },
+        // Capture move for Sicilian (cxd4 after 2. d4)
+        { uci: 'c5d4', san: 'cxd4', averageRating: 2100, white: 20000, black: 23000, draws: 9000, game: null },
+        // Queen's Pawn response for the second test case (1. d4 d5)
+        { uci: 'd7d5', san: 'd5', averageRating: 2050, white: 20000, black: 22000, draws: 10000, game: null }
+    ];
+
+    // Calculate totalGames for each move (same as LichessClient._transformPositionStats)
+    const movesWithTotals = rawMoves.map(move => ({
+        ...move,
+        totalGames: move.white + move.black + move.draws
+    }));
+
+    // Calculate total games across all moves for playrate calculation
+    const totalAllGames = movesWithTotals.reduce((sum, move) => sum + move.totalGames, 0);
+
+    // Add playrate to each move (matches LichessClient.calculatePlayRate)
+    const moves = movesWithTotals.map(move => ({
+        ...move,
+        playrate: totalAllGames > 0 ? move.totalGames / totalAllGames : 0,
+        // Also add winRate for MoveSelector (calculated as white wins / total for white perspective)
+        winRate: move.totalGames > 0 ? move.white / move.totalGames : 0
+    }));
+
+    return {
+        white: 100000,     // White wins from this position
+        black: 90000,      // Black wins
+        draws: 50000,      // Draws
+        moves,
+        topGames: [],
+        recentGames: [],
+        opening: {
+            eco: 'B20',
+            name: identifier || 'Sicilian Defense'
         }
-    ],
-    topGames: [],
-    recentGames: [],
-    opening: {
-        eco: 'B20',
-        name: identifier || 'Sicilian Defense'
-    }
-});
+    };
+};
 
 /**
  * =============================================================================
