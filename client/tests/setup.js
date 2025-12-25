@@ -91,6 +91,13 @@ if (USE_REAL_ENGINE) {
     }));
 } // End of mock engine setup
 
+// Mock BroadcastChannel (browser-only API for cross-tab communication)
+global.BroadcastChannel = jest.fn().mockImplementation(() => ({
+    postMessage: jest.fn(),
+    close: jest.fn(),
+    onmessage: null
+}));
+
 // Mock sessionStorage
 const mockSessionStorage = {
     store: {},
