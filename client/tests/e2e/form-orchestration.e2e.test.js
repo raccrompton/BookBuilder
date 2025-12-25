@@ -92,19 +92,34 @@ const TEST_PGN = {
  * Mock response for Lichess explorer API
  * This simulates what the Lichess position stats endpoint returns.
  * The response includes top moves played from a position with game statistics.
+ *
+ * IMPORTANT: The mock must include moves that match what the algorithm expects:
+ * - For starting position: e4, d4, Nf3, c4 (common first moves)
+ * - For Sicilian (after 1. e4): c5, e5, e6 (common Black replies)
+ * - Enough games/statistics to pass the filtering thresholds
  */
 const createMockLichessResponse = (identifier) => ({
-    white: 50000,      // White wins from this position
-    black: 45000,      // Black wins
-    draws: 30000,      // Draws
+    white: 100000,     // White wins from this position
+    black: 90000,      // Black wins
+    draws: 50000,      // Draws
     moves: [
+        // Common opening moves that the algorithm might look for
         {
-            uci: 'd2d4',        // UCI notation for the move
-            san: 'd4',          // Standard algebraic notation
+            uci: 'e2e4',
+            san: 'e4',
             averageRating: 2100,
-            white: 25000,
-            black: 20000,
+            white: 35000,
+            black: 30000,
             draws: 15000,
+            game: null
+        },
+        {
+            uci: 'd2d4',
+            san: 'd4',
+            averageRating: 2100,
+            white: 30000,
+            black: 28000,
+            draws: 14000,
             game: null
         },
         {
@@ -117,12 +132,40 @@ const createMockLichessResponse = (identifier) => ({
             game: null
         },
         {
-            uci: 'b1c3',
-            san: 'Nc3',
+            uci: 'c2c4',
+            san: 'c4',
             averageRating: 2000,
-            white: 5000,
-            black: 7000,
-            draws: 3000,
+            white: 10000,
+            black: 9000,
+            draws: 5000,
+            game: null
+        },
+        // Black responses for Sicilian/other openings
+        {
+            uci: 'c7c5',
+            san: 'c5',
+            averageRating: 2100,
+            white: 25000,
+            black: 28000,
+            draws: 12000,
+            game: null
+        },
+        {
+            uci: 'e7e5',
+            san: 'e5',
+            averageRating: 2100,
+            white: 25000,
+            black: 24000,
+            draws: 13000,
+            game: null
+        },
+        {
+            uci: 'd7d5',
+            san: 'd5',
+            averageRating: 2050,
+            white: 20000,
+            black: 22000,
+            draws: 10000,
             game: null
         }
     ],
