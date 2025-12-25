@@ -9,6 +9,10 @@ coverage
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# Playwright test artifacts
+playwright-report*/
+test-results/
+
 # Browser test page (not needed in repo)
 client/browser-tests.html
 
