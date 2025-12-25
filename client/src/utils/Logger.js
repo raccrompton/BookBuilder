@@ -44,28 +44,28 @@
 
 const DEFAULT_CATEGORIES = {
     // === Core Algorithm ===
-    MoveSelector: false,      // Move selection, statistical analysis
-    Statistics: false,        // Data quality validation
+    MoveSelector: true,       // Move selection, statistical analysis
+    Statistics: true,         // Data quality validation
 
     // === Chess Engines ===
-    ChessEngine: false,       // chess.js operations, FEN, moves
-    StockfishEngine: false,   // Stockfish analysis
+    ChessEngine: true,        // chess.js operations, FEN, moves
+    StockfishEngine: true,    // Stockfish analysis
 
     // === API & Network ===
-    LichessClient: true,      // Lichess API calls (useful to keep on)
+    LichessClient: true,      // Lichess API calls
 
     // === PGN Processing ===
-    PgnTreeMerger: false,     // PGN variation merging
-    PgnGenerator: false,      // PGN output formatting
-    PgnProcessor: false,      // PGN input parsing
+    PgnTreeMerger: true,      // PGN variation merging
+    PgnGenerator: true,       // PGN output formatting
+    PgnProcessor: true,       // PGN input parsing
 
     // === UI & Workflow ===
-    FormController: false,    // Form handling, UI updates
-    FileGenerator: false,     // File generation
-    BookBuilder: true,        // Main workflow (useful to keep on)
+    FormController: true,     // Form handling, UI updates
+    FileGenerator: true,      // File generation
+    BookBuilder: true,        // Main workflow
 
     // === Debug ===
-    DEBUG: false,             // General debug output
+    DEBUG: true,              // General debug output
 };
 
 // -----------------------------------------------------------------------------
