@@ -49,7 +49,7 @@
 
 import BookBuilder from '../BookBuilder.js';
 import LichessClient from '../api/LichessClient.js';
-import StockfishEngine from '../engine/StockfishEngine.js';
+import { EngineFactory } from '../engine/EngineFactory.js';
 import ConfigManager from './ConfigManager.js';
 import ErrorHandler from './ErrorHandler.js';
 import FileGenerator from './FileGenerator.js';
@@ -491,9 +491,10 @@ class FormController {
             const engineVariant = config.ENGINEVARIANT || 'lite';
             log.log(`🔧 [FormController] Initializing Stockfish engine (variant: ${engineVariant})...`);
 
-            // Create the StockfishEngine instance with user's configured settings
-            // We pass the variant so StockfishEngine knows which WASM file to load
-            this.stockfishEngine = new StockfishEngine({
+            // Create the engine instance via EngineFactory
+            // EngineFactory returns MockStockfishEngine for fast E2E tests (on localhost with testMode)
+            // or real StockfishEngine for production use
+            this.stockfishEngine = EngineFactory.create({
                 depth: config.ENGINEDEPTH || 20,   // How many moves ahead to analyze
                 hash: config.ENGINEHASH || 128,    // Memory for position cache (MB)
                 variant: engineVariant              // Which Stockfish build: 'lite' or 'full'
