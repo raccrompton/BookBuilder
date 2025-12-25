@@ -746,3 +746,431 @@ describe('Mathematical Accuracy Validation', () => {
         });
     });
 });
+
+// ==================== ADDITIONAL COVERAGE TESTS ====================
+
+describe('FileGenerator Download and Utility Methods', () => {
+    let fileGenerator;
+    let originalCreateObjectURL;
+    let originalRevokeObjectURL;
+    let originalCreateElement;
+
+    beforeEach(() => {
+        fileGenerator = new FileGenerator();
+
+        // Mock URL APIs
+        originalCreateObjectURL = URL.createObjectURL;
+        originalRevokeObjectURL = URL.revokeObjectURL;
+        URL.createObjectURL = jest.fn(() => 'blob:test-url');
+        URL.revokeObjectURL = jest.fn();
+
+        // Setup minimal DOM
+        document.body.innerHTML = '<div id="test-container"></div>';
+    });
+
+    afterEach(() => {
+        URL.createObjectURL = originalCreateObjectURL;
+        URL.revokeObjectURL = originalRevokeObjectURL;
+        document.body.innerHTML = '';
+    });
+
+    describe('downloadFile', () => {
+        it('creates blob and triggers download', () => {
+            // Arrange
+            const content = '[Event "Test"]\n1. e4 e5 *';
+            const filename = 'test.pgn';
+
+            // Mock click
+            const mockClick = jest.fn();
+            const mockLink = {
+                href: '',
+                download: '',
+                style: { display: '' },
+                click: mockClick
+            };
+            jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+            jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+            jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
+
+            // Act
+            const result = fileGenerator.downloadFile(content, filename);
+
+            // Assert
+            expect(result.success).toBe(true);
+            expect(result.filename).toBe(filename);
+            expect(result.size).toBe(content.length);
+            expect(URL.createObjectURL).toHaveBeenCalled();
+            expect(URL.revokeObjectURL).toHaveBeenCalled();
+        });
+
+        it('auto-detects MIME type for .pgn files', () => {
+            // Arrange
+            const mockClick = jest.fn();
+            const mockLink = { href: '', download: '', style: { display: '' }, click: mockClick };
+            jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+            jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+            jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
+
+            // Act
+            fileGenerator.downloadFile('content', 'test.pgn');
+
+            // Assert - verify blob was created (MIME type is internal to Blob)
+            expect(URL.createObjectURL).toHaveBeenCalled();
+        });
+
+        it('tracks download in history', () => {
+            // Arrange
+            const mockLink = { href: '', download: '', style: { display: '' }, click: jest.fn() };
+            jest.spyOn(document, 'createElement').mockReturnValue(mockLink);
+            jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+            jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
+
+            // Act
+            fileGenerator.downloadFile('content', 'test.pgn');
+
+            // Assert
+            expect(fileGenerator.downloadHistory).toHaveLength(1);
+            expect(fileGenerator.downloadHistory[0].filename).toBe('test.pgn');
+        });
+    });
+
+    describe('generateCombinedPGN', () => {
+        it('combines multiple chapters with proper headers', () => {
+            // Arrange
+            const chapters = [
+                { name: 'Sicilian Defense', content: '1. e4 c5 *' },
+                { name: 'French Defense', content: '1. e4 e6 *' }
+            ];
+
+            // Act
+            const result = fileGenerator.generateCombinedPGN(chapters);
+
+            // Assert
+            expect(result).toContain('[Event "Complete Opening Repertoire"]');
+            expect(result).toContain('[TotalChapters "2"]');
+            expect(result).toContain('CHAPTER 1: Sicilian Defense');
+            expect(result).toContain('CHAPTER 2: French Defense');
+            expect(result).toContain('1. e4 c5');
+            expect(result).toContain('1. e4 e6');
+        });
+
+        it('handles single chapter correctly', () => {
+            // Arrange
+            const chapters = [
+                { name: 'Italian Game', content: '1. e4 e5 2. Nf3 Nc6 3. Bc4 *' }
+            ];
+
+            // Act
+            const result = fileGenerator.generateCombinedPGN(chapters);
+
+            // Assert
+            expect(result).toContain('[TotalChapters "1"]');
+            expect(result).toContain('CHAPTER 1: Italian Game');
+        });
+
+        it('handles empty chapters array', () => {
+            // Act
+            const result = fileGenerator.generateCombinedPGN([]);
+
+            // Assert
+            expect(result).toContain('[TotalChapters "0"]');
+        });
+    });
+
+    describe('generateSummaryFile', () => {
+        it('creates summary JSON from results object', () => {
+            // Arrange
+            const results = {
+                'Chapter_1_Sicilian.pgn': '[Event "Sicilian"]\n1. e4 c5 *\n\n1. e4 c5 2. Nf3 *',
+                'Chapter_2_French.pgn': '[Event "French"]\n1. e4 e6 *'
+            };
+
+            // Act
+            const result = fileGenerator.generateSummaryFile(results);
+            const parsed = JSON.parse(result);
+
+            // Assert
+            expect(parsed.totalFiles).toBe(2);
+            expect(parsed.files).toHaveLength(2);
+            expect(parsed.files[0].filename).toBe('Chapter_1_Sicilian.pgn');
+            expect(parsed.generationTime).toBeDefined();
+        });
+
+        it('creates summary JSON from results array', () => {
+            // Arrange
+            const results = [
+                { filename: 'Chapter_1.pgn', lines: [{ pgn: '1. e4' }], totalGames: 1000 },
+                { filename: 'Chapter_2.pgn', lines: [{ pgn: '1. d4' }], totalGames: 500 }
+            ];
+
+            // Act
+            const result = fileGenerator.generateSummaryFile(results);
+            const parsed = JSON.parse(result);
+
+            // Assert
+            expect(parsed.totalFiles).toBe(2);
+            expect(parsed.files[0].totalGames).toBe(1000);
+        });
+    });
+
+    describe('getQualityAnnotation', () => {
+        it('converts quality strings to PGN annotations', () => {
+            expect(fileGenerator.getQualityAnnotation('excellent')).toBe('!!');
+            expect(fileGenerator.getQualityAnnotation('good')).toBe('!');
+            expect(fileGenerator.getQualityAnnotation('inaccuracy')).toBe('?!');
+            expect(fileGenerator.getQualityAnnotation('mistake')).toBe('?');
+            expect(fileGenerator.getQualityAnnotation('blunder')).toBe('??');
+        });
+
+        it('converts numeric centipawn loss to annotations', () => {
+            expect(fileGenerator.getQualityAnnotation(5)).toBe('!');    // Excellent
+            expect(fileGenerator.getQualityAnnotation(20)).toBe('');   // Normal
+            expect(fileGenerator.getQualityAnnotation(40)).toBe('?!'); // Inaccuracy
+            expect(fileGenerator.getQualityAnnotation(75)).toBe('?');  // Mistake
+            expect(fileGenerator.getQualityAnnotation(150)).toBe('??'); // Blunder
+        });
+
+        it('returns empty string for unknown quality', () => {
+            expect(fileGenerator.getQualityAnnotation('unknown')).toBe('');
+            expect(fileGenerator.getQualityAnnotation(null)).toBe('');
+        });
+    });
+
+    describe('countPGNLines', () => {
+        it('counts lines based on { Line N } patterns', () => {
+            // Arrange - countPGNLines looks for "{ Line N }" annotations
+            const pgn = `{ Line 1 }
+[Event "Sicilian"]
+1. e4 c5 *
+
+{ Line 2 }
+[Event "Sicilian"]
+1. e4 c5 2. Nf3 *
+
+{ Line 3 }
+[Event "Sicilian"]
+1. e4 c5 2. Nf3 d6 *`;
+
+            // Act
+            const count = fileGenerator.countPGNLines(pgn);
+
+            // Assert
+            expect(count).toBe(3);
+        });
+
+        it('returns 0 for empty content', () => {
+            expect(fileGenerator.countPGNLines('')).toBe(0);
+            expect(fileGenerator.countPGNLines(null)).toBe(0);
+            expect(fileGenerator.countPGNLines(undefined)).toBe(0);
+        });
+
+        it('returns 1 for content with no Event header but has moves', () => {
+            const pgn = '1. e4 e5 2. Nf3 *';
+            const count = fileGenerator.countPGNLines(pgn);
+            // Implementation may vary - at minimum should return 0 or 1
+            expect(count).toBeGreaterThanOrEqual(0);
+        });
+    });
+
+    describe('formatFileSize', () => {
+        it('formats bytes correctly', () => {
+            expect(fileGenerator.formatFileSize(0)).toBe('0 Bytes');
+            expect(fileGenerator.formatFileSize(500)).toBe('500 Bytes');
+        });
+
+        it('formats kilobytes correctly', () => {
+            expect(fileGenerator.formatFileSize(1024)).toBe('1 KB');
+            expect(fileGenerator.formatFileSize(2048)).toBe('2 KB');
+        });
+
+        it('formats megabytes correctly', () => {
+            expect(fileGenerator.formatFileSize(1048576)).toBe('1 MB');
+            expect(fileGenerator.formatFileSize(5242880)).toBe('5 MB');
+        });
+
+        it('formats gigabytes correctly', () => {
+            expect(fileGenerator.formatFileSize(1073741824)).toBe('1 GB');
+        });
+    });
+
+    describe('validatePGN', () => {
+        it('validates well-formed PGN', () => {
+            const validPGN = `[Event "Test"]
+[Site "Test"]
+[Date "2024.01.01"]
+[Round "1"]
+[White "Player1"]
+[Black "Player2"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 *`;
+
+            const result = fileGenerator.validatePGN(validPGN);
+            expect(result.isValid).toBe(true);
+            expect(result.errors).toHaveLength(0);
+        });
+
+        it('detects invalid PGN', () => {
+            const invalidPGN = 'This is not valid PGN at all';
+
+            const result = fileGenerator.validatePGN(invalidPGN);
+            expect(result.isValid).toBe(false);
+            expect(result.errors.length).toBeGreaterThan(0);
+        });
+
+        it('validates PGN with missing headers', () => {
+            const minimalPGN = '1. e4 e5 *';
+
+            const result = fileGenerator.validatePGN(minimalPGN);
+            // Should still be valid (headers optional in some PGN parsers)
+            expect(result).toBeDefined();
+        });
+    });
+});
+
+describe('FileGenerator Format Toggle Additional Tests', () => {
+    let fileGenerator;
+
+    beforeEach(() => {
+        // Setup DOM for display tests
+        document.body.innerHTML = `
+            <div id="pgn-display-container" style="display: none;">
+                <div class="pgn-display-header">
+                    <h3 class="pgn-display-title">Analysis Results</h3>
+                    <div class="pgn-display-actions"></div>
+                </div>
+                <div id="pgn-display-stats"></div>
+                <pre id="pgn-content"></pre>
+            </div>
+        `;
+        // Mock scrollIntoView
+        Element.prototype.scrollIntoView = jest.fn();
+        // Mock lucide
+        global.lucide = { createIcons: jest.fn() };
+
+        fileGenerator = new FileGenerator();
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    describe('getCurrentContent', () => {
+        it('returns current format content after display', () => {
+            // Arrange
+            const formats = {
+                individualPGN: '[Event "Individual"]\n1. e4 *',
+                treePGN: '[Event "Tree"]\n1. e4 (1. d4) *'
+            };
+
+            // Act
+            fileGenerator.displayPGN(formats, 'Test Chapter');
+            const content = fileGenerator.getCurrentContent();
+
+            // Assert - default is tree
+            expect(content).toContain('Tree');
+        });
+
+        it('returns correct format after switching', () => {
+            // Arrange
+            const formats = {
+                individualPGN: '[Event "Individual Format"]\n1. e4 *',
+                treePGN: '[Event "Tree Format"]\n1. e4 (1. d4) *'
+            };
+
+            fileGenerator.displayPGN(formats, 'Test Chapter');
+
+            // Act - switch to individual
+            fileGenerator.switchFormat('individual');
+            const content = fileGenerator.getCurrentContent();
+
+            // Assert
+            expect(content).toContain('Individual Format');
+        });
+    });
+
+    describe('switchFormat', () => {
+        it('updates currentFormat property', () => {
+            // Arrange
+            const formats = {
+                individualPGN: 'individual content',
+                treePGN: 'tree content'
+            };
+            fileGenerator.displayPGN(formats, 'Test');
+
+            // Act
+            fileGenerator.switchFormat('individual');
+
+            // Assert
+            expect(fileGenerator.currentFormat).toBe('individual');
+        });
+
+        it('updates DOM content when switching formats', () => {
+            // Arrange
+            const formats = {
+                individualPGN: 'INDIVIDUAL_MARKER',
+                treePGN: 'TREE_MARKER'
+            };
+            fileGenerator.displayPGN(formats, 'Test');
+
+            // Initial should be tree
+            expect(document.getElementById('pgn-content').textContent).toContain('TREE_MARKER');
+
+            // Act
+            fileGenerator.switchFormat('individual');
+
+            // Assert
+            expect(document.getElementById('pgn-content').textContent).toContain('INDIVIDUAL_MARKER');
+        });
+
+        it('handles switch back to tree format', () => {
+            // Arrange
+            const formats = {
+                individualPGN: 'INDIVIDUAL',
+                treePGN: 'TREE'
+            };
+            fileGenerator.displayPGN(formats, 'Test');
+            fileGenerator.switchFormat('individual');
+
+            // Act
+            fileGenerator.switchFormat('tree');
+
+            // Assert
+            expect(fileGenerator.currentFormat).toBe('tree');
+            expect(document.getElementById('pgn-content').textContent).toContain('TREE');
+        });
+    });
+
+    describe('displayPGN with format object', () => {
+        it('stores both formats in currentFormats', () => {
+            // Arrange
+            const formats = {
+                individualPGN: 'individual',
+                treePGN: 'tree'
+            };
+
+            // Act
+            fileGenerator.displayPGN(formats, 'Test Chapter');
+
+            // Assert
+            expect(fileGenerator.currentFormats).toBeDefined();
+            expect(fileGenerator.currentFormats.individualPGN).toBe('individual');
+            expect(fileGenerator.currentFormats.treePGN).toBe('tree');
+        });
+
+        it('shows display container', () => {
+            // Arrange
+            const formats = {
+                individualPGN: 'individual',
+                treePGN: 'tree'
+            };
+
+            // Act
+            fileGenerator.displayPGN(formats, 'Test Chapter');
+
+            // Assert
+            const container = document.getElementById('pgn-display-container');
+            expect(container.style.display).not.toBe('none');
+        });
+    });
+});

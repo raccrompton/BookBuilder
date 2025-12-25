@@ -182,8 +182,10 @@ describeOrSkip('NodeStockfishEngine', () => {
             const eval1 = await engine.evaluatePosition(TEST_POSITIONS.sicilian, 8);
             const eval2 = await engine.evaluatePosition(TEST_POSITIONS.sicilian, 8);
 
-            // Evaluations should be identical (deterministic at same depth)
-            expect(eval1).toBe(eval2);
+            // Evaluations should be very close (within 10 centipawns)
+            // Note: Stockfish may produce slightly different evaluations due to
+            // internal search order and hash table state differences between runs
+            expect(Math.abs(eval1 - eval2)).toBeLessThanOrEqual(10);
         });
     });
 

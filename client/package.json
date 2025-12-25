@@ -31,7 +31,10 @@
     "test:real-engine": "USE_REAL_ENGINE=true jest",
     "test:node-engine": "jest tests/node-engine-parity.test.js",
     "test:real-engine:integration": "USE_REAL_ENGINE=true jest tests/integration.test.js",
-    "test:real-engine:bookbuilder": "USE_REAL_ENGINE=true jest tests/bookbuilder.test.js"
+    "test:real-engine:bookbuilder": "USE_REAL_ENGINE=true jest tests/bookbuilder.test.js",
+    "test:e2e": "npx playwright test --config=playwright.e2e.config.js",
+    "test:e2e:headed": "npx playwright test --config=playwright.e2e.config.js --headed",
+    "test:e2e:debug": "npx playwright test --config=playwright.e2e.config.js --debug"
   },
   "keywords": [
     "chess",

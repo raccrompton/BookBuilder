@@ -90,11 +90,9 @@ describe('BookBuilder - Step 6: Main Integration', () => {
             expect(builderWithoutEngine.stockfishEngine).toBeNull();
         });
 
-        test('state management properties are initialized correctly', () => {
-            expect(bookBuilder.finalLines).toEqual([]);
-            expect(bookBuilder.processingQueue).toEqual([]);
-            // Note: BATCH_SIZE and API_DELAY are not instance properties
-        });
+        // REMOVED: 'state management properties are initialized correctly' test
+        // Per testing-standards.md: Skip tests for "Simple getters/setters with no logic"
+        // Testing that arrays initialize to [] provides no value - it just tests JavaScript
     });
 
     // ==================== CONFIGURATION VALIDATION TESTS ====================
@@ -357,40 +355,58 @@ describe('BookBuilder - Step 6: Main Integration', () => {
             expect(sorted[2].likelihoodPath[0].playrate).toBe(0.3); // Lowest last
         });
 
-        test('calculateFallbackWinRate handles special positions', () => {
-            // Use actual checkmate positions (confirmed via Chess.js)
-            const checkmateWhiteToMove = 'rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3'; // Scholar's mate - white to move, checkmate
-            const checkmateBlackToMove = '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1'; // Queen + King mate - black to move, checkmate
+        // Split into focused tests per testing-standards.md: "One behavior per test"
 
+        test('calculateFallbackWinRate returns 0.0 when white is checkmated (white perspective)', () => {
+            // Arrange: Scholar's mate position - white to move, checkmate
+            const checkmateWhiteToMove = 'rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
             const whiteLineData = { perspective: 'white' };
+
+            // Act
+            const result = bookBuilder.calculateFallbackWinRate(checkmateWhiteToMove, whiteLineData);
+
+            // Assert: White is mated = 0.0 winrate from white's perspective
+            expect(result.winRate).toBe(0.0);
+            expect(result.terminalType).toBe('checkmate');
+        });
+
+        test('calculateFallbackWinRate returns 1.0 when black is checkmated (white perspective)', () => {
+            // Arrange: Queen + King mate position - black to move, checkmate
+            const checkmateBlackToMove = '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1';
+            const whiteLineData = { perspective: 'white' };
+
+            // Act
+            const result = bookBuilder.calculateFallbackWinRate(checkmateBlackToMove, whiteLineData);
+
+            // Assert: Black is mated = 1.0 winrate from white's perspective
+            expect(result.winRate).toBe(1.0);
+            expect(result.terminalType).toBe('checkmate');
+        });
+
+        test('calculateFallbackWinRate inverts winrate for black perspective', () => {
+            // Arrange: Scholar's mate - white is checkmated
+            const checkmateWhiteToMove = 'rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3';
             const blackLineData = { perspective: 'black' };
 
-            // calculateFallbackWinRate now returns an object with {winRate, terminalType}
-            // When white is in checkmate (white to move), white loses (0.0 from white perspective)
-            let result = bookBuilder.calculateFallbackWinRate(checkmateWhiteToMove, whiteLineData);
-            expect(result.winRate).toBe(0.0);
-            expect(result.terminalType).toBe('checkmate');
+            // Act
+            const result = bookBuilder.calculateFallbackWinRate(checkmateWhiteToMove, blackLineData);
 
-            // When black is in checkmate (black to move), white wins (1.0 from white perspective)
-            result = bookBuilder.calculateFallbackWinRate(checkmateBlackToMove, whiteLineData);
+            // Assert: White is mated = 1.0 winrate from BLACK's perspective (inverted)
             expect(result.winRate).toBe(1.0);
             expect(result.terminalType).toBe('checkmate');
+        });
 
-            // From black perspective, the results are inverted
-            result = bookBuilder.calculateFallbackWinRate(checkmateWhiteToMove, blackLineData);
-            expect(result.winRate).toBe(1.0);
-            expect(result.terminalType).toBe('checkmate');
+        test('calculateFallbackWinRate handles draw positions correctly', () => {
+            // Arrange: Stalemate position for black
+            const drawPosition = '8/8/8/8/8/8/1k6/1K6 b - - 0 1';
+            const whiteLineData = { perspective: 'white' };
 
-            result = bookBuilder.calculateFallbackWinRate(checkmateBlackToMove, blackLineData);
-            expect(result.winRate).toBe(0.0);
-            expect(result.terminalType).toBe('checkmate');
+            // Act
+            const result = bookBuilder.calculateFallbackWinRate(drawPosition, whiteLineData);
 
-            // Use actual FEN for draw position (stalemate)
-            const drawPosition = '8/8/8/8/8/8/1k6/1K6 b - - 0 1'; // Stalemate for black
-
-            const fallbackForDraw = bookBuilder.calculateFallbackWinRate(drawPosition, whiteLineData);
-            expect(fallbackForDraw.winRate).toBe(testConfig.DRAWSAREHALF ? 0.5 : 0.0);
-            expect(fallbackForDraw.terminalType).toBe('draw');
+            // Assert: Draw returns 0.5 if DRAWSAREHALF=1, else 0.0
+            expect(result.winRate).toBe(testConfig.DRAWSAREHALF ? 0.5 : 0.0);
+            expect(result.terminalType).toBe('draw');
         });
     });
 
@@ -592,9 +608,8 @@ describe('Root Analysis Fix - Position State Consistency', () => {
     });
 
     test('applies all PGN moves before getting continuations', async () => {
-        // Sicilian Defense: 1.e4 c5 - analyzeRoot expects moves array, not FEN
-        const sicilianMoves = ['e4', 'c5'];  // Moves that lead to Sicilian Defense position
-        const sicilianFen = 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2';
+        // Arrange: Sicilian Defense moves - 1.e4 c5
+        const sicilianMoves = ['e4', 'c5'];
 
         // Mock Lichess API - need to mock for the intermediate position (after e4)
         // where we look up c5's probability
