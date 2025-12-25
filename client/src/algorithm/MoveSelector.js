@@ -50,14 +50,19 @@
  * =============================================================================
  */
 
-// DeterministicMode: Used for testing to get reproducible results
-// (Not actively used in current code but imported for future use)
-import { DeterministicMode } from '../config/DeterministicMode.js';
-
 // Logger: Configurable logging system - can be toggled on/off per category
 // Use Logger.setEnabled('MoveSelector', true/false) in browser console to toggle
 import Logger from '../utils/Logger.js';
 const log = Logger.get('MoveSelector');
+
+// =============================================================================
+// Evaluation Constants
+// =============================================================================
+// Stockfish uses large centipawn values to represent mate scores.
+// Any evaluation above this threshold indicates checkmate (positive = mate for us,
+// negative = mate against us). The exact value varies by engine, but 999999
+// is safely above any positional evaluation and below mate score magnitudes.
+const MATE_SCORE_THRESHOLD = 999999;
 
 /**
  * MoveSelector Class - Picks the best move from candidates
@@ -611,14 +616,14 @@ class MoveSelector {
         }
 
         // If we have mate in our favor, always accept
-        if (moveAnalysis.evaluation > 999999) {
+        if (moveAnalysis.evaluation > MATE_SCORE_THRESHOLD) {
             return true;
         }
 
         // If we're getting mated, check if it's forced or avoidable
-        if (moveAnalysis.evaluation < -999999) {
+        if (moveAnalysis.evaluation < -MATE_SCORE_THRESHOLD) {
             // If best move also leads to mate, accept (forced mate)
-            if (this._isMateScore(moveAnalysis.bestEvaluation) && moveAnalysis.bestEvaluation < -999999) {
+            if (this._isMateScore(moveAnalysis.bestEvaluation) && moveAnalysis.bestEvaluation < -MATE_SCORE_THRESHOLD) {
                 return true;
             }
             return false; // Avoidable mate
@@ -777,7 +782,7 @@ class MoveSelector {
    * @private
    */
     _isMateScore(score) {
-        return Math.abs(score) > 999999;
+        return Math.abs(score) > MATE_SCORE_THRESHOLD;
     }
 
     /**
