@@ -608,7 +608,7 @@ class FormController {
 
             } catch (error) {
                 log.error(`Failed to process ${opening.name}:`, error);
-                this.errorHandler.logError(error, `Processing ${opening.name}`);
+                this.errorHandler.logDetailedError(error, `Processing ${opening.name}`);
 
                 // Create error report
                 const errorReport = `# Error Report for ${opening.name}
@@ -639,6 +639,21 @@ class FormController {
         try {
             log.log(`📋 [FormController] generateDisplay called with ${Object.keys(results).length} results`);
 
+            // Filter out error reports (strings) - only process format objects
+            // Error reports are stored as strings with filenames like "Error_*.md"
+            const validResults = {};
+            for (const [filename, data] of Object.entries(results)) {
+                if (typeof data === 'object' && data.individualPGN !== undefined) {
+                    validResults[filename] = data;
+                } else {
+                    log.warn(`⚠️ [FormController] Skipping non-format entry: ${filename}`);
+                }
+            }
+
+            if (Object.keys(validResults).length === 0) {
+                throw new Error('No valid PGN content was generated. Check if the opening position and Lichess API responses are valid.');
+            }
+
             // Prepare format object for display (contains both individual and tree formats)
             let formatData = null;
             let chapterName = 'Chess Repertoire';
@@ -648,10 +663,10 @@ class FormController {
                 totalLines: 0
             };
 
-            // Handle single or multiple results
-            if (Object.keys(results).length === 1) {
+            // Handle single or multiple results (using filtered validResults)
+            if (Object.keys(validResults).length === 1) {
                 // Single chapter - pass format object directly to displayPGN
-                const [filename, bothFormats] = Object.entries(results)[0];
+                const [filename, bothFormats] = Object.entries(validResults)[0];
                 formatData = bothFormats;
                 chapterName = filename.replace(/\.pgn$/, '');
 
@@ -664,7 +679,7 @@ class FormController {
                 const individualChapters = [];
                 const treeChapters = [];
 
-                for (const [filename, bothFormats] of Object.entries(results)) {
+                for (const [filename, bothFormats] of Object.entries(validResults)) {
                     const name = filename.replace(/\.pgn$/, '');
                     individualChapters.push({ name, content: bothFormats.individualPGN });
                     treeChapters.push({ name, content: bothFormats.treePGN });
