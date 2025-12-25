@@ -70,8 +70,9 @@ class ProgressTracker {
         // We change its width: "width: 50%" for 50% progress
         this.fill = document.getElementById('progress-fill');
 
-        // Text element showing current operation description
-        this.text = document.getElementById('progress-text');
+        // Text element showing current phase/stage description
+        // Note: The HTML uses 'progress-stage' for the main status text
+        this.text = document.getElementById('progress-stage');
 
         // =====================================================================
         // State Tracking
