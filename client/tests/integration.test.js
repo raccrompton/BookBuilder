@@ -138,6 +138,12 @@ describe('BookBuilder Integration Tests', () => {
     });
 
     describe('Configuration Management', () => {
+        // NOTE: These tests use the mock configManager from beforeEach.
+        // The mock contains validation logic that reads from DOM, so these tests
+        // DO verify validation behavior. However, if the REAL configManager changes,
+        // these tests won't catch regressions. Consider importing real configManager
+        // for true integration testing.
+
         it('should validate opening books JSON', () => {
             const errors = formController.configManager.validateConfig();
             expect(errors).toEqual([]);
@@ -319,63 +325,25 @@ describe('BookBuilder Integration Tests', () => {
     });
 
     describe('Form Integration', () => {
-        it('should convert form data to BookBuilder config', () => {
-            // Set up form with test data
-            document.getElementById('opening-books-json').value = JSON.stringify([
-                { name: 'Sicilian', moves: ['e4', 'c5'], priority: 1 }
-            ]);
-            document.getElementById('engine-depth').value = '20';
-            document.getElementById('min-rating').value = '1800';
+        // REMOVED: 'should convert form data to BookBuilder config' test
+        // Per testing-standards.md line 229-254: "Never mock the function you're testing"
+        //
+        // The previous test defined a mock convertToBookBuilderConfig, then asserted
+        // that the mock returned what the mock was defined to return. This was circular
+        // and could never fail - it tested the mock definition, not real behavior.
+        //
+        // TODO: Test the REAL convertToBookBuilderConfig method from FormController,
+        // mocking only external dependencies like DOM if needed.
 
-            // Update display elements
-            document.getElementById('engine-depth-value').textContent = '20';
-
-            // Mock the convertToBookBuilderConfig method
-            formController.convertToBookBuilderConfig = (formData) => {
-                const openings = JSON.parse(formData['opening-books-json'] || '[]');
-                return {
-                    openings: openings,
-                    ENGINEDEPTH: parseInt(formData['engine-depth'] || '15'),
-                    ratingRange: [parseInt(formData['min-rating'] || '1600'), 2400]
-                };
-            };
-
-            const formData = formController.configManager.getFormData();
-            const config = formController.convertToBookBuilderConfig(formData);
-
-            expect(config.openings).toHaveLength(1);
-            expect(config.openings[0].name).toBe('Sicilian');
-            expect(config.ENGINEDEPTH).toBe(20);
-            expect(config.ratingRange[0]).toBe(1800);
-        });
-
-        it('should handle form submission', async () => {
-            // Mock the generation process
-            formController.startGeneration = jest.fn().mockResolvedValue({ success: true });
-            formController.handleSubmit = jest.fn(() => {
-                formController.startGeneration();
-            });
-
-            // Mock setupEventListeners to handle form submission
-            formController.setupEventListeners = () => {
-                const form = document.getElementById('bookbuilder-form');
-                if (form) {
-                    form.addEventListener('submit', (e) => {
-                        e.preventDefault();
-                        formController.handleSubmit();
-                    });
-                }
-            };
-
-            formController.setupEventListeners();
-
-            const form = document.getElementById('bookbuilder-form');
-            const submitEvent = new Event('submit');
-
-            form.dispatchEvent(submitEvent);
-
-            expect(formController.startGeneration).toHaveBeenCalled();
-        });
+        // REMOVED: 'should handle form submission' test
+        // Per testing-standards.md line 229-254: "Never mock the function you're testing"
+        //
+        // The previous test mocked BOTH handleSubmit AND startGeneration, then asserted
+        // startGeneration was called. This was testing mock behavior, not real code.
+        // The test would pass even if the real implementation was completely broken.
+        //
+        // TODO: Rewrite as an E2E test using Playwright to test actual form submission
+        // behavior with real DOM interactions and real component responses.
     });
 
     // Skip Stockfish tests in Node.js - they require Web Workers which aren't available

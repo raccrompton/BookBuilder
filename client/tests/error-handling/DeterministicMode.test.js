@@ -19,7 +19,8 @@ describe('DeterministicMode', () => {
         it('throws Error instance with correct message', () => {
             try {
                 DeterministicMode.throwOnFailure(false, 'Specific test error');
-                fail('Expected error to be thrown');
+                // If we reach here, the test should fail
+                expect('no error thrown').toBe('error should have been thrown');
             } catch (error) {
                 expect(error).toBeInstanceOf(Error);
                 expect(error.message).toBe('Specific test error');
