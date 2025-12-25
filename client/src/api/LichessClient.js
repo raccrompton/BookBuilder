@@ -47,6 +47,15 @@
 import Logger from '../utils/Logger.js';
 const log = Logger.get('LichessClient');
 
+// =============================================================================
+// Rate Limiting Constants
+// =============================================================================
+// Lichess API allows approximately 2 requests per second. We use a simple
+// throttle delay before each request to stay well within this limit.
+// This is simpler and more reliable than a complex token bucket for our use
+// case where only one LichessClient instance exists per generation session.
+const REQUEST_THROTTLE_MS = 500; // 500ms between requests = ~2 req/sec max
+
 class LichessClient {
     /**
      * Constructor - Initialize the Lichess API client
@@ -282,11 +291,11 @@ class LichessClient {
                 // -------------------------------------------------------------
                 // Make the HTTP Request
                 // -------------------------------------------------------------
-                // Wait half a second before making the request to be respectful of Lichess's servers
-                // This "throttling" (slowing down) helps prevent hitting rate limits - Lichess
-                // restricts how many requests you can make per minute to keep their service fast
-                // for everyone. We wait proactively instead of waiting for a 429 error.
-                await this._sleep(500);
+                // Proactive throttling to stay within Lichess's rate limits (~2 req/sec)
+                // We wait BEFORE the request to ensure consistent pacing. This is simpler
+                // and more reliable than reactive 429 handling alone, though we still
+                // handle 429s gracefully if they occur.
+                await this._sleep(REQUEST_THROTTLE_MS);
 
                 // fetch() is the modern browser API for HTTP requests
                 // It returns a Promise that resolves to a Response object

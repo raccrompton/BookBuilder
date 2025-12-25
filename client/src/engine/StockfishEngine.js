@@ -214,6 +214,7 @@ class StockfishEngine {
                 // When the WASM crashes (e.g., illegal move), we need to:
                 // 1. Reject all pending operations so they don't hang
                 // 2. Mark engine as not ready so it can be reinitialized
+                // 3. Reset initializationPromise so re-init creates a fresh worker
                 this.worker.onerror = (error) => {
                     log.error('Stockfish worker error:', error);
 
@@ -232,6 +233,10 @@ class StockfishEngine {
 
                     // Mark engine as not ready - it needs reinitialization
                     this.isReady = false;
+
+                    // Reset initializationPromise so subsequent initialize() calls
+                    // create a new worker instead of returning the rejected promise
+                    this.initializationPromise = null;
                 };
 
                 log.info('Stockfish worker created, initializing UCI protocol...');

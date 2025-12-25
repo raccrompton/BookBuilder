@@ -992,7 +992,13 @@ class BookBuilder {
                     if (!undoEngine || !undoOpponent) {
                         log.error(`[BookBuilder] Undo failed (engine: ${!!undoEngine}, opponent: ${!!undoOpponent}) - resetting to known state`);
                         log.error(`[BookBuilder] Restoring position from lineData.fen: ${lineData.fen}`);
-                        this.chessEngine.parsePosition(lineData.fen);
+                        const recovered = this.chessEngine.parsePosition(lineData.fen);
+                        if (!recovered) {
+                            // Recovery failed - FEN may be corrupted. Fail fast to prevent
+                            // cascading corruption where invalid positions propagate through
+                            // the rest of the generation, potentially crashing Stockfish WASM.
+                            throw new Error(`[BookBuilder] CRITICAL: Recovery failed - could not restore position from FEN: ${lineData.fen}`);
+                        }
                     }
 
                     return {
