@@ -1947,11 +1947,11 @@ class FileGenerator {
         }
 
         // Check if toggle already exists (from previous generation)
+        // Remove it so we create fresh buttons with listeners bound to THIS instance
+        // This fixes a stale closure bug where old listeners reference old FileGenerator instances
         let toggleContainer = document.getElementById('format-toggle-container');
         if (toggleContainer) {
-            // Reset toggle state to match currentFormat
-            this.updateToggleButtonStates();
-            return;
+            toggleContainer.remove();
         }
 
         // Create the toggle container with two buttons
