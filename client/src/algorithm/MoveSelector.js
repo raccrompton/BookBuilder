@@ -622,8 +622,9 @@ class MoveSelector {
 
         // If we're getting mated, check if it's forced or avoidable
         if (moveAnalysis.evaluation < -MATE_SCORE_THRESHOLD) {
-            // If best move also leads to mate, accept (forced mate)
-            if (this._isMateScore(moveAnalysis.bestEvaluation) && moveAnalysis.bestEvaluation < -MATE_SCORE_THRESHOLD) {
+            // If position was already lost before our move (beforeEval shows mate), accept (forced mate)
+            // beforeEval = position evaluation before our move = engine's best line evaluation
+            if (this._isMateScore(moveAnalysis.beforeEval) && moveAnalysis.beforeEval < -MATE_SCORE_THRESHOLD) {
                 return true;
             }
             return false; // Avoidable mate

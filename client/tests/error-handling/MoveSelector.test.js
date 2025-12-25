@@ -152,4 +152,73 @@ describe('MoveSelector Error Handling', () => {
             expect(moveSelector._selectByStatistics).toHaveBeenCalled();
         });
     });
+
+    describe('Mate Scenario Handling', () => {
+        let moveSelector;
+
+        beforeEach(() => {
+            moveSelector = new MoveSelector({
+                CAREABOUTENGINE: 1,
+                SOUNDNESSLIMIT: -99
+            });
+        });
+
+        it('accepts move leading to mate when position was already a forced mate', () => {
+            // Scenario: Position is already lost (forced mate against us).
+            // Our move also leads to mate, but that's fine - we can't do better.
+            // The bug: code referenced moveAnalysis.bestEvaluation which doesn't exist.
+            // Fix: should use moveAnalysis.beforeEval instead.
+
+            const MATE_SCORE = -10000000; // Represents mate against us
+
+            const moveAnalysis = {
+                evaluation: MATE_SCORE,      // After our move: we get mated
+                beforeEval: MATE_SCORE,      // Before our move: already forced mate
+                moveLoss: 0,                 // No loss - position was already lost
+                quality: 'forced'
+            };
+
+            // This should return true: forced mate, nothing we can do
+            const result = moveSelector._handleMateScenarios(moveAnalysis);
+
+            expect(result).toBe(true);
+        });
+
+        it('rejects move leading to mate when mate was avoidable', () => {
+            // Scenario: Position was fine, but our move blunders into mate.
+            // beforeEval is normal (not mate), but evaluation after move is mate.
+
+            const MATE_SCORE = -10000000;
+            const NORMAL_EVAL = -50; // Slightly worse but not mate
+
+            const moveAnalysis = {
+                evaluation: MATE_SCORE,      // After our move: we get mated
+                beforeEval: NORMAL_EVAL,     // Before our move: position was fine
+                moveLoss: 9999950,           // Huge loss
+                quality: 'blunder'
+            };
+
+            // This should return false: we blundered into an avoidable mate
+            const result = moveSelector._handleMateScenarios(moveAnalysis);
+
+            expect(result).toBe(false);
+        });
+
+        it('accepts move that gives us mate', () => {
+            // Scenario: Our move delivers checkmate. Always accept!
+
+            const MATE_SCORE = 10000000; // Mate in our favor
+
+            const moveAnalysis = {
+                evaluation: MATE_SCORE,      // After our move: we deliver mate
+                beforeEval: 100,             // Before: we were winning
+                moveLoss: 0,
+                quality: 'checkmate'
+            };
+
+            const result = moveSelector._handleMateScenarios(moveAnalysis);
+
+            expect(result).toBe(true);
+        });
+    });
 });
