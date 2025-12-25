@@ -609,11 +609,26 @@ test.describe('FormController E2E - Orchestration Tests', () => {
          * - When Lichess API returns an error, the app handles it gracefully
          * - Error is displayed to the user
          * - Form view is restored so user can retry
+         *
+         * IMPORTANT: LichessClient has retry logic with exponential backoff
+         * (3 retries with 1s, 2s, 4s delays = ~7 seconds total before error shown).
+         * We must wait long enough for all retries to complete.
          */
         test('should handle API error gracefully and restore form', async ({ page }) => {
             // ARRANGE: Mock API to return error
+            // Must unroute BOTH patterns that mockLichessAPI sets up
             await page.unroute('**/explorer.lichess.ovh/**');
+            await page.unroute('**/lichess.org/**');
+
+            // Set up error routes for both patterns
             await page.route('**/explorer.lichess.ovh/**', async (route) => {
+                await route.fulfill({
+                    status: 500,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ error: 'Internal Server Error' })
+                });
+            });
+            await page.route('**/lichess.org/**', async (route) => {
                 await route.fulfill({
                     status: 500,
                     contentType: 'application/json',
@@ -626,15 +641,32 @@ test.describe('FormController E2E - Orchestration Tests', () => {
             // ACT: Submit form
             await submitForm(page);
 
-            // Wait for API error to be processed and error UI to display
-            await page.waitForTimeout(TIMEOUTS.API_ERROR_DISPLAY);
+            // ASSERT: Wait for either error container OR form to become visible
+            // Using Promise.race with proper Playwright waits instead of fixed timeout.
+            // LichessClient retries 3 times with exponential backoff, so this can take
+            // 7+ seconds. We use waitForSelector which properly polls until condition met.
+            try {
+                await Promise.race([
+                    page.waitForSelector('#error-container:not([style*="display: none"])', {
+                        timeout: 30000,
+                        state: 'visible'
+                    }),
+                    page.waitForSelector('#bookbuilder-form:not([style*="display: none"])', {
+                        timeout: 30000,
+                        state: 'visible'
+                    })
+                ]);
+            } catch {
+                // If neither appeared, log current state for debugging
+                const errorVisible = await page.locator('#error-container').isVisible();
+                const formVisible = await page.locator('#bookbuilder-form').isVisible();
+                const progressVisible = await page.locator('#generation-status').isVisible();
+                console.log('Debug state:', { errorVisible, formVisible, progressVisible });
+            }
 
-            // ASSERT: Error should be shown or form should be restored
-            // The exact behavior depends on implementation
+            // Final assertion: Either error is shown or form is visible (restored after error)
             const hasError = await isErrorVisible(page);
             const formVisible = await page.locator('#bookbuilder-form').isVisible();
-
-            // Either error is shown or form is visible (restored after error)
             expect(hasError || formVisible).toBe(true);
         });
     });
