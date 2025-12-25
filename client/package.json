@@ -32,9 +32,11 @@
     "test:node-engine": "jest tests/node-engine-parity.test.js",
     "test:real-engine:integration": "USE_REAL_ENGINE=true jest tests/integration.test.js",
     "test:real-engine:bookbuilder": "USE_REAL_ENGINE=true jest tests/bookbuilder.test.js",
-    "test:e2e": "npx playwright test --config=playwright.e2e.config.js",
-    "test:e2e:headed": "npx playwright test --config=playwright.e2e.config.js --headed",
-    "test:e2e:debug": "npx playwright test --config=playwright.e2e.config.js --debug"
+    "test:e2e": "npx playwright test --config=playwright.e2e.config.js --grep-invert @real-engine",
+    "test:e2e:headed": "npx playwright test --config=playwright.e2e.config.js --headed --grep-invert @real-engine",
+    "test:e2e:debug": "npx playwright test --config=playwright.e2e.config.js --debug --grep-invert @real-engine",
+    "test:e2e:real": "npx playwright test --config=playwright.e2e.config.js tests/e2e/real-engine-smoke.e2e.test.js",
+    "test:e2e:all": "npx playwright test --config=playwright.e2e.config.js"
   },
   "keywords": [
     "chess",
@@ -71,7 +73,8 @@
     "testEnvironment": "jsdom",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/tests/browser/"
+      "/tests/browser/",
+      "/tests/e2e/"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"

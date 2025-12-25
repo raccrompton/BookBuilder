@@ -9,6 +9,13 @@
  * this code because it coordinates multiple components (BookBuilder, LichessClient,
  * FileGenerator, StockfishEngine) in a browser environment with real DOM manipulation.
  *
+ * MOCK ENGINE (testMode):
+ * These tests use ?testMode=true in the URL, which triggers EngineFactory to use
+ * MockStockfishEngine instead of the real Stockfish WASM engine. This makes tests
+ * complete in ~10 seconds instead of 3+ minutes while still testing the full UI flow.
+ *
+ * For tests with the real engine, see: real-engine-smoke.e2e.test.js
+ *
  * WHAT THESE TESTS CATCH:
  * 1. Stale closure bugs (like commit 6d4aa6d) where state from analysis 1 bleeds
  *    into analysis 2 when toggling between formats
@@ -17,10 +24,12 @@
  * 4. Error handling flows in the real browser environment
  *
  * HOW TO RUN:
- * npm run test:e2e -- tests/e2e/form-orchestration.e2e.test.js
+ * npm run test:e2e                    # Fast tests with mock engine
+ * npm run test:e2e:real               # Slow tests with real Stockfish
  *
  * ARCHITECTURE:
  * - Uses Playwright to run in a real Chromium browser
+ * - Uses MockStockfishEngine for fast, deterministic engine responses
  * - Intercepts Lichess API calls to provide deterministic mock responses
  * - Tests the full user flow from form input to results display
  * =============================================================================
@@ -312,8 +321,8 @@ test.describe('FormController E2E - Orchestration Tests', () => {
         // Mock Lichess API to avoid rate limits and ensure deterministic behavior
         await mockLichessAPI(page, 'Test');
 
-        // Navigate to the app
-        await page.goto('/app.html');
+        // Navigate to the app with testMode for fast mock engine
+        await page.goto('/app.html?testMode=true');
 
         // Wait for the app to initialize (form should be visible)
         await page.waitForSelector('#bookbuilder-form', { timeout: 10000 });
@@ -823,7 +832,7 @@ test.describe('FormController E2E - Race Condition Tests', () => {
 
     test.beforeEach(async ({ page }) => {
         await mockLichessAPI(page, 'RaceTest');
-        await page.goto('/app.html');
+        await page.goto('/app.html?testMode=true');
         await page.waitForSelector('#bookbuilder-form', { timeout: 10000 });
     });
 
@@ -894,7 +903,7 @@ test.describe('FormController E2E - UX Tests', () => {
 
     test.beforeEach(async ({ page }) => {
         await mockLichessAPI(page, 'UXTest');
-        await page.goto('/app.html');
+        await page.goto('/app.html?testMode=true');
         await page.waitForSelector('#bookbuilder-form', { timeout: 10000 });
     });
 
