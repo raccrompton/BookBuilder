@@ -3,8 +3,9 @@
  */
 
 module.exports = {
-  // Test directory
-  testDir: './tests/browser',
+  // Test directories - include browser performance and E2E tests
+  testDir: './tests',
+  testMatch: ['**/e2e/**/*.test.js'],
 
   // Test timeout (generous for engine performance tests)
   timeout: 6 * 60 * 1000, // 6 minutes

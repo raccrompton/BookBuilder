@@ -10,10 +10,9 @@
  * - Double-submit prevention
  * - Cross-tab synchronization
  *
- * FEATURE FLAG:
- * These tests use ?testMode=true&useJobQueue=true to enable:
- * - MockStockfishEngine for fast tests
- * - JobManager for job persistence
+ * TEST MODE:
+ * These tests use ?testMode=true to enable MockStockfishEngine for fast tests.
+ * Job queue is enabled by default (disable with ?noJobQueue).
  *
  * HOW TO RUN:
  * npm run test:e2e                    # Runs all E2E tests including these
@@ -347,11 +346,30 @@ test.describe('Job Queue - Cross-Tab Sync', () => {
 });
 
 test.describe('Job Queue - Feature Flag', () => {
-    test('job queue is disabled without useJobQueue parameter', async ({ page }) => {
+    test('job queue is enabled by default', async ({ page }) => {
         await setupMocks(page);
 
-        // Navigate WITHOUT useJobQueue
+        // Navigate without any job queue parameter (default behavior)
         await page.goto('/?testMode=true');
+
+        // Wait for FormController to initialize
+        await page.waitForTimeout(TIMEOUTS.UI_UPDATE * 5);
+
+        // Check that JobManager is initialized by default
+        const hasJobManager = await page.evaluate(() => {
+            const controller = window.formController;
+            return controller && controller.jobManager !== null;
+        });
+
+        // JobManager should be initialized by default
+        expect(hasJobManager).toBe(true);
+    });
+
+    test('job queue is disabled with noJobQueue parameter', async ({ page }) => {
+        await setupMocks(page);
+
+        // Navigate WITH noJobQueue to disable
+        await page.goto('/?testMode=true&noJobQueue=true');
 
         // Check that JobManager is not initialized
         const hasJobManager = await page.evaluate(() => {
@@ -359,26 +377,7 @@ test.describe('Job Queue - Feature Flag', () => {
             return controller && controller.jobManager !== null;
         });
 
-        // JobManager should be null when feature flag is off
+        // JobManager should be null when explicitly disabled
         expect(hasJobManager).toBeFalsy();
-    });
-
-    test('job queue is enabled with useJobQueue parameter', async ({ page }) => {
-        await setupMocks(page);
-
-        // Navigate WITH useJobQueue
-        await page.goto('/?testMode=true&useJobQueue=true');
-
-        // Wait for FormController to initialize
-        await page.waitForTimeout(TIMEOUTS.UI_UPDATE * 5);
-
-        // Check that JobManager is initialized
-        const hasJobManager = await page.evaluate(() => {
-            const controller = window.formController;
-            return controller && controller.jobManager !== null;
-        });
-
-        // JobManager should be initialized when feature flag is on
-        expect(hasJobManager).toBe(true);
     });
 });

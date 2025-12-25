@@ -121,21 +121,23 @@ class FormController {
         this.bookBuilder = null;
 
         // =====================================================================
-        // Job Queue Feature Flag (Phase 4)
+        // Job Queue (enabled by default)
         // =====================================================================
-        // Check URL for useJobQueue parameter to enable job persistence
-        // This allows jobs to survive page refresh and enables cancellation
+        // Job queue provides persistence across page refresh and cancellation.
+        // Disable with ?noJobQueue for debugging or legacy behavior.
         const params = new URLSearchParams(location.search);
-        this.useJobQueue = params.has('useJobQueue');
+        this.useJobQueue = !params.has('noJobQueue');
 
-        // JobManager: Handles job persistence and state machine (if enabled)
+        // JobManager: Handles job persistence and state machine
         this.jobManager = null;
         this.currentJobId = null;
 
         if (this.useJobQueue) {
-            log.log('🔧 [FormController] Job queue enabled via useJobQueue parameter');
+            log.log('🔧 [FormController] Job queue enabled');
             this.jobManager = new JobManager();
             this._setupJobRehydration();
+        } else {
+            log.log('🔧 [FormController] Job queue disabled via noJobQueue parameter');
         }
 
         // =====================================================================
