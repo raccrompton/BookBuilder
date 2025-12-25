@@ -13,7 +13,7 @@
     "test:quick": "jest --testPathPattern='(unit|chess-engine)'",
     "dev": "http-server . -p ${PORT:-3000} -c-1 --ext js",
     "build": "npm run test:quick && npm run build:dist",
-    "build:dist": "mkdir -p dist/node_modules/@badrap dist/node_modules/@mliebelt dist/node_modules/stockfish/src && cp app.html dist/index.html && cp -r src dist/ && cp -r node_modules/chess.js dist/node_modules/ && cp -r node_modules/chessops dist/node_modules/ && cp -r node_modules/@badrap/result dist/node_modules/@badrap/ && cp -r node_modules/@mliebelt/pgn-parser dist/node_modules/@mliebelt/ && cp node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.* dist/node_modules/stockfish/src/ && cp node_modules/stockfish/src/stockfish-17.1-single-a496a04* dist/node_modules/stockfish/src/",
+    "build:dist": "mkdir -p dist/node_modules/@badrap dist/node_modules/@mliebelt dist/node_modules/stockfish/src dist/node_modules/idb/build && cp app.html dist/index.html && cp -r src dist/ && cp -r node_modules/chess.js dist/node_modules/ && cp -r node_modules/chessops dist/node_modules/ && cp -r node_modules/@badrap/result dist/node_modules/@badrap/ && cp -r node_modules/@mliebelt/pgn-parser dist/node_modules/@mliebelt/ && cp node_modules/stockfish/src/stockfish-17.1-lite-single-03e3232.* dist/node_modules/stockfish/src/ && cp node_modules/stockfish/src/stockfish-17.1-single-a496a04* dist/node_modules/stockfish/src/ && cp node_modules/idb/build/index.js dist/node_modules/idb/build/",
     "lint": "eslint src/ tests/ --ext .js",
     "format": "prettier --write src/ tests/",
     "serve": "http-server dist -p 8080 -c-1",
