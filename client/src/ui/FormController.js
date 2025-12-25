@@ -908,9 +908,10 @@ class FormController {
             // 1 = lazy (default, more efficient), 0 = batch all candidates upfront (legacy)
             LAZY_ENGINE: 1,
 
-            // Pass the initialized StockfishEngine instance to BookBuilder
-            // (FormController already initialized it, so don't create a second one)
-            stockfishEngine: this.stockfishEngine,
+            // Engine is attached AFTER job creation to avoid IndexedDB serialization errors
+            // (Web Workers can't be cloned by IndexedDB's structured clone algorithm)
+            // See lines 381-384 (non-job flow) or 1187-1189 (job flow) where engine is attached
+            stockfishEngine: null,
 
             // Processing settings
             LONGTOSHORT: false, // Default: priority order
