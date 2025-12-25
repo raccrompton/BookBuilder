@@ -55,6 +55,8 @@ import ErrorHandler from './ErrorHandler.js';
 import FileGenerator from './FileGenerator.js';
 import ProgressTracker from './ProgressTracker.js';
 import PgnProcessor from '../utils/PgnProcessor.js';
+import { JobManager } from '../jobs/JobManager.js';
+import { JOB_STATUS } from '../jobs/JobStore.js';
 
 // Logger: Configurable logging - toggle with Logger.setEnabled('FormController', true/false)
 import Logger from '../utils/Logger.js';
@@ -117,6 +119,24 @@ class FormController {
 
         // BookBuilder: Main orchestrator for repertoire generation
         this.bookBuilder = null;
+
+        // =====================================================================
+        // Job Queue Feature Flag (Phase 4)
+        // =====================================================================
+        // Check URL for useJobQueue parameter to enable job persistence
+        // This allows jobs to survive page refresh and enables cancellation
+        const params = new URLSearchParams(location.search);
+        this.useJobQueue = params.has('useJobQueue');
+
+        // JobManager: Handles job persistence and state machine (if enabled)
+        this.jobManager = null;
+        this.currentJobId = null;
+
+        if (this.useJobQueue) {
+            log.log('🔧 [FormController] Job queue enabled via useJobQueue parameter');
+            this.jobManager = new JobManager();
+            this._setupJobRehydration();
+        }
 
         // =====================================================================
         // Setup
@@ -274,7 +294,7 @@ class FormController {
             log.log('🔍 [DEBUG] Starting form validation...');
             const errors = await this.configManager.validateConfig();
             log.log('📊 [DEBUG] Validation errors:', errors);
-            
+
             if (errors.length > 0) {
                 log.log('❌ [DEBUG] Validation failed, showing errors');
                 this.errorHandler.showValidationErrors(errors);
@@ -285,7 +305,7 @@ class FormController {
             log.log('⚙️ [DEBUG] Getting form data...');
             const formConfig = this.configManager.getFormData();
             log.log('📋 [DEBUG] Form config:', formConfig);
-            
+
             log.log('🔧 [DEBUG] Converting to BookBuilder config...');
             const bookBuilderConfig = await this.convertToBookBuilderConfig(formConfig);
             log.log('🏗️ [DEBUG] BookBuilder config:', bookBuilderConfig);
@@ -298,7 +318,13 @@ class FormController {
                 showGenerationStatus();
             }
 
-            await this.startGeneration(bookBuilderConfig);
+            // Route to appropriate flow based on feature flag
+            if (this.useJobQueue) {
+                log.log('📋 [FormController] Using job queue flow');
+                await this._handleSubmitWithJobs(bookBuilderConfig);
+            } else {
+                await this.startGeneration(bookBuilderConfig);
+            }
 
         } catch (error) {
             log.error(`❌ [FormController] Error in handleSubmit:`, error);
@@ -1113,6 +1139,334 @@ class FormController {
         } catch (error) {
             errorElement.textContent = `Validation error: ${error.message}`;
             pgnInput.classList.add('error');
+        }
+    }
+
+    // =========================================================================
+    // Job Queue Methods (Phase 4)
+    // =========================================================================
+    // These methods provide job persistence and recovery capabilities
+    // Only active when ?useJobQueue=true is in the URL
+
+    /**
+     * Handle form submission using job queue for persistence.
+     *
+     * WHAT IT DOES:
+     * 1. Creates a job record in IndexedDB
+     * 2. Transitions job through states (pending → running → completed/failed)
+     * 3. Updates progress in the job record for recovery
+     * 4. On error, marks job as failed with error details
+     *
+     * WHY USE THIS:
+     * If the page is refreshed during analysis, the job can be recovered
+     * because its state is persisted in IndexedDB.
+     *
+     * @param {Object} config - BookBuilder configuration object
+     * @private
+     */
+    async _handleSubmitWithJobs(config) {
+        try {
+            // 1. Create job record with configuration
+            const job = await this.jobManager.createJob(config);
+            this.currentJobId = job.id;
+            log.log(`📋 [FormController] Created job ${job.id}`);
+
+            // 2. Update UI to show pending
+            this.progressTracker.start();
+            this.progressTracker.updatePhase('Initializing analysis...', 5);
+
+            // 3. Transition to running
+            await this.jobManager.transition(job.id, 'running');
+            log.log(`▶️ [FormController] Job ${job.id} now running`);
+
+            // 4. Initialize components with progress updates
+            this.progressTracker.updatePhase('Initializing components...', 10);
+            await this.initializeComponents(config);
+
+            // Update config with initialized engine
+            if (this.stockfishEngine) {
+                config.stockfishEngine = this.stockfishEngine;
+            }
+
+            // 5. Validate connections
+            this.progressTracker.updatePhase('Validating configuration...', 15);
+            await this.validateConnections(config);
+
+            // 6. Create BookBuilder with progress tracking
+            this.progressTracker.updatePhase('Creating BookBuilder instance...', 20);
+
+            const progressCallback = async (progressData) => {
+                this.handleBookBuilderProgress(progressData);
+
+                // Persist progress to job record for recovery
+                if (this.jobManager && this.currentJobId) {
+                    await this.jobManager.updateProgress(this.currentJobId, {
+                        phase: 'analyzing',
+                        current: progressData.current || progressData.positionsProcessed || 0,
+                        moves: progressData.moves || 0,
+                        message: `Analyzing positions...`
+                    });
+                }
+            };
+
+            this.bookBuilder = new BookBuilder(config, progressCallback);
+
+            // 7. Process openings
+            this.progressTracker.updatePhase('Processing openings...', 25);
+            const results = await this.processOpenings(config);
+
+            // 8. Generate display
+            this.progressTracker.updateDisplayPhase('Preparing PGN display...', 90);
+            const displayResult = await this.generateDisplay(results);
+
+            // Hide generation status before showing results
+            if (typeof hideGenerationStatus === 'function') {
+                hideGenerationStatus();
+            }
+
+            // 9. Mark job as completed
+            await this.jobManager.transition(job.id, 'completed', {
+                result: { displayResult }
+            });
+            this.currentJobId = null;
+            log.log(`✅ [FormController] Job ${job.id} completed successfully`);
+
+            this.progressTracker.complete('Repertoire generated successfully!', displayResult);
+
+        } catch (error) {
+            log.error(`❌ [FormController] Job failed:`, error);
+
+            // Mark job as failed if we have a job ID
+            if (this.currentJobId && this.jobManager) {
+                try {
+                    await this.jobManager.transition(this.currentJobId, 'failed', {
+                        error: { message: error.message, stack: error.stack }
+                    });
+                } catch (transitionError) {
+                    log.error('Failed to mark job as failed:', transitionError);
+                }
+            }
+            this.currentJobId = null;
+
+            this.errorHandler.showError('Generation failed', error);
+            this.progressTracker.reset();
+
+            // Restore form view
+            if (typeof hideGenerationStatus === 'function') {
+                hideGenerationStatus();
+            }
+            if (typeof hideProgressContainer === 'function') {
+                hideProgressContainer();
+            }
+        }
+    }
+
+    /**
+     * Setup job rehydration on page load.
+     *
+     * WHAT IT DOES:
+     * Checks if there was a running job when the page was last closed.
+     * If found, shows a recovery dialog asking user if they want to resume.
+     *
+     * @private
+     */
+    async _setupJobRehydration() {
+        try {
+            const runningJob = await this.jobManager.getInProgress();
+
+            if (runningJob) {
+                log.log(`🔄 [FormController] Found interrupted job: ${runningJob.id}`);
+                this._showRecoveryDialog(runningJob);
+            }
+        } catch (error) {
+            log.error('Failed to check for interrupted jobs:', error);
+        }
+    }
+
+    /**
+     * Show recovery dialog for interrupted job.
+     *
+     * WHAT IT DOES:
+     * Displays a dialog asking user if they want to resume the interrupted
+     * analysis or discard it and start fresh.
+     *
+     * @param {Object} job - The interrupted job record
+     * @private
+     */
+    _showRecoveryDialog(job) {
+        // Create recovery dialog
+        // SECURITY: Using DOM manipulation instead of innerHTML to prevent XSS
+        // Job data could contain malicious content, so we use textContent for user data
+        const dialog = document.createElement('div');
+        dialog.id = 'recovery-dialog';
+        dialog.setAttribute('data-testid', 'recovery-dialog');
+        dialog.className = 'recovery-dialog-overlay';
+
+        // Build dialog content safely using DOM APIs
+        const content = document.createElement('div');
+        content.className = 'recovery-dialog-content';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Analysis Interrupted';
+        content.appendChild(heading);
+
+        const description = document.createElement('p');
+        description.textContent = 'A previous analysis was interrupted. Would you like to discard it and start fresh?';
+        content.appendChild(description);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'recovery-dialog-info';
+
+        const jobIdP = document.createElement('p');
+        const jobIdLabel = document.createElement('strong');
+        jobIdLabel.textContent = 'Job ID: ';
+        jobIdP.appendChild(jobIdLabel);
+        // SECURITY: Use textContent to safely display job.id (prevents XSS)
+        jobIdP.appendChild(document.createTextNode(job.id || 'Unknown'));
+        infoDiv.appendChild(jobIdP);
+
+        const progressP = document.createElement('p');
+        const progressLabel = document.createElement('strong');
+        progressLabel.textContent = 'Progress: ';
+        progressP.appendChild(progressLabel);
+        // SECURITY: Use textContent to safely display progress message (prevents XSS)
+        progressP.appendChild(document.createTextNode(job.progress?.message || 'Unknown'));
+        infoDiv.appendChild(progressP);
+
+        content.appendChild(infoDiv);
+
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'recovery-dialog-buttons';
+
+        const discardButton = document.createElement('button');
+        discardButton.setAttribute('data-testid', 'recovery-discard');
+        discardButton.className = 'btn btn-secondary';
+        discardButton.textContent = 'Discard & Start Fresh';
+        buttonsDiv.appendChild(discardButton);
+
+        content.appendChild(buttonsDiv);
+        dialog.appendChild(content);
+
+        // Add styles if not already present
+        if (!document.getElementById('recovery-dialog-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'recovery-dialog-styles';
+            styles.textContent = `
+                .recovery-dialog-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.7);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                }
+                .recovery-dialog-content {
+                    background: #1a1a2e;
+                    border: 1px solid #333;
+                    border-radius: 8px;
+                    padding: 24px;
+                    max-width: 400px;
+                    color: #fff;
+                }
+                .recovery-dialog-content h3 {
+                    margin: 0 0 16px;
+                    color: #ff6b6b;
+                }
+                .recovery-dialog-info {
+                    background: #0a0a15;
+                    padding: 12px;
+                    border-radius: 4px;
+                    margin: 16px 0;
+                    font-size: 14px;
+                }
+                .recovery-dialog-info p {
+                    margin: 4px 0;
+                }
+                .recovery-dialog-buttons {
+                    display: flex;
+                    gap: 12px;
+                    justify-content: flex-end;
+                }
+                .recovery-dialog-buttons button {
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 14px;
+                }
+                .recovery-dialog-buttons .btn-primary {
+                    background: #4CAF50;
+                    color: white;
+                }
+                .recovery-dialog-buttons .btn-secondary {
+                    background: #666;
+                    color: white;
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+
+        // Handle discard button click
+        discardButton.addEventListener('click', async () => {
+            try {
+                await this.jobManager.transition(job.id, 'cancelled');
+                log.log(`🗑️ [FormController] Discarded interrupted job ${job.id}`);
+            } catch (error) {
+                log.error('Failed to cancel interrupted job:', error);
+            }
+            dialog.remove();
+        });
+
+        document.body.appendChild(dialog);
+    }
+
+    /**
+     * Cancel the currently running job.
+     *
+     * WHAT IT DOES:
+     * 1. Transitions the job to 'cancelled' state
+     * 2. Terminates the Stockfish engine
+     * 3. Resets the UI
+     *
+     * @returns {Promise<void>}
+     */
+    async cancelCurrentJob() {
+        if (!this.currentJobId || !this.jobManager) {
+            log.log('ℹ️ [FormController] No job to cancel');
+            return;
+        }
+
+        try {
+            log.log(`🛑 [FormController] Cancelling job ${this.currentJobId}`);
+
+            // 1. Update job state
+            await this.jobManager.transition(this.currentJobId, 'cancelled');
+
+            // 2. Terminate engine if running
+            if (this.stockfishEngine) {
+                this.stockfishEngine.shutdown();
+                this.stockfishEngine = null;
+            }
+
+            // 3. Reset UI
+            this.progressTracker.reset();
+            if (typeof hideGenerationStatus === 'function') {
+                hideGenerationStatus();
+            }
+            if (typeof hideProgressContainer === 'function') {
+                hideProgressContainer();
+            }
+
+            this.currentJobId = null;
+            log.log('✅ [FormController] Job cancelled successfully');
+
+        } catch (error) {
+            log.error('Failed to cancel job:', error);
+            this.errorHandler.showError('Failed to cancel', error);
         }
     }
 }
