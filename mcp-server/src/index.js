@@ -17,6 +17,7 @@
  * - Tool: A callable function with a defined schema that AI can invoke
  */
 
+const { Chess } = require('chess.js'); // Chess.js for move validation and notation conversion
 const { LichessApi } = require('./lichess-api.js'); // Client for Lichess opening statistics
 const { StockfishEngine } = require('./stockfish-engine.js'); // Chess engine wrapper
 const { MoveSelector } = require('./move-selector.js'); // Statistical move selection
@@ -93,24 +94,36 @@ function getSideToMove(fen) {
  *
  * WHAT IT DOES:
  * Transforms engine move format (e.g., 'e2e4') to human-readable format (e.g., 'e4').
- * This is a simplified conversion that handles common pawn moves.
+ * Uses chess.js to properly handle piece moves, castling, and promotions.
  *
  * PARAMETERS:
- * @param {string} uciMove - Move in UCI format (e.g., 'e2e4')
+ * @param {string} uciMove - Move in UCI format (e.g., 'e2e4', 'e1g1' for castling)
+ * @param {string} fen - FEN string of the current position for context
  *
  * RETURNS:
- * @returns {string} Move in SAN format (e.g., 'e4')
+ * @returns {string} Move in SAN format (e.g., 'e4', 'Nf3', 'O-O')
  *
- * NOTE: This is a simplified implementation. A full implementation would need
- * the board position to properly handle piece moves and disambiguation.
+ * HOW IT WORKS:
+ * 1. Create a chess instance from the FEN position
+ * 2. Parse the UCI move into from/to squares and optional promotion piece
+ * 3. Make the move on the board and get the SAN notation from chess.js
+ * 4. Return original move if conversion fails
  */
-function uciToSan(uciMove) {
+function uciToSan(uciMove, fen) {
     if (!uciMove || uciMove.length < 4) { // UCI moves are at least 4 characters
         return uciMove; // Return as-is if format unexpected
     }
-    // Extract destination square (characters 3 and 4, 0-indexed)
-    const to = uciMove.slice(2, 4); // e.g., 'e2e4' -> 'e4'
-    return to; // Return just the destination for pawn moves
+    try {
+        const chess = new Chess(fen); // Create board from FEN position
+        const from = uciMove.slice(0, 2); // Source square (e.g., 'e2')
+        const to = uciMove.slice(2, 4); // Destination square (e.g., 'e4')
+        const promotion = uciMove.length > 4 ? uciMove[4] : undefined; // Promotion piece if any
+
+        const move = chess.move({ from, to, promotion }); // Make move and get result
+        return move ? move.san : uciMove; // Return SAN if successful, else original
+    } catch (error) {
+        return uciMove; // Return original on error (invalid FEN or move)
+    }
 }
 
 /**
@@ -173,13 +186,18 @@ function getQualityAssessment(score) {
  *
  * RETURNS:
  * @returns {boolean} True if PGN appears valid, false otherwise
+ *
+ * NOTE: # (checkmate) and $ (NAG annotations like $1 for good move) are valid PGN.
+ * Only @ and % are truly invalid characters in PGN.
  */
 function isValidPgn(pgn) {
     if (!pgn || typeof pgn !== 'string') { // Check for missing input
         return false;
     }
     // Check for obviously invalid characters that shouldn't appear in PGN
-    if (/[@#$%]/.test(pgn)) { // Special characters not valid in PGN
+    // Note: # is checkmate notation (valid), $ is NAG annotation (valid)
+    // Only @ and % are truly invalid in PGN
+    if (/[@%]/.test(pgn)) { // Special characters not valid in PGN
         return false;
     }
     return true; // Passes basic validation
@@ -547,8 +565,8 @@ class MCPServer {
             );
         }
 
-        // Convert UCI move to SAN format
-        const bestMoveSan = uciToSan(evaluation.bestMove);
+        // Convert UCI move to SAN format using position context
+        const bestMoveSan = uciToSan(evaluation.bestMove, fen);
 
         // Get human-readable quality assessment
         const quality = getQualityAssessment(evaluation.score);
@@ -647,4 +665,4 @@ function createMcpServer() {
     return new MCPServer(); // Create and return a new instance
 }
 
-module.exports = { createMcpServer, MCPServer }; // Export factory and class
+module.exports = { createMcpServer, MCPServer, uciToSan }; // Export factory, class, and utility

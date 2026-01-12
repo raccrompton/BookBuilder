@@ -17,7 +17,9 @@
   "author": "BookBuilder Team",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chess.js": "^1.0.0-beta.8",
+    "stockfish": "^17.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
