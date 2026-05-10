@@ -8,7 +8,7 @@
         script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' blob: https://lichess.org https://explorer.lichess.ovh https://unpkg.com https://cloudflareinsights.com;
+        connect-src 'self' blob: https://lichess.org https://explorer.lichess.org https://unpkg.com https://cloudflareinsights.com;
         worker-src 'self' blob:;
         img-src 'self' data: https:;
     ">
@@ -1798,6 +1798,15 @@
             <p>OpeningBuilder creates chess opening repertoires automatically using data from billions of real Lichess games.</p>
         </div>
 
+        <!-- Lichess OAuth login: required for opening explorer API access -->
+        <div id="lichess-auth-bar" style="margin: 12px 0; padding: 12px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <span id="lichess-auth-status">Sign in with Lichess to enable repertoire generation.</span>
+            <span>
+                <button type="button" id="lichess-login-btn" class="btn btn-primary">Login with Lichess</button>
+                <button type="button" id="lichess-logout-btn" class="btn btn-secondary" style="display: none;">Log out</button>
+            </span>
+        </div>
+
         <form id="bookbuilder-form" class="form-container">
             <!-- Tab Navigation -->
             <div class="tab-navigation">
@@ -3336,6 +3345,44 @@
         import ErrorHandler from './src/ui/ErrorHandler.js';
         import ProgressTracker from './src/ui/ProgressTracker.js';
         import Logger from './src/utils/Logger.js';
+        import LichessAuth from './src/auth/LichessAuth.js';
+
+        function renderAuthBar() {
+            const statusEl = document.getElementById('lichess-auth-status');
+            const loginBtn = document.getElementById('lichess-login-btn');
+            const logoutBtn = document.getElementById('lichess-logout-btn');
+            if (!statusEl || !loginBtn || !logoutBtn) return;
+            if (LichessAuth.isLoggedIn()) {
+                statusEl.textContent = 'Logged in with Lichess ✓';
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = '';
+            } else {
+                statusEl.textContent = 'Sign in with Lichess to enable repertoire generation.';
+                loginBtn.style.display = '';
+                logoutBtn.style.display = 'none';
+            }
+        }
+
+        function wireAuthBar() {
+            const loginBtn = document.getElementById('lichess-login-btn');
+            const logoutBtn = document.getElementById('lichess-logout-btn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', async () => {
+                    try {
+                        const url = await LichessAuth.buildAuthUrl();
+                        window.location.href = url;
+                    } catch (err) {
+                        console.error('Failed to start Lichess login:', err);
+                    }
+                });
+            }
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    LichessAuth.clearToken();
+                    renderAuthBar();
+                });
+            }
+        }
 
         // Debug Panel initialization
         function initDebugPanel() {
@@ -3397,8 +3444,17 @@
         // Initialize application
         let formController, errorHandler, progressTracker;
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
+                // Handle Lichess OAuth redirect callback (no-op if no ?code= in URL).
+                // Must run before FormController init so the stored token is available
+                // when LichessClient is constructed.
+                try {
+                    await LichessAuth.handleCallback();
+                } catch (authErr) {
+                    console.error('Lichess OAuth callback failed:', authErr);
+                }
+
                 // Initialize tab system first
                 initTabSystem();
 
@@ -3413,6 +3469,10 @@
                 // Initialize form controller
                 formController = new FormController();
                 window.formController = formController;
+
+                // Wire up Lichess login UI
+                wireAuthBar();
+                renderAuthBar();
 
                 // Initialize debug panel
                 initDebugPanel();

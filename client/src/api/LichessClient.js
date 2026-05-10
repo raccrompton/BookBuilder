@@ -45,6 +45,7 @@
 
 // Logger: Configurable logging - toggle with Logger.setEnabled('LichessClient', true/false)
 import Logger from '../utils/Logger.js';
+import LichessAuth from '../auth/LichessAuth.js';
 const log = Logger.get('LichessClient');
 
 // =============================================================================
@@ -79,7 +80,8 @@ class LichessClient {
         // Base URL for the Lichess Opening Explorer API
         // This is different from the main lichess.org API - it's a specialized
         // service that returns game statistics for positions
-        this.baseUrl = config.baseUrl || 'https://explorer.lichess.ovh';
+        this.baseUrl = config.baseUrl || 'https://explorer.lichess.org';
+        this.accessToken = config.accessToken || null;
 
         // ---------------------------------------------------------------------
         // Retry Configuration
@@ -299,11 +301,13 @@ class LichessClient {
 
                 // fetch() is the modern browser API for HTTP requests
                 // It returns a Promise that resolves to a Response object
+                const headers = { 'Accept': 'application/json' };
+                if (this.accessToken) {
+                    headers['Authorization'] = `Bearer ${this.accessToken}`;
+                }
                 const response = await fetch(url, {
-                    signal: controller.signal,  // Link abort controller to this request
-                    headers: {
-                        'Accept': 'application/json'  // Tell server we want JSON back
-                    }
+                    signal: controller.signal,
+                    headers
                 });
 
                 // Cancel the timeout since request completed (success or error)
@@ -318,6 +322,19 @@ class LichessClient {
                     log.log(`🚨 [LichessClient] Rate limited - waiting ${this.rateLimitDelay/1000}s...`);
                     await this._sleep(this.rateLimitDelay);
                     continue; // "continue" skips to next loop iteration WITHOUT incrementing attempt
+                }
+
+                // ---- Handle 401 Unauthorized: token missing/expired/invalid ----
+                // Clear the stored token so the UI can prompt the user to re-authenticate.
+                // Throw immediately — retrying with the same bad token is pointless.
+                if (response.status === 401) {
+                    log.warn('🔒 [LichessClient] 401 Unauthorized — clearing stored token');
+                    LichessAuth.clearToken();
+                    this.accessToken = null;
+                    const err = new Error('HTTP 401: Unauthorized - Lichess login required');
+                    err.status = 401;
+                    err.requiresAuth = true;
+                    throw err;
                 }
 
                 // -------------------------------------------------------------
@@ -347,6 +364,12 @@ class LichessClient {
                 return transformedData;  // SUCCESS! Return the data
 
             } catch (error) {
+                // 401 means our token is bad — retrying won't help. Bail out immediately
+                // so FormController can prompt re-login.
+                if (error.requiresAuth || error.status === 401) {
+                    log.error(`❌ [LichessClient] ${operation}: 401 Unauthorized — bailing out`);
+                    throw error;
+                }
                 // -------------------------------------------------------------
                 // Handle Request Failure
                 // -------------------------------------------------------------

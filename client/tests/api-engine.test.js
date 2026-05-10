@@ -119,6 +119,39 @@ describe('Step 2: Lichess API + Stockfish Engine Integration', () => {
         }, 10000);
     });
 
+    describe('LichessClient Authorization', () => {
+        let fetchMock;
+        beforeEach(() => {
+            fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+                ok: true, status: 200,
+                json: async () => ({ white: 1, draws: 0, black: 0, moves: [{ san: 'e4', uci: 'e2e4', white: 1, draws: 0, black: 0 }] })
+            });
+        });
+        afterEach(() => fetchMock.mockRestore());
+
+        test('includes Authorization header when accessToken provided', async () => {
+            const client = new LichessClient({ accessToken: 'test-token-123', retryDelay: 0 });
+            await client.getPositionStats('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+            const headers = fetchMock.mock.calls[0][1].headers;
+            expect(headers['Authorization']).toBe('Bearer test-token-123');
+        });
+
+        test('omits Authorization header when no token', async () => {
+            const client = new LichessClient({ retryDelay: 0 });
+            await client.getPositionStats('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+            const headers = fetchMock.mock.calls[0][1].headers;
+            expect(headers['Authorization']).toBeUndefined();
+        });
+
+        test('throws recognizable error on 401', async () => {
+            fetchMock.mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized' });
+            const client = new LichessClient({ accessToken: 'bad-token', maxRetries: 1, retryDelay: 0 });
+            await expect(
+                client.getPositionStats('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+            ).rejects.toThrow(/401/);
+        });
+    });
+
     describe('StockfishEngine Integration', () => {
         // Skip all Stockfish tests in Node.js environment (requires browser WebAssembly Worker)
         const describeOrSkip = isBrowserEnvironment ? describe : describe.skip;
