@@ -178,7 +178,7 @@ const createMockLichessResponse = (identifier) => {
  * @param {string} identifier - Identifier to include in mock response (for tracking)
  */
 async function mockLichessAPI(page, identifier = 'Mock') {
-    await page.route('**/explorer.lichess.ovh/**', async (route) => {
+    await page.route('**/explorer.lichess.org/**', async (route) => {
         // Return mock response instead of calling real API
         await route.fulfill({
             status: 200,
@@ -404,8 +404,8 @@ test.describe('FormController E2E - Orchestration Tests', () => {
 
             // Set up first mock with identifier we can detect in content
             // The identifier is embedded in the mock response's opening.name field
-            await page.unroute('**/explorer.lichess.ovh/**');
-            await page.route('**/explorer.lichess.ovh/**', async (route) => {
+            await page.unroute('**/explorer.lichess.org/**');
+            await page.route('**/explorer.lichess.org/**', async (route) => {
                 await route.fulfill({
                     status: 200,
                     contentType: 'application/json',
@@ -430,8 +430,8 @@ test.describe('FormController E2E - Orchestration Tests', () => {
 
             // Update mock to return different identifier for second analysis
             // This lets us verify we're seeing the SECOND analysis, not the first
-            await page.unroute('**/explorer.lichess.ovh/**');
-            await page.route('**/explorer.lichess.ovh/**', async (route) => {
+            await page.unroute('**/explorer.lichess.org/**');
+            await page.route('**/explorer.lichess.org/**', async (route) => {
                 await route.fulfill({
                     status: 200,
                     contentType: 'application/json',
@@ -504,8 +504,8 @@ test.describe('FormController E2E - Orchestration Tests', () => {
 
             // Run all three analyses
             for (const analysis of analyses) {
-                await page.unroute('**/explorer.lichess.ovh/**');
-                await page.route('**/explorer.lichess.ovh/**', async (route) => {
+                await page.unroute('**/explorer.lichess.org/**');
+                await page.route('**/explorer.lichess.org/**', async (route) => {
                     await route.fulfill({
                         status: 200,
                         contentType: 'application/json',
@@ -617,11 +617,11 @@ test.describe('FormController E2E - Orchestration Tests', () => {
         test('should handle API error gracefully and restore form', async ({ page }) => {
             // ARRANGE: Mock API to return error
             // Must unroute BOTH patterns that mockLichessAPI sets up
-            await page.unroute('**/explorer.lichess.ovh/**');
+            await page.unroute('**/explorer.lichess.org/**');
             await page.unroute('**/lichess.org/**');
 
             // Set up error routes for both patterns
-            await page.route('**/explorer.lichess.ovh/**', async (route) => {
+            await page.route('**/explorer.lichess.org/**', async (route) => {
                 await route.fulfill({
                     status: 500,
                     contentType: 'application/json',
@@ -771,8 +771,8 @@ test.describe('FormController E2E - Orchestration Tests', () => {
          */
         test('should prevent duplicate submissions during generation', async ({ page }) => {
             // Add a delay to API responses to ensure generation takes time
-            await page.unroute('**/explorer.lichess.ovh/**');
-            await page.route('**/explorer.lichess.ovh/**', async (route) => {
+            await page.unroute('**/explorer.lichess.org/**');
+            await page.route('**/explorer.lichess.org/**', async (route) => {
                 // Delay response by 1 second
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 await route.fulfill({
@@ -857,8 +857,8 @@ test.describe('FormController E2E - Race Condition Tests', () => {
     test('should handle rapid consecutive submissions gracefully', async ({ page }) => {
         // Add variable delay to API to simulate real-world conditions
         let callCount = 0;
-        await page.unroute('**/explorer.lichess.ovh/**');
-        await page.route('**/explorer.lichess.ovh/**', async (route) => {
+        await page.unroute('**/explorer.lichess.org/**');
+        await page.route('**/explorer.lichess.org/**', async (route) => {
             callCount++;
             // First API call is slow to simulate in-progress generation,
             // subsequent calls are fast to allow second submission to complete first

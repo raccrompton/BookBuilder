@@ -140,8 +140,12 @@ class BookBuilder {
         this.chessEngine = new ChessEngine();
 
         // LichessClient: HTTP client for fetching game statistics from Lichess API
-        // Returns data like "1. e4 was played in 3 million games"
-        this.lichessClient = new LichessClient();
+        // Returns data like "1. e4 was played in 3 million games".
+        // Reuse the authenticated client from FormController if provided so we
+        // share the same OAuth bearer token; otherwise fall back to a fresh one.
+        this.lichessClient = config.lichessClient || new LichessClient({
+            accessToken: config.lichessAccessToken
+        });
 
         // MoveSelector: Algorithm that chooses the best move from candidates
         // Takes statistics and returns the recommended move

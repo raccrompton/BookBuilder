@@ -49,6 +49,7 @@
 
 import BookBuilder from '../BookBuilder.js';
 import LichessClient from '../api/LichessClient.js';
+import LichessAuth from '../auth/LichessAuth.js';
 import { EngineFactory } from '../engine/EngineFactory.js';
 import ConfigManager from './ConfigManager.js';
 import ErrorHandler from './ErrorHandler.js';
@@ -500,12 +501,18 @@ class FormController {
     }
 
     async initializeComponents(config) {
-        // Initialize Lichess client
+        // Initialize Lichess client with stored OAuth token (if any).
+        // Lichess requires a bearer token for the opening explorer API.
+        const accessToken = LichessAuth.getStoredToken();
         this.lichessClient = new LichessClient({
             maxRetries: 3,
             retryDelay: 1000,
-            timeout: 10000
+            timeout: 10000,
+            accessToken
         });
+        // Share this authenticated client with BookBuilder so it doesn't create
+        // its own unauthenticated one.
+        config.lichessClient = this.lichessClient;
 
         // Initialize Stockfish engine if enabled
         // Note: config here is bookBuilderConfig which uses CAREABOUTENGINE (not engine-enabled)

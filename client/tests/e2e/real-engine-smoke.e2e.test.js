@@ -82,7 +82,7 @@ test.describe('Real Stockfish Engine Smoke Tests @real-engine', () => {
 
     test.beforeEach(async ({ page }) => {
         // Mock Lichess API (still needed for deterministic responses)
-        await page.route('**/explorer.lichess.ovh/**', async (route) => {
+        await page.route('**/explorer.lichess.org/**', async (route) => {
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
