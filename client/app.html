@@ -3351,7 +3351,6 @@
             const statusEl = document.getElementById('lichess-auth-status');
             const loginBtn = document.getElementById('lichess-login-btn');
             const logoutBtn = document.getElementById('lichess-logout-btn');
-            const generateBtn = document.querySelector('#bookbuilder-form button[type="submit"]');
             if (!statusEl || !loginBtn || !logoutBtn) return;
             const loggedIn = LichessAuth.isLoggedIn();
             if (loggedIn) {
@@ -3363,12 +3362,10 @@
                 loginBtn.style.display = '';
                 logoutBtn.style.display = 'none';
             }
-            // Mirror auth state on the Generate button so users can't even try
-            // to submit while logged out.
-            if (generateBtn) {
-                generateBtn.disabled = !loggedIn;
-                generateBtn.title = loggedIn ? '' : 'Log in with Lichess first';
-            }
+            // Note: we intentionally do NOT disable the Generate button when
+            // logged out. On mobile, a disabled button swallows taps with no
+            // feedback (tooltips don't show on touch). Leaving it enabled lets
+            // the submit handler fire and surface a clear "log in first" error.
         }
 
         function wireAuthBar() {
