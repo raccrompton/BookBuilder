@@ -3478,6 +3478,8 @@
                 // Wire up Lichess login UI
                 wireAuthBar();
                 renderAuthBar();
+                // Expose so FormController can re-render after a 401 clears the token
+                window.renderAuthBar = renderAuthBar;
 
                 // Initialize debug panel
                 initDebugPanel();

@@ -453,7 +453,21 @@ class FormController {
                 phase: this.progressTracker?.currentPhase || 'unknown'
             });
             log.error(`   Config at time of error:`, config);
-            this.errorHandler.showError('Generation failed', error);
+
+            // Auth failure during generation: the stored token was rejected
+            // (expired/revoked/no explorer access). LichessClient has already
+            // cleared the token. Show a clear re-login message instead of the
+            // generic "Generation failed".
+            if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+                this.errorHandler.showValidationErrors([
+                    'Your Lichess login has expired or is invalid. Please log in with Lichess again to access Lichess data.'
+                ]);
+                if (typeof window !== 'undefined' && typeof window.renderAuthBar === 'function') {
+                    window.renderAuthBar();
+                }
+            } else {
+                this.errorHandler.showError('Generation failed', error);
+            }
             this.progressTracker.reset();
 
             // Restore form view on generation error
@@ -652,6 +666,11 @@ class FormController {
                 );
 
             } catch (error) {
+                // Auth failure (401): retrying the next opening with the same bad/missing
+                // token is pointless. Bail out so the outer handler can prompt re-login.
+                if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+                    throw error;
+                }
                 log.error(`Failed to process ${opening.name}:`, error);
                 this.errorHandler.logDetailedError(error, `Processing ${opening.name}`);
 
@@ -1268,7 +1287,16 @@ class FormController {
             }
             this.currentJobId = null;
 
-            this.errorHandler.showError('Generation failed', error);
+            if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+                this.errorHandler.showValidationErrors([
+                    'Your Lichess login has expired or is invalid. Please log in with Lichess again to access Lichess data.'
+                ]);
+                if (typeof window !== 'undefined' && typeof window.renderAuthBar === 'function') {
+                    window.renderAuthBar();
+                }
+            } else {
+                this.errorHandler.showError('Generation failed', error);
+            }
             this.progressTracker.reset();
 
             // Restore form view
