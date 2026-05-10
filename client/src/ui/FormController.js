@@ -295,7 +295,7 @@ class FormController {
             // surface that to the user up front instead of failing mid-generation.
             if (!LichessAuth.isLoggedIn()) {
                 this.errorHandler.showValidationErrors([
-                    'You must log in with Lichess before generating a repertoire. Click "Login with Lichess" above.'
+                    'To access Lichess data you must log in with Lichess before generating a repertoire. Click "Login with Lichess" above.'
                 ]);
                 return;
             }
