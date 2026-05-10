@@ -1800,7 +1800,7 @@
 
         <!-- Lichess OAuth login: required for opening explorer API access -->
         <div id="lichess-auth-bar" style="margin: 12px 0; padding: 12px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <span id="lichess-auth-status">Sign in with Lichess to enable repertoire generation.</span>
+            <span id="lichess-auth-status">To access Lichess data you must log in with Lichess.</span>
             <span>
                 <button type="button" id="lichess-login-btn" class="btn btn-primary">Login with Lichess</button>
                 <button type="button" id="lichess-logout-btn" class="btn btn-secondary" style="display: none;">Log out</button>
@@ -3358,7 +3358,7 @@
                 loginBtn.style.display = 'none';
                 logoutBtn.style.display = '';
             } else {
-                statusEl.textContent = 'Sign in with Lichess to enable repertoire generation.';
+                statusEl.textContent = 'To access Lichess data you must log in with Lichess.';
                 loginBtn.style.display = '';
                 logoutBtn.style.display = 'none';
             }
