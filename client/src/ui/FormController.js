@@ -290,6 +290,16 @@ class FormController {
         log.log('🚀 [DEBUG] Form submission started');
 
         try {
+            // Gate: Lichess opening explorer now requires an OAuth bearer token.
+            // Without one, every API call returns 401 and generation is impossible —
+            // surface that to the user up front instead of failing mid-generation.
+            if (!LichessAuth.isLoggedIn()) {
+                this.errorHandler.showValidationErrors([
+                    'You must log in with Lichess before generating a repertoire. Click "Login with Lichess" above.'
+                ]);
+                return;
+            }
+
             // Log all current UI settings for debugging
             this.logCurrentSettings();
 

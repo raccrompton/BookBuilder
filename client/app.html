@@ -3351,8 +3351,10 @@
             const statusEl = document.getElementById('lichess-auth-status');
             const loginBtn = document.getElementById('lichess-login-btn');
             const logoutBtn = document.getElementById('lichess-logout-btn');
+            const generateBtn = document.querySelector('#bookbuilder-form button[type="submit"]');
             if (!statusEl || !loginBtn || !logoutBtn) return;
-            if (LichessAuth.isLoggedIn()) {
+            const loggedIn = LichessAuth.isLoggedIn();
+            if (loggedIn) {
                 statusEl.textContent = 'Logged in with Lichess ✓';
                 loginBtn.style.display = 'none';
                 logoutBtn.style.display = '';
@@ -3360,6 +3362,12 @@
                 statusEl.textContent = 'Sign in with Lichess to enable repertoire generation.';
                 loginBtn.style.display = '';
                 logoutBtn.style.display = 'none';
+            }
+            // Mirror auth state on the Generate button so users can't even try
+            // to submit while logged out.
+            if (generateBtn) {
+                generateBtn.disabled = !loggedIn;
+                generateBtn.title = loggedIn ? '' : 'Log in with Lichess first';
             }
         }
 
