@@ -342,7 +342,16 @@ class LichessClient {
                 // -------------------------------------------------------------
                 // response.ok is true for status codes 200-299, false otherwise
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    // Try to capture the response body so debug logs have actual
+                    // Lichess error context (rate-limit messages, scope errors, etc.).
+                    let bodyText = '';
+                    try { bodyText = (await response.text()).slice(0, 500); } catch { /* ignore */ }
+                    const httpErr = new Error(`HTTP ${response.status}: ${response.statusText}${bodyText ? ` — ${bodyText}` : ''}`);
+                    httpErr.status = response.status;
+                    httpErr.statusText = response.statusText;
+                    httpErr.responseBody = bodyText;
+                    httpErr.lichessUrl = url;
+                    throw httpErr;
                 }
 
                 // -------------------------------------------------------------
@@ -403,7 +412,13 @@ class LichessClient {
         log.error(`❌ [LichessClient] ${operation}: Final failure after ${this.maxRetries} attempts`);
         log.error(`   Last error:`, lastError.message);
         log.error(`   Request details:`, { url, operation });
-        throw new Error(`Lichess API ${operation} failed after ${this.maxRetries} attempts: ${lastError.message}`);
+        const finalErr = new Error(`Lichess API ${operation} failed after ${this.maxRetries} attempts: ${lastError.message}`);
+        finalErr.status = lastError.status;
+        finalErr.statusText = lastError.statusText;
+        finalErr.responseBody = lastError.responseBody;
+        finalErr.lichessUrl = lastError.lichessUrl || url;
+        finalErr.lichessOperation = operation;
+        throw finalErr;
     }
 
     /**
