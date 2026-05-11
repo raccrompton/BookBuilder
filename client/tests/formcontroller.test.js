@@ -492,6 +492,25 @@ describe('FormController', () => {
             expect(config.ENGINEVARIANT).toBe('lite');
         });
 
+        it('maps the engine-finishing checkbox to ENGINEFINISH=1/0', async () => {
+            // Regression: the original mapping was
+            //   ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1
+            // ConfigManager.getFormData() yields a boolean for checkboxes, and
+            // parseInt(true)===parseInt(false)===NaN, so the `|| 1` always
+            // returned 1 — the GUI toggle was inert. These two cases pin the
+            // ternary fix so the bug cannot return silently.
+            const offConfig = await formController.convertToBookBuilderConfig({
+                'pgn-input-text': '1. e4',
+                'engine-finishing': false,
+            });
+            const onConfig = await formController.convertToBookBuilderConfig({
+                'pgn-input-text': '1. e4',
+                'engine-finishing': true,
+            });
+            expect(offConfig.ENGINEFINISH).toBe(0);
+            expect(onConfig.ENGINEFINISH).toBe(1);
+        });
+
         it('sets draws-are-half correctly', async () => {
             // Arrange - with draws as half point
             const formConfig = {

@@ -953,7 +953,10 @@ class FormController {
             // This string gets passed to StockfishEngine which uses it to select the WASM file
             ENGINEVARIANT: formConfig['engine-full'] ? 'full' : 'lite',
             ENGINEDEPTH: parseInt(formConfig['engine-depth']) || 20,
-            ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1,
+            // Checkbox arrives as a boolean from ConfigManager.getFormData(),
+            // so coerce directly. parseInt(true)/parseInt(false) are both NaN,
+            // which would silently pin this to 1 and make the toggle inert.
+            ENGINEFINISH: formConfig['engine-finishing'] ? 1 : 0,
             SOUNDNESSLIMIT: Number.isNaN(parseInt(formConfig['soundness-limit'], 10))
                 ? -99
                 : parseInt(formConfig['soundness-limit'], 10),
