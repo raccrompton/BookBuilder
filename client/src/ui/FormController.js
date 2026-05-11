@@ -954,8 +954,12 @@ class FormController {
             ENGINEVARIANT: formConfig['engine-full'] ? 'full' : 'lite',
             ENGINEDEPTH: parseInt(formConfig['engine-depth']) || 20,
             ENGINEFINISH: parseInt(formConfig['engine-finishing']) || 1,
-            SOUNDNESSLIMIT: parseInt(formConfig['soundness-limit-centipawns']) || -99,
-            MOVELOSSLIMIT: parseInt(formConfig['move-loss-limit-centipawns']) || -99,
+            SOUNDNESSLIMIT: Number.isNaN(parseInt(formConfig['soundness-limit'], 10))
+                ? -99
+                : parseInt(formConfig['soundness-limit'], 10),
+            LOSSLIMIT: Number.isNaN(parseInt(formConfig['move-loss-limit'], 10))
+                ? -99
+                : parseInt(formConfig['move-loss-limit'], 10),
             IGNORELOSSLIMIT: parseInt(formConfig['ignore-loss-limit']) || 300,
             ENGINEHASH: parseInt(formConfig['engine-hash']) || 320,
 
