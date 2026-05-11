@@ -454,17 +454,20 @@ class FormController {
             });
             log.error(`   Config at time of error:`, config);
 
-            // Auth failure during generation: the stored token was rejected
-            // (expired/revoked/no explorer access). LichessClient has already
-            // cleared the token. Show a clear re-login message instead of the
-            // generic "Generation failed".
-            if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+            // If Lichess returned an HTTP status, surface it directly — much
+            // easier to debug than the generic "No valid PGN content" message.
+            if (error.requiresAuth || error.status === 401) {
                 this.errorHandler.showValidationErrors([
                     'Your Lichess login has expired or is invalid. Please log in with Lichess again to access Lichess data.'
                 ]);
                 if (typeof window !== 'undefined' && typeof window.renderAuthBar === 'function') {
                     window.renderAuthBar();
                 }
+            } else if (typeof error.status === 'number') {
+                this.errorHandler.showError(
+                    `Lichess API error (HTTP ${error.status})`,
+                    this._enrichLichessError(error)
+                );
             } else {
                 this.errorHandler.showError('Generation failed', error);
             }
@@ -600,6 +603,7 @@ class FormController {
     async processOpenings(config) {
         const results = {};
         const openings = config.openings;
+        const collectedErrors = [];
 
         for (let i = 0; i < openings.length; i++) {
             const opening = openings[i];
@@ -666,9 +670,11 @@ class FormController {
                 );
 
             } catch (error) {
-                // Auth failure (401): retrying the next opening with the same bad/missing
-                // token is pointless. Bail out so the outer handler can prompt re-login.
-                if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+                // Any Lichess HTTP failure (401 auth, 403 forbidden, 429 rate-limit,
+                // 5xx server) means subsequent openings will hit the same wall.
+                // Bail out so the outer handler can show a meaningful message
+                // (with status code) instead of burying it in a per-opening report.
+                if (error.requiresAuth || (typeof error.status === 'number' && error.status >= 400)) {
                     throw error;
                 }
                 log.error(`Failed to process ${opening.name}:`, error);
@@ -691,7 +697,18 @@ class FormController {
 
                 const sanitizedName = opening.name.replace(/[^a-zA-Z0-9]/g, '_');
                 results[`Error_${sanitizedName}.md`] = errorReport;
+                collectedErrors.push({ opening: opening.name, error });
             }
+        }
+
+        // If every opening failed, don't return a results map of useless error
+        // reports — throw the first underlying error so the outer handler can
+        // surface its real cause (HTTP status, Lichess URL, etc).
+        const hasAnyValidResult = Object.values(results).some(
+            v => v && typeof v === 'object' && v.individualPGN !== undefined
+        );
+        if (!hasAnyValidResult && collectedErrors.length > 0) {
+            throw collectedErrors[0].error;
         }
 
         return results;
@@ -1287,13 +1304,18 @@ class FormController {
             }
             this.currentJobId = null;
 
-            if (error.requiresAuth || error.status === 401 || /401/.test(error.message || '')) {
+            if (error.requiresAuth || error.status === 401) {
                 this.errorHandler.showValidationErrors([
                     'Your Lichess login has expired or is invalid. Please log in with Lichess again to access Lichess data.'
                 ]);
                 if (typeof window !== 'undefined' && typeof window.renderAuthBar === 'function') {
                     window.renderAuthBar();
                 }
+            } else if (typeof error.status === 'number') {
+                this.errorHandler.showError(
+                    `Lichess API error (HTTP ${error.status})`,
+                    this._enrichLichessError(error)
+                );
             } else {
                 this.errorHandler.showError('Generation failed', error);
             }
@@ -1516,6 +1538,23 @@ class FormController {
             log.error('Failed to cancel job:', error);
             this.errorHandler.showError('Failed to cancel', error);
         }
+    }
+
+    /**
+     * Build an Error with the Lichess HTTP status, response body, and URL
+     * folded into the message so the existing error report dump shows them.
+     */
+    _enrichLichessError(error) {
+        const parts = [error.message];
+        if (error.lichessOperation) parts.push(`Operation: ${error.lichessOperation}`);
+        if (typeof error.status === 'number') {
+            parts.push(`Lichess HTTP status: ${error.status} ${error.statusText || ''}`.trim());
+        }
+        if (error.lichessUrl) parts.push(`Lichess URL: ${error.lichessUrl}`);
+        if (error.responseBody) parts.push(`Lichess response: ${error.responseBody}`);
+        const enriched = new Error(parts.join('\n'));
+        enriched.stack = error.stack;
+        return enriched;
     }
 }
 
