@@ -57,13 +57,18 @@ class MockEngineWithPerspective {
         }
 
         const isBestMove = move === this.bestMove;
+        const beforeEval = 25;
+        const afterEvalOurs = isBestMove ? 25 : -5;
+        const signedMoveLoss = afterEvalOurs - beforeEval;
         return {
             move,
             bestMove: this.bestMove,
-            evaluation: isBestMove ? 25 : -5,
-            beforeEval: 25,
-            afterEval: isBestMove ? -25 : 5, // Opponent's perspective
-            moveLoss: isBestMove ? 0 : 30,
+            evaluation: -afterEvalOurs,
+            beforeEval,
+            afterEval: -afterEvalOurs,
+            afterEvalOurs,
+            signedMoveLoss,
+            moveLoss: Math.abs(signedMoveLoss),
             isBestMove,
             quality: isBestMove ? 'excellent' : 'good'
         };
@@ -404,21 +409,28 @@ describe('Perspective Invariants', () => {
             expect(analysis.isBestMove).toBe(true);
         });
 
-        test('soundness validation uses absolute value correctly', async () => {
+        test('soundness validation applies SOUNDNESSLIMIT as eval floor', async () => {
             const moveSelector = new MoveSelector({
                 CAREABOUTENGINE: 1,
-                SOUNDNESSLIMIT: -50, // Stored as negative
+                SOUNDNESSLIMIT: -50,
                 LOSSLIMIT: -100,
                 IGNORELOSSLIMIT: 300
             });
 
-            // Test that SOUNDNESSLIMIT comparison works correctly
-            // moveLoss of 30 should pass (30 < 50)
-            const goodAnalysis = { moveLoss: 30, evaluation: 20 };
+            // afterEvalOurs above floor and signedMoveLoss within LOSSLIMIT → pass.
+            const goodAnalysis = {
+                afterEvalOurs: -20,
+                signedMoveLoss: -30,
+                evaluation: 20, afterEval: 20, beforeEval: 10, moveLoss: 30
+            };
             expect(moveSelector.validateMoveSoundness(null, 'd2d4', 'e2e4', goodAnalysis)).toBe(true);
 
-            // moveLoss of 60 should fail (60 > 50)
-            const badAnalysis = { moveLoss: 60, evaluation: 20 };
+            // afterEvalOurs below floor → fail.
+            const badAnalysis = {
+                afterEvalOurs: -80,
+                signedMoveLoss: -60,
+                evaluation: 80, afterEval: 80, beforeEval: -20, moveLoss: 60
+            };
             expect(moveSelector.validateMoveSoundness(null, 'd2d4', 'e2e4', badAnalysis)).toBe(false);
         });
     });

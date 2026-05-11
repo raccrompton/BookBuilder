@@ -106,10 +106,15 @@ class CountingMockEngine {
         const isBestMove = move === this.bestMove;
         const moveLoss = this.moveLosses[move] ?? (isBestMove ? 0 : 30);
 
+        const afterEvalOurs = this.positionEval - moveLoss;
         return {
             move,
             bestMove: this.bestMove,
-            evaluation: this.positionEval - moveLoss,
+            evaluation: -afterEvalOurs,
+            afterEval: -afterEvalOurs,
+            beforeEval: this.positionEval,
+            afterEvalOurs,
+            signedMoveLoss: -moveLoss,
             bestEvaluation: this.positionEval,
             moveLoss,
             isBestMove,

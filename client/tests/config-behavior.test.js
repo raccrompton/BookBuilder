@@ -590,8 +590,11 @@ describe('SOUNDNESSLIMIT and LOSSLIMIT Configuration Behavior', () => {
             LOSSLIMIT: -300
         });
 
-        // Move that loses 75 centipawns
-        const moveAnalysis = { evaluation: -25, moveLoss: 75 };
+        // Move loses 75cp; afterEvalOurs = -75 (below strict floor -50, above loose floor -200)
+        const moveAnalysis = {
+            evaluation: 75, afterEval: 75, beforeEval: 0,
+            afterEvalOurs: -75, signedMoveLoss: -75, moveLoss: 75
+        };
 
         // ACT
         const strictResult = await strictSelector.validateMoveSoundness(
@@ -602,8 +605,8 @@ describe('SOUNDNESSLIMIT and LOSSLIMIT Configuration Behavior', () => {
         );
 
         // ASSERT
-        // Strict: 75 > 50 = FAIL
-        // Loose: 75 > 200 = PASS (within limit)
+        // Strict: afterEvalOurs -75 < SOUNDNESSLIMIT -50 → FAIL
+        // Loose:  afterEvalOurs -75 > SOUNDNESSLIMIT -200 and -75 > LOSSLIMIT -300 → PASS
         expect(strictResult).toBe(false);
         expect(looseResult).toBe(true);
     });
@@ -617,11 +620,17 @@ describe('SOUNDNESSLIMIT and LOSSLIMIT Configuration Behavior', () => {
             IGNORELOSSLIMIT: 300   // But ignore when eval > 300
         });
 
-        // Move loses 75cp but position is +400 (winning)
-        const winningPosition = { evaluation: 400, moveLoss: 75 };
+        // Move loses 75cp but afterEvalOurs is +400 (winning)
+        const winningPosition = {
+            evaluation: -400, afterEval: -400, beforeEval: 475,
+            afterEvalOurs: 400, signedMoveLoss: -75, moveLoss: 75
+        };
 
-        // Same loss but position is +100 (slight advantage)
-        const slightAdvantage = { evaluation: 100, moveLoss: 75 };
+        // Same loss but afterEvalOurs is +100 (slight advantage)
+        const slightAdvantage = {
+            evaluation: -100, afterEval: -100, beforeEval: 175,
+            afterEvalOurs: 100, signedMoveLoss: -75, moveLoss: 75
+        };
 
         // ACT
         const winningResult = await selector.validateMoveSoundness(

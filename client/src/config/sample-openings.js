@@ -110,12 +110,12 @@ export const sampleOpenings = {
       // Engine Finishing - use engine when database runs out
       engineFinishing: true,
 
-      // Soundness Limit (centipawns) - max eval we'll accept
-      // -99 means we accept positions up to -0.99 pawns
+      // Soundness Limit (centipawns) - absolute eval floor we'll accept (our POV)
+      // -99 means we accept positions down to about 1 pawn worse
       soundnessLimit: -99,
 
-      // Move Loss Limit (centipawns) - max eval loss per move
-      // -50 means we won't play a move that loses more than 0.5 pawns
+      // Move Loss Limit (centipawns) - max signed drop vs engine best
+      // -50 means we won't play a move that loses more than 0.5 pawns vs engine pick
       moveLossLimit: -50,
 
       // Ignore Loss Limit - if we're ahead by this much, ignore move loss
@@ -155,7 +155,8 @@ export const sampleOpenings = {
       opponentMinGames: 20,
       // London is solid, so we can be less strict about engine settings
       engineEnabled: true,
-      soundnessLimit: -150
+      soundnessLimit: -300,
+      moveLossLimit: -100
     },
 
     {
@@ -186,6 +187,7 @@ export const sampleOpenings = {
       rating2000: true,
       rating2200: true,
       rating2500: true,
+      soundnessLimit: -50,     // Strict eval floor
       moveLossLimit: -30,      // Be strict about not losing eval
       mostPlayedMoves: 3       // Focus on main lines only
     },

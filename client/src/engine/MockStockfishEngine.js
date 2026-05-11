@@ -212,8 +212,9 @@ class MockStockfishEngine {
         const beforeEval = scenario.evaluation;
         const afterEval = -(scenario.evaluation - 5); // Slight change after move
 
-        // Calculate move quality (mock values)
-        const moveLoss = Math.abs(5); // Small loss for mock
+        const afterEvalOurs = -afterEval;
+        const signedMoveLoss = afterEvalOurs - beforeEval;
+        const moveLoss = Math.abs(signedMoveLoss);
         const quality = this._calculateMoveQuality(moveLoss);
 
         return {
@@ -221,7 +222,9 @@ class MockStockfishEngine {
             moveLoss: moveLoss,
             quality: quality,
             beforeEval: beforeEval,
-            afterEval: afterEval
+            afterEval: afterEval,
+            afterEvalOurs,
+            signedMoveLoss
         };
     }
 

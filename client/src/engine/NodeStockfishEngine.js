@@ -524,18 +524,20 @@ class NodeStockfishEngine {
             // - adjustedAfterEval = -200 (from white's perspective)
             // - moveLoss = 30 - (-200) = 230 cp (white lost 230 cp, blunder!)
             const adjustedAfterEval = -afterEval;
-            const moveLoss = beforeEval - adjustedAfterEval;
-
-            // Use absolute value for quality assessment (we care about magnitude)
-            const absMoveLoss = Math.abs(moveLoss);
+            // Signed delta vs. engine-best line (negative = our move is worse).
+            // Mirrors origin/pythonlegacy:workerEngineReduce.py:268.
+            const signedMoveLoss = adjustedAfterEval - beforeEval;
+            const absMoveLoss = Math.abs(signedMoveLoss);
             const quality = this.calculateMoveQuality(absMoveLoss);
 
             return {
-                evaluation: afterEval,
-                moveLoss: absMoveLoss,
+                evaluation: afterEval,              // raw, opponent POV
+                moveLoss: absMoveLoss,              // magnitude (quality UI)
                 quality,
-                beforeEval,
-                afterEval
+                beforeEval,                         // our POV
+                afterEval,                          // raw, opponent POV
+                afterEvalOurs: adjustedAfterEval,   // our POV, signed
+                signedMoveLoss                      // our POV, signed (neg = worse)
             };
 
         } catch (error) {

@@ -25,9 +25,18 @@
  *    (Using confidence intervals - see Statistics.js for explanation)
  *
  * KEY CONCEPTS:
- * - SOUNDNESS LIMIT: Maximum allowed "centipawn loss" from the best move
- *   If engine says e4 is +50 and d4 is +20, d4 has 30 centipawn loss
- *   (100 centipawns = 1 pawn advantage in chess evaluation)
+ * - SOUNDNESS LIMIT: Absolute eval floor (our POV, centipawns). A move whose
+ *   afterEvalOurs falls at or below this is rejected. Negative is looser; e.g.
+ *   -99 accepts positions down to ~1 pawn. Mirrors Python `SOUNDNESSLIMIT` in
+ *   origin/pythonlegacy:workerEngineReduce.py:268.
+ *
+ * - MOVE LOSS LIMIT (LOSSLIMIT): Maximum allowed signed drop vs. the engine's
+ *   best move (our POV, centipawns). Negative is looser; e.g. -50 admits any
+ *   candidate within 0.5 pawns of the engine's pick. This is the knob to make
+ *   the algorithm prefer engine-best moves.
+ *
+ * - IGNORELOSSLIMIT: If afterEvalOurs is above this, both gates are bypassed —
+ *   "we are winning by enough that small drops don't matter."
  *
  * - CONFIDENCE INTERVAL: Statistical range where the true win rate likely falls
  *   With few games, we're less confident, so the "lower bound" is lower
@@ -73,9 +82,9 @@ class MoveSelector {
      *
      * @param {Object} config - Configuration object with selection parameters
      *   @param {number} config.CAREABOUTENGINE - 1 to use engine validation, 0 to skip
-     *   @param {number} config.SOUNDNESSLIMIT - Max centipawn loss allowed (negative = stricter)
-     *   @param {number} config.LOSSLIMIT - Secondary loss threshold
-     *   @param {number} config.IGNORELOSSLIMIT - Eval threshold above which loss limit is ignored
+     *   @param {number} config.SOUNDNESSLIMIT - Absolute eval floor, our POV, centipawns (negative = looser)
+     *   @param {number} config.LOSSLIMIT - Max signed drop vs. engine best, centipawns (negative = looser)
+     *   @param {number} config.IGNORELOSSLIMIT - If afterEvalOurs exceeds this, all gates relaxed
      *   @param {number} config.MINPLAYRATE - Minimum play rate for move consideration (0-1)
      *   @param {number} config.MINGAMES - Minimum games required for statistical significance
      *   @param {number} config.ALPHA - Confidence level for statistical intervals (e.g., 0.05 = 95%)
@@ -88,12 +97,12 @@ class MoveSelector {
             // ---------------------------
             CAREABOUTENGINE: config.CAREABOUTENGINE ?? 1,  // 1 = validate with engine, 0 = skip
 
-            // Maximum allowed centipawn loss from best move
-            // -99 means moves can be up to 99 centipawns worse than engine's best
-            // Negative value is used because we compare: if (loss > Math.abs(SOUNDNESSLIMIT))
+            // Absolute eval floor (our POV, centipawns). afterEvalOurs must
+            // exceed this for a non-engine-best move to pass.
             SOUNDNESSLIMIT: config.SOUNDNESSLIMIT ?? -99,
 
-            // Secondary loss limit (for moves that aren't the engine's best)
+            // Max signed drop vs. engine best (our POV, centipawns). signedMoveLoss
+            // must exceed this. Negative is looser.
             LOSSLIMIT: config.LOSSLIMIT ?? -99,
 
             // Evaluation threshold where LOSSLIMIT is ignored
@@ -499,58 +508,10 @@ class MoveSelector {
    * @returns {boolean} True if move passes soundness check
    */
     validateMoveSoundness(fen, move, engineBestMove, moveAnalysis) {
-        log.log(`      🎯 [MoveSelector] validateMoveSoundness for ${move}:`);
-        log.log(`         CAREABOUTENGINE: ${this.config.CAREABOUTENGINE}`);
-
         if (this.config.CAREABOUTENGINE !== 1) {
-            log.log(`         ✅ Skipping engine validation (CAREABOUTENGINE != 1)`);
-            return true; // Skip engine validation if not caring about engine
-        }
-
-        // Check if it's the engine's best move
-        if (move === engineBestMove) {
-            log.log(`         ✅ Move ${move} is engine's best move`);
             return true;
         }
-
-        // Check centipawn loss against limits
-        const centipawnLoss = moveAnalysis ? moveAnalysis.moveLoss : 0;
-        log.log(`         Centipawn loss: ${centipawnLoss}, evaluation: ${moveAnalysis?.evaluation}`);
-        log.log(`         Limits - SOUNDNESSLIMIT: ${this.config.SOUNDNESSLIMIT}, LOSSLIMIT: ${this.config.LOSSLIMIT}, IGNORELOSSLIMIT: ${this.config.IGNORELOSSLIMIT}`);
-
-        // Runtime validation: Check that move analysis values are within expected bounds
-        // This catches bugs like perspective flip errors early in development
-        this._validateMoveAnalysis(moveAnalysis, `validateMoveSoundness(${move})`);
-
-        // Handle mate scenarios specially
-        if (this._isMateScore(moveAnalysis?.evaluation)) {
-            log.log(`         🏁 Mate score detected, handling specially`);
-            const mateResult = this._handleMateScenarios(moveAnalysis);
-            log.log(`         Mate scenario result: ${mateResult ? '✅ ACCEPTED' : '❌ REJECTED'}`);
-            return mateResult;
-        }
-
-        // Apply soundness limit
-        if (centipawnLoss > Math.abs(this.config.SOUNDNESSLIMIT)) {
-            log.log(`         ❌ Failed soundness limit: ${centipawnLoss} > ${Math.abs(this.config.SOUNDNESSLIMIT)}`);
-            return false;
-        }
-
-        // Apply loss limit with ignore threshold
-        if (centipawnLoss > Math.abs(this.config.LOSSLIMIT)) {
-            // Check if we're above ignore threshold (where loss limit doesn't apply)
-            const absoluteEval = Math.abs(moveAnalysis?.evaluation || 0);
-            log.log(`         Loss limit check: ${centipawnLoss} > ${Math.abs(this.config.LOSSLIMIT)}, absoluteEval: ${absoluteEval}`);
-            if (absoluteEval < this.config.IGNORELOSSLIMIT) {
-                log.log(`         ❌ Failed loss limit (below ignore threshold): ${absoluteEval} < ${this.config.IGNORELOSSLIMIT}`);
-                return false;
-            } else {
-                log.log(`         ✅ Loss limit ignored (above threshold): ${absoluteEval} >= ${this.config.IGNORELOSSLIMIT}`);
-            }
-        }
-
-        log.log(`         ✅ Passed all soundness checks`);
-        return true;
+        return this._passesSoundnessCheck(move, engineBestMove, moveAnalysis);
     }
 
     /**
@@ -603,34 +564,6 @@ class MoveSelector {
 
         // Normal centipawn comparison
         return engineMoveScore - ourMoveScore;
-    }
-
-    /**
-   * Handle mate scenario evaluation
-   * @param {Object} moveAnalysis - Engine analysis with mate information
-   * @returns {boolean} True if mate scenario is acceptable
-   */
-    _handleMateScenarios(moveAnalysis) {
-        if (!moveAnalysis || !this._isMateScore(moveAnalysis.evaluation)) {
-            return true;
-        }
-
-        // If we have mate in our favor, always accept
-        if (moveAnalysis.evaluation > MATE_SCORE_THRESHOLD) {
-            return true;
-        }
-
-        // If we're getting mated, check if it's forced or avoidable
-        if (moveAnalysis.evaluation < -MATE_SCORE_THRESHOLD) {
-            // If position was already lost before our move (beforeEval shows mate), accept (forced mate)
-            // beforeEval = position evaluation before our move = engine's best line evaluation
-            if (this._isMateScore(moveAnalysis.beforeEval) && moveAnalysis.beforeEval < -MATE_SCORE_THRESHOLD) {
-                return true;
-            }
-            return false; // Avoidable mate
-        }
-
-        return true;
     }
 
     /**
@@ -948,63 +881,56 @@ class MoveSelector {
     }
 
     /**
-     * Check if a move passes soundness thresholds
+     * Check if a move passes soundness thresholds.
      *
-     * A move is "sound" if it doesn't lose too much compared to the engine's best.
-     * This reuses the logic from validateMoveSoundness but is simplified for
-     * the lazy evaluation path.
+     * Mirrors origin/pythonlegacy:workerEngineReduce.py:268. A non-engine-best
+     * move passes iff any of:
+     *   1. afterEvalOurs > IGNORELOSSLIMIT (we're winning by enough), OR
+     *   2. signedMoveLoss >= 0 (our move is at least as good as engine best —
+     *      also covers "both lines mate against us equally"), OR
+     *   3. Both gates pass: afterEvalOurs > SOUNDNESSLIMIT (eval floor) AND
+     *      signedMoveLoss > LOSSLIMIT (relative drop vs. engine best).
      *
-     * SOUNDNESS CRITERIA:
-     * 1. If the move IS the engine's best move → always sound
-     * 2. If centipawn loss > SOUNDNESSLIMIT → reject
-     * 3. If centipawn loss > LOSSLIMIT AND position isn't very winning → reject
-     * 4. Otherwise → sound
+     * Fails closed when afterEvalOurs/signedMoveLoss are missing — defaulting
+     * to 0 would silently approve stale analysis objects via branch 2.
      *
      * @param {string} moveUci - Move in UCI format (e.g., 'e2e4')
      * @param {string} engineBestMove - Engine's recommended move in UCI format
      * @param {Object} analysis - Engine analysis for this move
-     *   @param {number} analysis.moveLoss - Centipawn loss vs best move
-     *   @param {number} analysis.evaluation - Position evaluation after move
+     *   @param {number} analysis.afterEvalOurs - Position eval after move, our POV
+     *   @param {number} analysis.signedMoveLoss - Signed drop vs engine best, our POV
      * @returns {boolean} True if move passes soundness check
      * @private
      */
     _passesSoundnessCheck(moveUci, engineBestMove, analysis) {
-        // Fast path: engine's best move is always sound
-        if (moveUci === engineBestMove) {
-            log.log(`      ✅ ${moveUci} is engine's best move - automatically sound`);
-            return true;
-        }
+        // Fast path: engine's best move is always sound.
+        if (moveUci === engineBestMove) return true;
 
-        // Get centipawn loss from analysis (default to 0 if missing)
-        const centipawnLoss = analysis?.moveLoss || 0;
-
-        log.log(`      🔍 Checking soundness for ${moveUci}: loss=${centipawnLoss}cp, eval=${analysis?.evaluation}`);
-
-        // Runtime validation: Check that analysis values are within expected bounds
         this._validateMoveAnalysis(analysis, `_passesSoundnessCheck(${moveUci})`);
 
-        // Check SOUNDNESSLIMIT (strictest threshold)
-        // Note: SOUNDNESSLIMIT is stored as negative (e.g., -99) so we use Math.abs
-        if (centipawnLoss > Math.abs(this.config.SOUNDNESSLIMIT)) {
-            log.log(`      ❌ Failed SOUNDNESSLIMIT: ${centipawnLoss} > ${Math.abs(this.config.SOUNDNESSLIMIT)}`);
+        // Fail closed if required fields are missing — defaulting to 0 would
+        // silently approve stale analysis objects via the signedMoveLoss >= 0
+        // escape below.
+        const afterEval = analysis?.afterEvalOurs;
+        const signedMoveLoss = analysis?.signedMoveLoss;
+        if (!Number.isFinite(afterEval) || !Number.isFinite(signedMoveLoss)) {
+            log.warn(
+                `_passesSoundnessCheck(${moveUci}): missing afterEvalOurs/signedMoveLoss; rejecting`
+            );
             return false;
         }
 
-        // Check LOSSLIMIT (can be ignored if position is very winning)
-        if (centipawnLoss > Math.abs(this.config.LOSSLIMIT)) {
-            const absoluteEval = Math.abs(analysis?.evaluation || 0);
+        // Mirror origin/pythonlegacy:workerEngineReduce.py:268. Three OR branches:
+        //   1. Position is winning enough that we relax both gates (IGNORELOSSLIMIT).
+        //   2. signedMoveLoss >= 0 — our move is at least as good as engine best.
+        //      Also covers "mate-against-us when engine best is equally mating
+        //      against us" (both eval to -mate, so signedMoveLoss == 0).
+        //   3. Both gates pass: absolute eval floor AND relative drop.
+        if (afterEval > this.config.IGNORELOSSLIMIT) return true;
+        if (signedMoveLoss >= 0) return true;
 
-            // If we're already winning by a lot, ignore the loss limit
-            if (absoluteEval < this.config.IGNORELOSSLIMIT) {
-                log.log(`      ❌ Failed LOSSLIMIT: ${centipawnLoss} > ${Math.abs(this.config.LOSSLIMIT)} and eval ${absoluteEval} < ${this.config.IGNORELOSSLIMIT}`);
-                return false;
-            } else {
-                log.log(`      ✅ LOSSLIMIT exceeded but ignored (eval ${absoluteEval} >= ${this.config.IGNORELOSSLIMIT})`);
-            }
-        }
-
-        log.log(`      ✅ Passed all soundness checks`);
-        return true;
+        return afterEval > this.config.SOUNDNESSLIMIT
+            && signedMoveLoss > this.config.LOSSLIMIT;
     }
 
     /**

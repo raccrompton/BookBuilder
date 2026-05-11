@@ -2100,7 +2100,7 @@
                             <label class="form-label" for="soundness-limit">Soundness Limit (centipawns)</label>
                             <input type="number" id="soundness-limit" name="soundness-limit" class="form-input" value="-99">
                             <div class="form-help">
-                                The worst engine evaluation you're willing to accept for a higher winrate move. Centipawns measure position advantage: 100 = 1 pawn ahead, -100 = 1 pawn behind. Example: -300 means you'd accept being down 3 pawns if the winrate is good. The default -99 is very lenient (nearly 1 pawn). Forced mates are never accepted.
+                                The worst engine evaluation you're willing to accept for a higher winrate move. Centipawns measure position advantage: 100 = 1 pawn ahead, -100 = 1 pawn behind. Example: -300 means you'd accept being down 3 pawns if the winrate is good. The default -99 is very lenient (nearly 1 pawn). Useful for avoiding objectively losing positions, not for choosing between two playable lines &mdash; use the Move Loss Limit for that. Forced mates that engine-best also walks into are accepted; avoidable mates are not.
                             </div>
                         </div>
 
@@ -2108,7 +2108,7 @@
                             <label class="form-label" for="move-loss-limit">Move Loss Limit (centipawns)</label>
                             <input type="number" id="move-loss-limit" name="move-loss-limit" class="form-input" value="-99">
                             <div class="form-help">
-                                How much evaluation you're willing to sacrifice on a single move to play something with a higher winrate. Example: -50 means you'd accept losing half a pawn of advantage for a better practical result. The default -99 is lenient. Being loose here (e.g., -50 to -100) is recommended since engine evaluations in openings can be inconsistent.
+                                How much evaluation you're willing to sacrifice vs the engine's best move to play something with a higher winrate. Example: -50 means you'd accept losing half a pawn of advantage compared to the engine pick. This is the knob to make the algorithm prefer engine-best moves &mdash; try -20 if you want to closely follow engine recommendations. The default -99 is lenient; being loose here (e.g., -50 to -100) is reasonable since engine evaluations in openings can be inconsistent.
                             </div>
                         </div>
                     </div>

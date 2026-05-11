@@ -519,22 +519,21 @@ class StockfishEngine {
             // - moveLoss = 30 - (-200) = 230 cp (white lost 230 cp, blunder!)
             // Flip perspective: negate afterEval so both values are from the same side's POV
             const adjustedAfterEval = -afterEval;
-            // Calculate how much the position changed (positive = got worse for the moving side)
-            const moveLoss = beforeEval - adjustedAfterEval;
-
-            // Use absolute value for quality assessment (we care about magnitude, not direction)
-            // A loss of 30cp and a gain of 30cp should both map to the same quality tier
-            const absMoveLoss = Math.abs(moveLoss);
-            // Convert centipawn loss to human-readable quality label ('excellent', 'good', 'poor', etc.)
+            // Signed delta vs. engine-best line (negative = our move is worse).
+            // Mirrors origin/pythonlegacy:workerEngineReduce.py:268.
+            const signedMoveLoss = adjustedAfterEval - beforeEval;
+            // Magnitude (positive) for quality tier display.
+            const absMoveLoss = Math.abs(signedMoveLoss);
             const quality = this.calculateMoveQuality(absMoveLoss);
 
-            // Return analysis results with all the data callers might need
             return {
-                evaluation: afterEval,      // Position score after move (opponent's perspective)
-                moveLoss: absMoveLoss,      // Centipawn loss magnitude (always positive)
-                quality,                    // Human-readable quality rating
-                beforeEval,                 // Position score before move (our perspective)
-                afterEval                   // Raw after-move score (for debugging)
+                evaluation: afterEval,              // raw, opponent POV
+                moveLoss: absMoveLoss,              // magnitude (quality UI)
+                quality,
+                beforeEval,                         // our POV
+                afterEval,                          // raw, opponent POV
+                afterEvalOurs: adjustedAfterEval,   // our POV, signed
+                signedMoveLoss                      // our POV, signed (neg = worse)
             };
 
         } catch (error) {

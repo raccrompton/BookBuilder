@@ -153,72 +153,64 @@ describe('MoveSelector Error Handling', () => {
         });
     });
 
-    describe('Mate Scenario Handling', () => {
+    describe('Mate Scenarios (via _passesSoundnessCheck)', () => {
+        // Real engines emit ±10000 for mate (StockfishEngine.js / NodeStockfishEngine.js);
+        // these tests exercise the soundness rule for those values.
+        const MATE_FOR_US = 10000;
+        const MATE_AGAINST_US = -10000;
+
         let moveSelector;
 
         beforeEach(() => {
             moveSelector = new MoveSelector({
                 CAREABOUTENGINE: 1,
-                SOUNDNESSLIMIT: -99
+                SOUNDNESSLIMIT: -99,
+                LOSSLIMIT: -99,
+                IGNORELOSSLIMIT: 300
             });
         });
 
-        it('accepts move leading to mate when position was already a forced mate', () => {
-            // Scenario: Position is already lost (forced mate against us).
-            // Our move also leads to mate, but that's fine - we can't do better.
-            // The bug: code referenced moveAnalysis.bestEvaluation which doesn't exist.
-            // Fix: should use moveAnalysis.beforeEval instead.
-
-            const MATE_SCORE = -10000000; // Represents mate against us
-
+        it('accepts mate-against-us when engine best line is also mating against us', () => {
+            // Engine best also mates against us → signedMoveLoss == 0 → approved.
             const moveAnalysis = {
-                evaluation: MATE_SCORE,      // After our move: we get mated
-                beforeEval: MATE_SCORE,      // Before our move: already forced mate
-                moveLoss: 0,                 // No loss - position was already lost
+                evaluation: -MATE_AGAINST_US,
+                afterEval: -MATE_AGAINST_US,
+                beforeEval: MATE_AGAINST_US,
+                afterEvalOurs: MATE_AGAINST_US,
+                signedMoveLoss: 0,
+                moveLoss: 0,
                 quality: 'forced'
             };
 
-            // This should return true: forced mate, nothing we can do
-            const result = moveSelector._handleMateScenarios(moveAnalysis);
-
-            expect(result).toBe(true);
+            expect(moveSelector._passesSoundnessCheck('a1a2', 'e2e4', moveAnalysis)).toBe(true);
         });
 
-        it('rejects move leading to mate when mate was avoidable', () => {
-            // Scenario: Position was fine, but our move blunders into mate.
-            // beforeEval is normal (not mate), but evaluation after move is mate.
-
-            const MATE_SCORE = -10000000;
-            const NORMAL_EVAL = -50; // Slightly worse but not mate
-
+        it('rejects avoidable mate-against-us', () => {
             const moveAnalysis = {
-                evaluation: MATE_SCORE,      // After our move: we get mated
-                beforeEval: NORMAL_EVAL,     // Before our move: position was fine
-                moveLoss: 9999950,           // Huge loss
+                evaluation: -MATE_AGAINST_US,
+                afterEval: -MATE_AGAINST_US,
+                beforeEval: -50,
+                afterEvalOurs: MATE_AGAINST_US,
+                signedMoveLoss: MATE_AGAINST_US - -50, // very negative
+                moveLoss: Math.abs(MATE_AGAINST_US - -50),
                 quality: 'blunder'
             };
 
-            // This should return false: we blundered into an avoidable mate
-            const result = moveSelector._handleMateScenarios(moveAnalysis);
-
-            expect(result).toBe(false);
+            expect(moveSelector._passesSoundnessCheck('a1a2', 'e2e4', moveAnalysis)).toBe(false);
         });
 
-        it('accepts move that gives us mate', () => {
-            // Scenario: Our move delivers checkmate. Always accept!
-
-            const MATE_SCORE = 10000000; // Mate in our favor
-
+        it('accepts mate-for-us (clears IGNORELOSSLIMIT)', () => {
             const moveAnalysis = {
-                evaluation: MATE_SCORE,      // After our move: we deliver mate
-                beforeEval: 100,             // Before: we were winning
-                moveLoss: 0,
+                evaluation: -MATE_FOR_US,
+                afterEval: -MATE_FOR_US,
+                beforeEval: 100,
+                afterEvalOurs: MATE_FOR_US,
+                signedMoveLoss: MATE_FOR_US - 100,
+                moveLoss: MATE_FOR_US - 100,
                 quality: 'checkmate'
             };
 
-            const result = moveSelector._handleMateScenarios(moveAnalysis);
-
-            expect(result).toBe(true);
+            expect(moveSelector._passesSoundnessCheck('h5h8', 'e2e4', moveAnalysis)).toBe(true);
         });
     });
 });
