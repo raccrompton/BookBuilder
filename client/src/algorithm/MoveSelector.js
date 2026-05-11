@@ -86,35 +86,35 @@ class MoveSelector {
         this.config = {
             // ENGINE VALIDATION SETTINGS
             // ---------------------------
-            CAREABOUTENGINE: config.CAREABOUTENGINE || 1,  // 1 = validate with engine, 0 = skip
+            CAREABOUTENGINE: config.CAREABOUTENGINE ?? 1,  // 1 = validate with engine, 0 = skip
 
             // Maximum allowed centipawn loss from best move
             // -99 means moves can be up to 99 centipawns worse than engine's best
             // Negative value is used because we compare: if (loss > Math.abs(SOUNDNESSLIMIT))
-            SOUNDNESSLIMIT: config.SOUNDNESSLIMIT || -99,
+            SOUNDNESSLIMIT: config.SOUNDNESSLIMIT ?? -99,
 
             // Secondary loss limit (for moves that aren't the engine's best)
-            LOSSLIMIT: config.LOSSLIMIT || -99,
+            LOSSLIMIT: config.LOSSLIMIT ?? -99,
 
             // Evaluation threshold where LOSSLIMIT is ignored
             // If position eval > 300 centipawns, we're winning so much that small losses don't matter
-            IGNORELOSSLIMIT: config.IGNORELOSSLIMIT || 300,
+            IGNORELOSSLIMIT: config.IGNORELOSSLIMIT ?? 300,
 
             // DATA QUALITY THRESHOLDS
             // -----------------------
             // Minimum play rate (as decimal, not percentage)
             // 0.001 = 0.1% of games at this position must play this move
-            MINPLAYRATE: config.MINPLAYRATE || 0.001,
+            MINPLAYRATE: config.MINPLAYRATE ?? 0.001,
 
             // Minimum number of games for statistical significance
             // With fewer games, win rate statistics are unreliable
-            MINGAMES: config.MINGAMES || 19,
+            MINGAMES: config.MINGAMES ?? 19,
 
             // STATISTICAL SELECTION SETTINGS
             // ------------------------------
             // Alpha for confidence interval (0.001 = 99.9% confidence)
             // Lower alpha = wider confidence interval = more conservative
-            ALPHA: config.ALPHA || 0.001,
+            ALPHA: config.ALPHA ?? 0.001,
 
             // Include all other config properties passed by user
             ...config
