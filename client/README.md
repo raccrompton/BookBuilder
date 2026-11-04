@@ -97,8 +97,7 @@ npm run test:integration  # Integration tests only
 
 ## Deployment
 
-### GitHub Pages
-Push to `main` branch - GitHub Actions deploys automatically.
+The live site is hosted on Vercel. Vercel's GitHub integration deploys the default branch `web`. GitHub Actions only runs the client Jest suite (`.github/workflows/client-tests.yml`) on pushes to `web` and on pull requests targeting `web`.
 
 ### Manual
 ```bash

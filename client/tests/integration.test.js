@@ -44,7 +44,8 @@ const mockDOM = () => {
         </form>
         <div id="progress-container" style="display:none">
             <div id="progress-fill"></div>
-            <div id="progress-text"></div>
+            <!-- ProgressTracker writes #progress-stage, matching app.html -->
+            <div id="progress-stage"></div>
         </div>
         <div id="error-container" style="display:none">
             <div id="error-message"></div>
@@ -231,7 +232,7 @@ describe('BookBuilder Integration Tests', () => {
             progressTracker.updatePhase('Testing...', 50);
 
             const fill = document.getElementById('progress-fill');
-            const text = document.getElementById('progress-text');
+            const text = document.getElementById('progress-stage');
             expect(fill.style.width).toBe('50%');
             expect(text.textContent).toBe('Testing...');
         });
@@ -241,7 +242,7 @@ describe('BookBuilder Integration Tests', () => {
             progressTracker.complete('Test completed');
 
             const fill = document.getElementById('progress-fill');
-            const text = document.getElementById('progress-text');
+            const text = document.getElementById('progress-stage');
             expect(fill.style.width).toBe('100%');
             expect(text.textContent).toBe('Test completed');
         });
