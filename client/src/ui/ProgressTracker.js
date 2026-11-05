@@ -37,7 +37,7 @@
  * The HTML must have these elements:
  * - #progress-container: Main container div
  * - #progress-fill: The colored bar that shows percentage
- * - #progress-text: Text description of current operation
+ * - #progress-stage: Text description of current operation
  *
  * EXAMPLE USAGE:
  * ```javascript
